@@ -1,23 +1,6 @@
 __pycache__/
 *.pyc
-*.pyo
-*.pyd
-
-# virtual envs
 .venv/
-.surveyCatalyst_venv/
 .locus_venandi_venv/
+zip/
 
-# OS
-.DS_Store
-Thumbs.db
-
-# IDE
-.vscode/
-.idea/
-
-# logs
-*.log
-
-# postgres (local runtime later)
-postgres/data/
