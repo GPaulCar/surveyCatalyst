@@ -1,6 +1,32 @@
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
+
+# virtual envs
 .venv/
-.locus_venandi_venv/
+.surveyCatalyst_venv/
+
+# release artifacts
 zip/
 
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# logs
+*.log
+logs/
+
+# postgres runtime data (live cluster)
+postgres/data/
+postgres/postgres.log
+postgres/*.log
+postgres/*.pid
+
+# optional temp/downloads
+downloads/
