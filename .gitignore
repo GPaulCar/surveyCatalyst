@@ -23,10 +23,35 @@ Thumbs.db
 logs/
 
 # postgres runtime data (live cluster)
-postgres/data/
-postgres/postgres.log
-postgres/*.log
-postgres/*.pid
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# virtual envs
+.venv/
+.surveyCatalyst_venv/
+
+# release artifacts
+zip/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# logs
+*.log
+logs/
+
+# POSTGRES
+postgres/
+!postgres/README.md
+!postgres/version_manifest.json
+!postgres/runtime_layout.txt
 
 # optional temp/downloads
 downloads/
