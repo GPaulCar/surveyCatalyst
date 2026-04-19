@@ -13,7 +13,7 @@
     },
     "external": {
       "host": "",
-      "port": 5433,
+      "port": 5432,
       "database": "",
       "user": ""
     }
