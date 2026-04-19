@@ -1,28 +1,18 @@
+import json
 from core.db import build_backend
-
 
 class ExportService:
     def __init__(self):
         self.backend = build_backend()
 
-    def export_layer_geojson(self, layer_key: str):
+    def export_layer(self, layer_key, path):
         conn = self.backend.connect()
         with conn.cursor() as cur:
             cur.execute(
-                '''
-                SELECT jsonb_build_object(
-                    'type', 'FeatureCollection',
-                    'features', COALESCE(jsonb_agg(
-                        jsonb_build_object(
-                            'type', 'Feature',
-                            'geometry', ST_AsGeoJSON(geom)::jsonb,
-                            'properties', COALESCE(properties, '{}'::jsonb)
-                        )
-                    ), '[]'::jsonb)
-                )
-                FROM external_features
-                WHERE layer = %s
-                ''',
-                (layer_key,),
+                "SELECT ST_AsGeoJSON(geom) FROM external_features WHERE layer=%s",
+                (layer_key,)
             )
-            return cur.fetchone()[0]
+            features = [json.loads(r[0]) for r in cur.fetchall()]
+        with open(path, "w") as f:
+            json.dump({"type": "FeatureCollection", "features": features}, f)
+        return path
