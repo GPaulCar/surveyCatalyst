@@ -1,0 +1,1 @@
+print("PERSISTENCE OK")
