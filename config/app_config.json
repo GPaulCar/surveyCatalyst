@@ -1,0 +1,25 @@
+{
+  "app": {
+    "name": "surveyCatalyst",
+    "env": "local"
+  },
+  "db": {
+    "mode": "local",
+    "local": {
+      "data_dir": "./postgres/data",
+      "port": 55433,
+      "database": "survey_catalyst",
+      "user": "sc_user"
+    },
+    "external": {
+      "host": "",
+      "port": 5433,
+      "database": "",
+      "user": ""
+    }
+  },
+  "paths": {
+    "assets": "./assets_store",
+    "logs": "./logs"
+  }
+}

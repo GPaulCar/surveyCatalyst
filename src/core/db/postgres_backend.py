@@ -3,10 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-try:
-    import psycopg
-except Exception:  # pragma: no cover
-    psycopg = None
+import psycopg
 
 from core.db.contracts import DBBackend, DBConnectionProfile
 
@@ -31,8 +28,6 @@ class PostgresBackend(DBBackend):
         return " ".join(parts)
 
     def connect(self):
-        if psycopg is None:
-            raise RuntimeError("psycopg is not installed")
         self._conn = psycopg.connect(self.dsn())
         return self._conn
 
