@@ -6,6 +6,7 @@ SRC = ROOT / "src"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
-from data.ingestion_status_service import IngestionStatusService
+from data.ingestion import RealIngestionService
 
-print(IngestionStatusService().summary())
+svc = RealIngestionService()
+print(svc.dry_run_one("blfd"))
