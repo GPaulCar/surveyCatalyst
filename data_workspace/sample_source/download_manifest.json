@@ -1,0 +1,11 @@
+{
+  "source_key": "sample_source",
+  "remote_url": "https://example.com/sample_download.txt",
+  "filename": "sample_download.txt",
+  "suffix": ".txt",
+  "local_path": "C:\\Users\\Paul\\Desktop\\dev\\surveyCatalyst\\data_workspace\\sample_download.txt",
+  "version_label": "test-1",
+  "sha256": "8a1bbb9cdba9da0b2877925b11e97e2ddacb771487950e0221cf71df7c0eda98",
+  "size_bytes": 17,
+  "remote_host": "example.com"
+}

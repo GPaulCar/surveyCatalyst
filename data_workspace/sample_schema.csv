@@ -1,0 +1,3 @@
+id,name,wkt_geom
+1,A,POINT(11.5 48.1)
+2,B,POINT(11.6 48.2)

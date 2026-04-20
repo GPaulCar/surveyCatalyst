@@ -1,0 +1,24 @@
+{
+  "path": "C:\\Users\\Paul\\Desktop\\dev\\surveyCatalyst\\data_workspace\\sample_schema.csv",
+  "fieldnames": [
+    "id",
+    "name",
+    "wkt_geom"
+  ],
+  "detected_wkt_columns": [
+    "wkt_geom"
+  ],
+  "row_count": 2,
+  "sample_rows": [
+    {
+      "id": "1",
+      "name": "A",
+      "wkt_geom": "POINT(11.5 48.1)"
+    },
+    {
+      "id": "2",
+      "name": "B",
+      "wkt_geom": "POINT(11.6 48.2)"
+    }
+  ]
+}
