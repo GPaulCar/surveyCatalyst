@@ -6,6 +6,6 @@ SRC = ROOT / "src"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
-from data.health_check_service import HealthCheckService
+from export.export_pack_service import ExportPackService
 
-print(HealthCheckService().run())
+print(ExportPackService().export_all_layers(Path("exports")))

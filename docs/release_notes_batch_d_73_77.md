@@ -1,9 +1,12 @@
 # Batch D (73-77)
 
 ## Added
-- export service (GeoJSON)
-- health check service
-- final reporting service
+- export pipeline (geojson)
+- full export pack generation
+- health dashboard
+- alert service
+- orchestration pipeline runner
 
 ## Result
-Completes pipeline with export + validation + reporting.
+System is now end-to-end:
+ingestion → projection → analysis → export → monitoring → orchestration
