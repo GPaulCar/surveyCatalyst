@@ -10,7 +10,6 @@ PROVIDERS = {
     "gesis": GESISProvider,
 }
 
-
 def get_provider(source_key: str):
     provider_cls = PROVIDERS.get(source_key)
     if provider_cls is None:

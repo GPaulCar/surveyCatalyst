@@ -6,6 +6,7 @@ SRC = ROOT / "src"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
-from data.normalisation_service import NormalisationService
+from data.ingestion import RealIngestionService
 
-print(NormalisationService().normalise_text(" Test "))
+svc = RealIngestionService()
+print(svc.dry_run_one("itiner_e"))
