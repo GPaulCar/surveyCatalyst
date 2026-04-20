@@ -1,0 +1,1 @@
+{"type": "FeatureCollection", "features": [{"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [[[11.4, 48.1], [11.45, 48.1], [11.45, 48.15], [11.4, 48.15], [11.4, 48.1]]]}, "properties": {"name": "Seed Restricted Area", "source": "manual_seed", "category": "protected"}}]}
