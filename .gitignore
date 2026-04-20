@@ -55,3 +55,6 @@ postgres/
 
 # optional temp/downloads
 downloads/
+
+#data
+data_workspace/
