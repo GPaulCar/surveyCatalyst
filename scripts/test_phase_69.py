@@ -6,8 +6,7 @@ SRC = ROOT / "src"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
-from ui.viewport_service import ViewportService
+from map.viewport_context_service import ViewportContextService
 
-svc = ViewportService()
-svc.set_bounds([10,10,20,20])
-print(svc.get_bounds())
+svc = ViewportContextService()
+print(svc.geojson_for_layer_bbox("legal_restricted_areas", 11.0, 48.0, 12.0, 49.0))

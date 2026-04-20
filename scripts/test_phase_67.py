@@ -6,6 +6,8 @@ SRC = ROOT / "src"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
-from analytics.aggregation_service import AggregationService
+from reporting.run_summary_service import RunSummaryService
 
-print(AggregationService().count_by_table("surveys"))
+svc = RunSummaryService()
+print("LATEST:", svc.latest_runs(5))
+print("BY_SOURCE:", svc.summary_by_source())
