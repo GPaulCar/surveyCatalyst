@@ -6,6 +6,6 @@ SRC = ROOT / "src"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
-from reporting.final_report_service import FinalReportService
+from monitoring.health_dashboard_service import HealthDashboardService
 
-print(FinalReportService().generate())
+print(HealthDashboardService().overview())

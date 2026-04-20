@@ -6,6 +6,6 @@ SRC = ROOT / "src"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
-from export.export_service import ExportService
+from export.export_pipeline_service import ExportPipelineService
 
-print(ExportService().export_table_geojson("surveys"))
+print(ExportPipelineService().export_layer_geojson("legal_restricted_areas"))
