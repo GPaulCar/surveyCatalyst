@@ -1,9 +1,12 @@
 # Batch C (67-72)
 
 ## Added
-- analytics aggregation service
-- reporting service
-- viewport + interaction UI primitives
+- ingestion run summary service
+- external feature projection service
+- viewport-aware context loader
+- source style registry
+- pipeline quality service
+- survey/context intersection analysis
 
 ## Result
-Introduces analytics + reporting + UI interaction foundation on top of ingestion pipeline.
+This batch turns raw ingestion state into reportable, renderable, and survey-relevant context data.
