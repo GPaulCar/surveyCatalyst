@@ -16,10 +16,9 @@ if str(SRC) not in sys.path:
 
 from core.db import build_backend
 from map.live_db_map_service import LiveDBMapService
-from survey.query_service import SurveyQueryService
 from api.schemas import ApiInfoResponse, HealthResponse, LayerRecord, SurveyRecord
 
-APP_VERSION = "0.1.0"
+APP_VERSION = "0.2.0"
 
 
 def _parse_bounds(bbox: str | None) -> tuple[float, float, float, float] | None:
@@ -77,7 +76,6 @@ def create_app() -> FastAPI:
     )
 
     map_service = LiveDBMapService()
-    survey_service = SurveyQueryService()
 
     @app.get("/", response_class=HTMLResponse)
     def openlayers_client() -> str:
@@ -94,6 +92,7 @@ def create_app() -> FastAPI:
                 "/api/layers",
                 "/api/surveys",
                 "/api/surveys/{survey_id}",
+                "/api/surveys/{survey_id}/features?bbox=minx,miny,maxx,maxy&limit=5000",
                 "/api/layers/{layer_key}/geojson?bbox=minx,miny,maxx,maxy&limit=5000",
             ],
         )
@@ -165,6 +164,27 @@ def create_app() -> FastAPI:
             }
         finally:
             conn.close()
+
+    @app.get("/api/surveys/{survey_id}/features")
+    def get_survey_features(
+        survey_id: int,
+        bbox: str | None = Query(default=None, description="minx,miny,maxx,maxy in EPSG:4326"),
+        limit: int = Query(default=5000, ge=1, le=50000),
+    ) -> dict[str, Any]:
+        bounds = _parse_bounds(bbox)
+        layer_key = f"survey_{survey_id}"
+        if not hasattr(map_service, "get_survey_layer_geojson"):
+            raise HTTPException(
+                status_code=500,
+                detail="survey layer support is not available in LiveDBMapService; apply the survey layer refactor first",
+            )
+        try:
+            payload = map_service.get_survey_layer_geojson(layer_key=layer_key, bounds=bounds, limit=limit)
+        except Exception as exc:
+            raise HTTPException(status_code=500, detail=str(exc)) from exc
+        if not isinstance(payload, dict) or payload.get("type") != "FeatureCollection":
+            raise HTTPException(status_code=500, detail="survey query did not return a GeoJSON FeatureCollection")
+        return payload
 
     @app.get("/api/layers/{layer_key}/geojson")
     def layer_geojson(

@@ -1,66 +1,27 @@
-# surveyCatalyst FastAPI + OpenLayers migration starter
+# surveyCatalyst FastAPI + OpenLayers migration
 
-This package adds a runnable API and a browser-native map prototype on top of the current PostGIS-backed codebase.
+This package adds a survey-centric API and browser map path on top of the existing PostGIS-backed services.
 
-## Why this is the next step
+## Current state
 
-The current bottleneck is the UI execution model, not the spatial database design.
+- FastAPI serves the browser map shell
+- OpenLayers manages viewport and interaction state in the browser
+- `/api/surveys` returns lightweight survey metadata without geometry
+- `/api/surveys/{survey_id}/features` returns bounded GeoJSON for the selected survey using bbox filtering
+- generic `/api/layers/{layer_key}/geojson` remains available for context layers and diagnostics
 
-The repo already has usable service boundaries for:
+## Why this step exists
 
-- Postgres/PostGIS connection management
-- layer registry access
-- survey querying
-- live DB layer GeoJSON retrieval
-- ingestion/orchestration
+The previous Streamlit map shell reran app state too aggressively for a spatial workload. This step moves the operational map path to:
 
-This starter reuses those existing services and inserts an API layer in front of them.
-
-## Added files
-
-- `src/api/app.py`
-- `src/api/schemas.py`
-- `src/api/__init__.py`
-- `app/openlayers_map.html`
-- `scripts/run_api.py`
-- `requirements-api.txt`
-
-## What is runnable now
-
-### API
-
-Routes:
-
-- `/health`
-- `/api`
-- `/api/layers`
-- `/api/surveys`
-- `/api/surveys/{survey_id}`
-- `/api/layers/{layer_key}/geojson?bbox=minx,miny,maxx,maxy&limit=5000`
-
-### Map prototype
-
-The root route `/` serves a simple OpenLayers client that:
-
-- lists available layers from the live registry
-- requests selected layers from the API
-- applies bbox and limit controls
-- renders vector data directly in the browser
-- shows clicked feature properties
-
-This is intentionally additive. It does not remove the Streamlit app yet.
-
-## Install
-
-Activate your existing environment, then install the API dependencies:
-
-```powershell
-pip install -r requirements-api.txt
-```
+- browser-owned viewport state
+- bounded API requests
+- survey-driven loading instead of generic layer-driven loading
 
 ## Run
 
 ```powershell
+pip install -r requirements-api.txt
 python scripts/run_api.py
 ```
 
@@ -70,21 +31,14 @@ Open:
 http://127.0.0.1:8000/
 ```
 
-## Immediate advantages over the current map shell
+## Important dependency
 
-- browser owns viewport state
-- API requests are bounded by bbox and limit
-- no full-script rerun on every interaction
-- map and data concerns are separated
-- existing PostGIS service code remains in use
+The survey feature endpoint expects `LiveDBMapService` to already support:
 
-## Next migration step
+- `get_survey_layer_geojson(layer_key, bounds=None, limit=5000)`
 
-The next technical step should be to add a dedicated survey-layer endpoint that returns:
+That method comes from the earlier survey-layer refactor. If it is not present in the repo yet, apply that delta first.
 
-- survey boundary
-- survey objects
+## Next architectural step
 
-in one payload for `survey_*` layers, aligned with the survey-layer refactor already discussed.
-
-After that, the next high-value improvement is tile or vector-tile serving for heavy legal layers such as BLfD restricted areas.
+Once this survey-centric path is validated locally, the next delta should move heavy context layers such as BLfD restricted areas away from raw GeoJSON and toward PostGIS-backed vector tiles.

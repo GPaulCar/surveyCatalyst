@@ -2,19 +2,19 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>surveyCatalyst OpenLayers Prototype</title>
+  <title>surveyCatalyst OpenLayers Survey Map</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@10.6.1/ol.css">
   <style>
     html, body { margin: 0; padding: 0; height: 100%; font-family: Arial, sans-serif; }
-    #layout { display: grid; grid-template-columns: 340px 1fr; height: 100%; }
+    #layout { display: grid; grid-template-columns: 360px 1fr; height: 100%; }
     #sidebar { padding: 12px; overflow: auto; border-right: 1px solid #ddd; background: #fafafa; }
     #map { width: 100%; height: 100%; }
     .section { margin-bottom: 16px; }
-    .layer-row { display: flex; align-items: center; gap: 8px; margin: 6px 0; }
     .hint { color: #555; font-size: 12px; }
+    .survey-row { display: flex; align-items: center; gap: 8px; margin: 6px 0; }
     code { background: #f1f1f1; padding: 2px 4px; }
-    button { margin-top: 6px; }
+    button, select, input { margin-top: 6px; }
     pre { white-space: pre-wrap; }
   </style>
 </head>
@@ -23,21 +23,29 @@
     <div id="sidebar">
       <div class="section">
         <h2>surveyCatalyst</h2>
-        <div class="hint">FastAPI + OpenLayers prototype against the existing PostGIS services.</div>
+        <div class="hint">Survey-centric OpenLayers client using the FastAPI/PostGIS backend.</div>
       </div>
 
       <div class="section">
-        <label for="bboxInput"><strong>BBox</strong></label>
-        <input id="bboxInput" type="text" style="width:100%" value="10.5,47.0,13.8,50.8">
-        <div class="hint">EPSG:4326 as <code>minx,miny,maxx,maxy</code></div>
-        <label for="limitInput"><strong>Feature limit</strong></label>
+        <strong>Viewport query</strong><br>
+        <label for="limitInput">Feature limit</label>
         <input id="limitInput" type="number" style="width:100%" value="5000" min="1" max="50000">
-        <button id="refreshBtn">Reload visible layers</button>
+        <div class="hint">BBox comes from the current map extent and is converted to EPSG:4326.</div>
+        <button id="reloadBtn">Load selected surveys</button>
+        <button id="clearBtn">Clear survey layers</button>
       </div>
 
       <div class="section">
-        <h3>Layers</h3>
-        <div id="layers"></div>
+        <h3>Surveys</h3>
+        <div id="surveyList"></div>
+      </div>
+
+      <div class="section">
+        <label for="focusSurvey"><strong>Focus survey</strong></label>
+        <select id="focusSurvey" style="width:100%">
+          <option value="">None</option>
+        </select>
+        <button id="showFocusedBtn">Show only focused survey</button>
       </div>
 
       <div class="section">
@@ -60,28 +68,21 @@
       })
     });
 
-    const layerStore = new Map();
-    const vectorLayerStore = new Map();
+    const surveyLayerStore = new Map();
+    const surveyStore = new Map();
 
-    function styleForLayer(layerKey) {
-      if (layerKey.startsWith('legal_')) {
+    function styleForFeature(feature) {
+      const role = feature.get('feature_role');
+      if (role === 'survey_boundary') {
         return new ol.style.Style({
-          stroke: new ol.style.Stroke({ color: '#b00020', width: 1 }),
-          fill: new ol.style.Fill({ color: 'rgba(255, 221, 227, 0.35)' }),
-          image: new ol.style.Circle({ radius: 4, fill: new ol.style.Fill({ color: '#b00020' }) })
-        });
-      }
-      if (layerKey.startsWith('survey_') || layerKey === 'surveys' || layerKey === 'survey_objects') {
-        return new ol.style.Style({
-          stroke: new ol.style.Stroke({ color: '#0a8f55', width: 2 }),
-          fill: new ol.style.Fill({ color: 'rgba(184, 245, 209, 0.35)' }),
-          image: new ol.style.Circle({ radius: 4, fill: new ol.style.Fill({ color: '#0a8f55' }) })
+          stroke: new ol.style.Stroke({ color: '#0a8f55', width: 3 }),
+          fill: new ol.style.Fill({ color: 'rgba(184, 245, 209, 0.15)' })
         });
       }
       return new ol.style.Style({
-        stroke: new ol.style.Stroke({ color: '#666666', width: 1 }),
-        fill: new ol.style.Fill({ color: 'rgba(102, 102, 102, 0.15)' }),
-        image: new ol.style.Circle({ radius: 4, fill: new ol.style.Fill({ color: '#666666' }) })
+        stroke: new ol.style.Stroke({ color: '#1557b0', width: 2 }),
+        fill: new ol.style.Fill({ color: 'rgba(61, 132, 245, 0.20)' }),
+        image: new ol.style.Circle({ radius: 4, fill: new ol.style.Fill({ color: '#1557b0' }) })
       });
     }
 
@@ -94,53 +95,87 @@
       return response.json();
     }
 
-    async function loadLayers() {
-      const container = document.getElementById('layers');
-      container.innerHTML = '<div class="hint">Loading layers...</div>';
-      const layers = await fetchJson('/api/layers');
-      layerStore.clear();
-      container.innerHTML = '';
-      for (const layer of layers) {
-        layerStore.set(layer.layer_key, layer);
-        const row = document.createElement('div');
-        row.className = 'layer-row';
-        const checkbox = document.createElement('input');
-        checkbox.type = 'checkbox';
-        checkbox.checked = false;
-        checkbox.dataset.layerKey = layer.layer_key;
-        const label = document.createElement('label');
-        label.textContent = `${layer.layer_name} [${layer.layer_key}]`;
-        row.appendChild(checkbox);
-        row.appendChild(label);
-        container.appendChild(row);
-      }
+    function getCurrentBbox4326() {
+      const extent3857 = map.getView().calculateExtent(map.getSize());
+      const bottomLeft = ol.proj.transform([extent3857[0], extent3857[1]], 'EPSG:3857', 'EPSG:4326');
+      const topRight = ol.proj.transform([extent3857[2], extent3857[3]], 'EPSG:3857', 'EPSG:4326');
+      return [bottomLeft[0], bottomLeft[1], topRight[0], topRight[1]];
     }
 
-    function currentParams() {
-      const bbox = document.getElementById('bboxInput').value.trim();
-      const limit = document.getElementById('limitInput').value.trim() || '5000';
-      return { bbox, limit };
+    function getSelectedSurveyIds() {
+      return Array.from(document.querySelectorAll('#surveyList input[type="checkbox"]:checked'))
+        .map(el => parseInt(el.dataset.surveyId, 10))
+        .filter(Number.isFinite);
     }
 
-    async function reloadVisibleLayers() {
-      for (const layer of vectorLayerStore.values()) {
+    function clearSurveyLayers() {
+      for (const layer of surveyLayerStore.values()) {
         map.removeLayer(layer);
       }
-      vectorLayerStore.clear();
+      surveyLayerStore.clear();
+    }
 
-      const { bbox, limit } = currentParams();
-      const checkboxes = document.querySelectorAll('#layers input[type="checkbox"]:checked');
-      for (const checkbox of checkboxes) {
-        const layerKey = checkbox.dataset.layerKey;
-        const url = `/api/layers/${encodeURIComponent(layerKey)}/geojson?bbox=${encodeURIComponent(bbox)}&limit=${encodeURIComponent(limit)}`;
-        const geojson = await fetchJson(url);
-        const source = new ol.source.Vector({
-          features: new ol.format.GeoJSON({ featureProjection: 'EPSG:3857' }).readFeatures(geojson)
-        });
-        const layer = new ol.layer.Vector({ source, style: styleForLayer(layerKey) });
-        vectorLayerStore.set(layerKey, layer);
-        map.addLayer(layer);
+    async function loadSurvey(surveyId) {
+      const bbox = getCurrentBbox4326().join(',');
+      const limit = document.getElementById('limitInput').value.trim() || '5000';
+      const geojson = await fetchJson(`/api/surveys/${surveyId}/features?bbox=${encodeURIComponent(bbox)}&limit=${encodeURIComponent(limit)}`);
+
+      const source = new ol.source.Vector({
+        features: new ol.format.GeoJSON().readFeatures(geojson, { featureProjection: 'EPSG:3857' })
+      });
+
+      const layer = new ol.layer.Vector({
+        source,
+        style: styleForFeature
+      });
+      layer.set('survey_id', surveyId);
+      surveyLayerStore.set(surveyId, layer);
+      map.addLayer(layer);
+    }
+
+    async function loadSelectedSurveys() {
+      clearSurveyLayers();
+      const selected = getSelectedSurveyIds();
+      for (const surveyId of selected) {
+        await loadSurvey(surveyId);
       }
+    }
+
+    function populateSurveyControls(surveys) {
+      const list = document.getElementById('surveyList');
+      const focus = document.getElementById('focusSurvey');
+      list.innerHTML = '';
+      focus.innerHTML = '<option value="">None</option>';
+
+      for (const survey of surveys) {
+        surveyStore.set(survey.id, survey);
+
+        const row = document.createElement('div');
+        row.className = 'survey-row';
+
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.dataset.surveyId = survey.id;
+
+        const label = document.createElement('label');
+        const title = survey.title || `Survey ${survey.id}`;
+        const status = survey.status ? ` (${survey.status})` : '';
+        label.textContent = `${title} [${survey.id}]${status}`;
+
+        row.appendChild(checkbox);
+        row.appendChild(label);
+        list.appendChild(row);
+
+        const option = document.createElement('option');
+        option.value = String(survey.id);
+        option.textContent = `${title} [${survey.id}]`;
+        focus.appendChild(option);
+      }
+    }
+
+    async function loadSurveyList() {
+      const surveys = await fetchJson('/api/surveys');
+      populateSurveyControls(surveys);
     }
 
     map.on('singleclick', function (event) {
@@ -154,16 +189,27 @@
         : 'No feature selected.';
     });
 
-    document.getElementById('refreshBtn').addEventListener('click', async () => {
+    document.getElementById('reloadBtn').addEventListener('click', async () => {
       try {
-        await reloadVisibleLayers();
+        await loadSelectedSurveys();
       } catch (error) {
         document.getElementById('featureInfo').textContent = `Error: ${error.message}`;
       }
     });
 
-    loadLayers().catch((error) => {
-      document.getElementById('layers').innerHTML = `<pre>${error.message}</pre>`;
+    document.getElementById('clearBtn').addEventListener('click', () => {
+      clearSurveyLayers();
+    });
+
+    document.getElementById('showFocusedBtn').addEventListener('click', () => {
+      const selectedId = document.getElementById('focusSurvey').value;
+      for (const checkbox of document.querySelectorAll('#surveyList input[type="checkbox"]')) {
+        checkbox.checked = selectedId !== '' && checkbox.dataset.surveyId === selectedId;
+      }
+    });
+
+    loadSurveyList().catch((error) => {
+      document.getElementById('surveyList').innerHTML = `<pre>${error.message}</pre>`;
     });
   </script>
 </body>
