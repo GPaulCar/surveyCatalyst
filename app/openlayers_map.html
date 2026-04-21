@@ -12,7 +12,7 @@
     #map { width: 100%; height: 100%; }
     .section { margin-bottom: 16px; }
     .hint { color: #555; font-size: 12px; }
-    .survey-row { display: flex; align-items: center; gap: 8px; margin: 6px 0; }
+    .survey-row, .context-row { display: flex; align-items: center; gap: 8px; margin: 6px 0; }
     code { background: #f1f1f1; padding: 2px 4px; }
     button, select, input { margin-top: 6px; }
     pre { white-space: pre-wrap; }
@@ -28,9 +28,9 @@
 
       <div class="section">
         <strong>Viewport query</strong><br>
-        <label for="limitInput">Feature limit</label>
+        <label for="limitInput">Survey feature limit</label>
         <input id="limitInput" type="number" style="width:100%" value="5000" min="1" max="50000">
-        <div class="hint">BBox comes from the current map extent and is converted to EPSG:4326.</div>
+        <div class="hint">Surveys use bbox-based GeoJSON. Context layers use vector tiles.</div>
         <button id="reloadBtn">Load selected surveys</button>
         <button id="clearBtn">Clear survey layers</button>
       </div>
@@ -46,6 +46,12 @@
           <option value="">None</option>
         </select>
         <button id="showFocusedBtn">Show only focused survey</button>
+      </div>
+
+      <div class="section">
+        <h3>Context layers</h3>
+        <div class="hint">These are loaded as vector tiles from PostGIS to avoid large raw GeoJSON payloads.</div>
+        <div id="contextLayerList"></div>
       </div>
 
       <div class="section">
@@ -70,6 +76,7 @@
 
     const surveyLayerStore = new Map();
     const surveyStore = new Map();
+    const contextLayerStore = new Map();
 
     function styleForFeature(feature) {
       const role = feature.get('feature_role');
@@ -83,6 +90,19 @@
         stroke: new ol.style.Stroke({ color: '#1557b0', width: 2 }),
         fill: new ol.style.Fill({ color: 'rgba(61, 132, 245, 0.20)' }),
         image: new ol.style.Circle({ radius: 4, fill: new ol.style.Fill({ color: '#1557b0' }) })
+      });
+    }
+
+    function styleForContextFeature(feature) {
+      const geometryType = feature.getGeometry() ? feature.getGeometry().getType() : '';
+      if (geometryType.includes('Point')) {
+        return new ol.style.Style({
+          image: new ol.style.Circle({ radius: 3, fill: new ol.style.Fill({ color: '#8a0f2d' }) })
+        });
+      }
+      return new ol.style.Style({
+        stroke: new ol.style.Stroke({ color: '#8a0f2d', width: 1.2 }),
+        fill: new ol.style.Fill({ color: 'rgba(138, 15, 45, 0.10)' })
       });
     }
 
@@ -108,11 +128,44 @@
         .filter(Number.isFinite);
     }
 
+    function getSelectedContextLayerKeys() {
+      return Array.from(document.querySelectorAll('#contextLayerList input[type="checkbox"]:checked'))
+        .map(el => el.dataset.layerKey)
+        .filter(Boolean);
+    }
+
     function clearSurveyLayers() {
       for (const layer of surveyLayerStore.values()) {
         map.removeLayer(layer);
       }
       surveyLayerStore.clear();
+    }
+
+    function syncContextLayers() {
+      const selectedKeys = new Set(getSelectedContextLayerKeys());
+
+      for (const [layerKey, layer] of contextLayerStore.entries()) {
+        if (!selectedKeys.has(layerKey)) {
+          map.removeLayer(layer);
+          contextLayerStore.delete(layerKey);
+        }
+      }
+
+      for (const layerKey of selectedKeys) {
+        if (contextLayerStore.has(layerKey)) {
+          continue;
+        }
+        const layer = new ol.layer.VectorTile({
+          source: new ol.source.VectorTile({
+            format: new ol.format.MVT(),
+            url: `/api/layers/${encodeURIComponent(layerKey)}/tiles/{z}/{x}/{y}.mvt`
+          }),
+          style: styleForContextFeature
+        });
+        layer.set('layer_key', layerKey);
+        contextLayerStore.set(layerKey, layer);
+        map.addLayer(layer);
+      }
     }
 
     async function loadSurvey(surveyId) {
@@ -173,9 +226,36 @@
       }
     }
 
+    function populateContextControls(layers) {
+      const list = document.getElementById('contextLayerList');
+      list.innerHTML = '';
+
+      for (const layer of layers) {
+        const row = document.createElement('div');
+        row.className = 'context-row';
+
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.dataset.layerKey = layer.layer_key;
+        checkbox.addEventListener('change', syncContextLayers);
+
+        const label = document.createElement('label');
+        label.textContent = `${layer.layer_name || layer.layer_key} [${layer.layer_key}]`;
+
+        row.appendChild(checkbox);
+        row.appendChild(label);
+        list.appendChild(row);
+      }
+    }
+
     async function loadSurveyList() {
       const surveys = await fetchJson('/api/surveys');
       populateSurveyControls(surveys);
+    }
+
+    async function loadContextLayerList() {
+      const layers = await fetchJson('/api/context-layers');
+      populateContextControls(layers);
     }
 
     map.on('singleclick', function (event) {
@@ -208,8 +288,8 @@
       }
     });
 
-    loadSurveyList().catch((error) => {
-      document.getElementById('surveyList').innerHTML = `<pre>${error.message}</pre>`;
+    Promise.all([loadSurveyList(), loadContextLayerList()]).catch((error) => {
+      document.getElementById('featureInfo').textContent = `Error: ${error.message}`;
     });
   </script>
 </body>

@@ -1,44 +1,34 @@
-# surveyCatalyst FastAPI + OpenLayers migration
-
-This package adds a survey-centric API and browser map path on top of the existing PostGIS-backed services.
+# FastAPI + OpenLayers migration notes
 
 ## Current state
 
-- FastAPI serves the browser map shell
-- OpenLayers manages viewport and interaction state in the browser
-- `/api/surveys` returns lightweight survey metadata without geometry
-- `/api/surveys/{survey_id}/features` returns bounded GeoJSON for the selected survey using bbox filtering
-- generic `/api/layers/{layer_key}/geojson` remains available for context layers and diagnostics
+This path now splits the map workload into two delivery modes:
 
-## Why this step exists
+- surveys: bbox-bounded GeoJSON via `/api/surveys/{survey_id}/features`
+- heavy context layers: vector tiles via `/api/layers/{layer_key}/tiles/{z}/{x}/{y}.mvt`
 
-The previous Streamlit map shell reran app state too aggressively for a spatial workload. This step moves the operational map path to:
+This removes the worst raw-GeoJSON bottleneck for large external layers such as BLfD restricted areas.
 
-- browser-owned viewport state
-- bounded API requests
-- survey-driven loading instead of generic layer-driven loading
+## Added endpoints
 
-## Run
+- `/api/context-layers`
+- `/api/layers/{layer_key}/tiles/{z}/{x}/{y}.mvt`
 
-```powershell
-pip install -r requirements-api.txt
-python scripts/run_api.py
-```
+## UI behaviour
 
-Open:
+- surveys remain the main working unit
+- context layers are loaded independently as tile-backed overlays
+- survey bbox limits and survey feature caps remain in place
+- context layers no longer depend on one large JSON response per interaction
 
-```text
-http://127.0.0.1:8000/
-```
+## Dependency note
 
-## Important dependency
+This step depends on the earlier survey-layer refactor being present in `src/map/live_db_map_service.py`, specifically `get_survey_layer_geojson(...)`.
 
-The survey feature endpoint expects `LiveDBMapService` to already support:
+## Next step
 
-- `get_survey_layer_geojson(layer_key, bounds=None, limit=5000)`
+The next delta should add:
 
-That method comes from the earlier survey-layer refactor. If it is not present in the repo yet, apply that delta first.
-
-## Next architectural step
-
-Once this survey-centric path is validated locally, the next delta should move heavy context layers such as BLfD restricted areas away from raw GeoJSON and toward PostGIS-backed vector tiles.
+- per-layer styling rules for vector tiles
+- optional tile cache headers
+- optional dedicated endpoints for known heavy layers such as legal restricted areas

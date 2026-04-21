@@ -7,7 +7,7 @@ from typing import Any
 
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, Response
 
 ROOT = Path(__file__).resolve().parents[2]
 SRC = ROOT / "src"
@@ -18,7 +18,9 @@ from core.db import build_backend
 from map.live_db_map_service import LiveDBMapService
 from api.schemas import ApiInfoResponse, HealthResponse, LayerRecord, SurveyRecord
 
-APP_VERSION = "0.2.0"
+APP_VERSION = "0.3.0"
+MVT_EXTENT = 4096
+MVT_BUFFER = 256
 
 
 def _parse_bounds(bbox: str | None) -> tuple[float, float, float, float] | None:
@@ -66,6 +68,16 @@ def _survey_row_to_dict(row: tuple[Any, ...]) -> dict[str, Any]:
     }
 
 
+def _get_external_layer_catalog(map_service: LiveDBMapService) -> list[dict[str, Any]]:
+    rows = map_service.list_layers()
+    result = [_layer_row_to_dict(row) for row in rows]
+    return [
+        row
+        for row in result
+        if not row["layer_key"].startswith("survey_") and row["layer_key"] not in {"surveys", "survey_objects"}
+    ]
+
+
 def create_app() -> FastAPI:
     app = FastAPI(title="surveyCatalyst API", version=APP_VERSION)
     app.add_middleware(
@@ -90,10 +102,12 @@ def create_app() -> FastAPI:
             endpoints=[
                 "/health",
                 "/api/layers",
+                "/api/context-layers",
                 "/api/surveys",
                 "/api/surveys/{survey_id}",
                 "/api/surveys/{survey_id}/features?bbox=minx,miny,maxx,maxy&limit=5000",
                 "/api/layers/{layer_key}/geojson?bbox=minx,miny,maxx,maxy&limit=5000",
+                "/api/layers/{layer_key}/tiles/{z}/{x}/{y}.mvt",
             ],
         )
 
@@ -119,6 +133,10 @@ def create_app() -> FastAPI:
         if layer_group:
             result = [row for row in result if row["layer_group"] == layer_group]
         return [LayerRecord.model_validate(row) for row in result]
+
+    @app.get("/api/context-layers", response_model=list[LayerRecord])
+    def list_context_layers() -> list[LayerRecord]:
+        return [LayerRecord.model_validate(row) for row in _get_external_layer_catalog(map_service)]
 
     @app.get("/api/surveys", response_model=list[SurveyRecord])
     def list_surveys() -> list[SurveyRecord]:
@@ -200,6 +218,63 @@ def create_app() -> FastAPI:
         if not isinstance(payload, dict) or payload.get("type") != "FeatureCollection":
             raise HTTPException(status_code=500, detail="layer query did not return a GeoJSON FeatureCollection")
         return payload
+
+    @app.get("/api/layers/{layer_key}/tiles/{z}/{x}/{y}.mvt")
+    def layer_tiles(layer_key: str, z: int, x: int, y: int) -> Response:
+        conn = build_backend().connect()
+        try:
+            with conn.cursor() as cur:
+                cur.execute(
+                    '''
+                    SELECT EXISTS (
+                        SELECT 1
+                        FROM layers_registry
+                        WHERE layer_key = %s
+                    )
+                    ''',
+                    (layer_key,),
+                )
+                exists = cur.fetchone()[0]
+                if not exists:
+                    raise HTTPException(status_code=404, detail=f"layer {layer_key} not found")
+
+                cur.execute(
+                    '''
+                    WITH tile AS (
+                        SELECT ST_TileEnvelope(%s, %s, %s) AS geom_3857
+                    ),
+                    mvtgeom AS (
+                        SELECT
+                            id,
+                            source_id,
+                            source_table,
+                            ST_AsMVTGeom(
+                                ST_Transform(ef.geom, 3857),
+                                tile.geom_3857,
+                                %s,
+                                %s,
+                                true
+                            ) AS geom,
+                            COALESCE(ef.properties, '{}'::jsonb) AS properties
+                        FROM external_features ef
+                        CROSS JOIN tile
+                        WHERE ef.layer = %s
+                          AND ef.geom IS NOT NULL
+                          AND ST_Intersects(ST_Transform(ef.geom, 3857), tile.geom_3857)
+                    )
+                    SELECT COALESCE(
+                        ST_AsMVT(mvtgeom, %s, %s, 'geom'),
+                        ''::bytea
+                    )
+                    FROM mvtgeom
+                    WHERE geom IS NOT NULL
+                    ''',
+                    (z, x, y, MVT_EXTENT, MVT_BUFFER, layer_key, layer_key, "geom"),
+                )
+                tile_bytes = cur.fetchone()[0]
+            return Response(content=bytes(tile_bytes), media_type="application/vnd.mapbox-vector-tile")
+        finally:
+            conn.close()
 
     return app
 
