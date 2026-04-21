@@ -115,6 +115,7 @@
       <button class="tabButton active" data-tab="hierarchyTab">Hierarchy</button>
       <button class="tabButton" data-tab="detailsTab">Details</button>
       <button class="tabButton" data-tab="editorTab">Editor</button>
+      <button class="tabButton" data-tab="exportTab">Export</button>
     </div>
 
     <div id="hierarchyTab" class="tabPanel active">
@@ -139,6 +140,22 @@
       <label for="editorProperties">Properties (JSON)</label>
       <textarea id="editorProperties">{}</textarea>
       <div class="small">Edit fields here, then use the action buttons on the left to save geometry or details.</div>
+    </div>
+
+    <div id="exportTab" class="tabPanel">
+      <label><input id="exportIncludeBoundary" type="checkbox" checked> Include survey boundary</label>
+      <label><input id="exportIncludeObjects" type="checkbox" checked> Include survey objects</label>
+      <label><input id="exportIncludeArchived" type="checkbox"> Include archived objects</label>
+      <label><input id="exportIncludeGeometry" type="checkbox" checked> Include geometry in data export</label>
+      <label><input id="exportIncludeProperties" type="checkbox" checked> Include object properties in data export</label>
+      <label><input id="exportDocumentIncludeDetails" type="checkbox" checked> Include object details in document</label>
+      <label><input id="exportDocumentIncludeMap" type="checkbox" checked> Include current map image in document</label>
+      <div class="row">
+        <button id="downloadLayerExportBtn">Download layer GeoJSON</button>
+        <button id="downloadDataExportBtn">Download data JSON</button>
+      </div>
+      <button id="downloadDocumentExportBtn">Download printable document</button>
+      <div class="small">Exports use the active survey. The document export is a printable HTML file and can embed the current map image.</div>
     </div>
   </div>
 </div>
@@ -655,6 +672,125 @@ function zoomActiveSurvey() {
   }
 }
 
+
+function getExportOptions() {
+  return {
+    include_boundary: document.getElementById('exportIncludeBoundary').checked,
+    include_objects: document.getElementById('exportIncludeObjects').checked,
+    include_archived: document.getElementById('exportIncludeArchived').checked,
+    include_geometry: document.getElementById('exportIncludeGeometry').checked,
+    include_properties: document.getElementById('exportIncludeProperties').checked,
+    include_document_details: document.getElementById('exportDocumentIncludeDetails').checked,
+    include_document_map: document.getElementById('exportDocumentIncludeMap').checked
+  };
+}
+
+function buildQuery(params) {
+  const search = new URLSearchParams();
+  Object.entries(params).forEach(([key, value]) => search.set(key, String(value)));
+  return search.toString();
+}
+
+function downloadText(filename, content, mimeType='application/json') {
+  const blob = new Blob([content], {type: mimeType});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function getCurrentMapImageDataUrl() {
+  try {
+    const canvas = map.getViewport().querySelector('canvas');
+    if (!canvas) return null;
+    return canvas.toDataURL('image/png');
+  } catch {
+    return null;
+  }
+}
+
+async function downloadLayerExport() {
+  if (!activeSurveyId) { setStatus('Select an active survey first.'); return; }
+  try {
+    const opts = getExportOptions();
+    const query = buildQuery({
+      include_boundary: opts.include_boundary,
+      include_objects: opts.include_objects,
+      include_archived: opts.include_archived
+    });
+    const payload = await fetchJson(`/api/surveys/${activeSurveyId}/export/layer.geojson?${query}`);
+    downloadText(`survey_${activeSurveyId}_layer.geojson`, JSON.stringify(payload, null, 2), 'application/geo+json');
+    setStatus(`Downloaded layer export for survey ${activeSurveyId}.`);
+  } catch (error) {
+    setStatus(`Layer export failed: ${error.message}`);
+  }
+}
+
+async function downloadDataExport() {
+  if (!activeSurveyId) { setStatus('Select an active survey first.'); return; }
+  try {
+    const opts = getExportOptions();
+    const query = buildQuery({
+      include_boundary: opts.include_boundary,
+      include_objects: opts.include_objects,
+      include_archived: opts.include_archived,
+      include_geometry: opts.include_geometry,
+      include_properties: opts.include_properties
+    });
+    const payload = await fetchJson(`/api/surveys/${activeSurveyId}/export/data.json?${query}`);
+    downloadText(`survey_${activeSurveyId}_data.json`, JSON.stringify(payload, null, 2), 'application/json');
+    setStatus(`Downloaded data export for survey ${activeSurveyId}.`);
+  } catch (error) {
+    setStatus(`Data export failed: ${error.message}`);
+  }
+}
+
+function buildPrintableDocumentHtml(doc, mapImageDataUrl, includeDetails) {
+  const survey = doc.survey || {};
+  const objects = Array.isArray(doc.objects) ? doc.objects : [];
+  const rows = objects.map(obj => {
+    const properties = obj.properties ? `<pre>${escapeHtml(JSON.stringify(obj.properties, null, 2))}</pre>` : '';
+    const detailCell = includeDetails ? `<div><strong>Details:</strong> ${escapeHtml(obj.details || '')}</div><div><strong>Annotation:</strong> ${escapeHtml(obj.annotation || '')}</div>${properties}` : '';
+    return `<tr><td>${escapeHtml(obj.id)}</td><td>${escapeHtml(obj.type || '')}</td><td>${escapeHtml(obj.title || '')}</td><td>${escapeHtml(obj.is_active ? 'active' : 'archived')}</td><td>${detailCell}</td></tr>`;
+  }).join('');
+  const mapSection = mapImageDataUrl ? `<h2>Map snapshot</h2><img src="${mapImageDataUrl}" style="max-width:100%; border:1px solid #ccc;">` : '';
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Survey ${escapeHtml(survey.id)} export</title><style>body{font-family:Arial,sans-serif;margin:24px;line-height:1.4;} table{width:100%;border-collapse:collapse;} th,td{border:1px solid #ccc;padding:8px;vertical-align:top;} h1,h2{margin:16px 0 8px;} pre{white-space:pre-wrap;word-break:break-word;}</style></head><body><h1>Survey ${escapeHtml(survey.id)} — ${escapeHtml(survey.title || '')}</h1><p><strong>Status:</strong> ${escapeHtml(survey.status || '')}<br><strong>Layer key:</strong> ${escapeHtml(survey.layer_key || '')}<br><strong>Expedition:</strong> ${escapeHtml(survey.expedition_id || '')}</p><h2>Summary</h2><p><strong>Total objects:</strong> ${escapeHtml(doc.summary?.object_count || 0)}<br><strong>Active objects:</strong> ${escapeHtml(doc.summary?.active_count || 0)}<br><strong>Archived objects:</strong> ${escapeHtml(doc.summary?.archived_count || 0)}</p>${mapSection}<h2>Survey metadata</h2><pre>${escapeHtml(JSON.stringify(survey.metadata || {}, null, 2))}</pre><h2>Objects</h2><table><thead><tr><th>ID</th><th>Type</th><th>Title</th><th>Status</th><th>Details</th></tr></thead><tbody>${rows}</tbody></table></body></html>`;
+}
+
+async function downloadDocumentExport() {
+  if (!activeSurveyId) { setStatus('Select an active survey first.'); return; }
+  try {
+    const opts = getExportOptions();
+    const query = buildQuery({
+      include_boundary: opts.include_boundary,
+      include_objects: opts.include_objects,
+      include_archived: opts.include_archived,
+      include_geometry: false,
+      include_properties: opts.include_properties
+    });
+    const payload = await fetchJson(`/api/surveys/${activeSurveyId}/export/document.json?${query}`);
+    const mapImage = opts.include_document_map ? getCurrentMapImageDataUrl() : null;
+    const html = buildPrintableDocumentHtml(payload, mapImage, opts.include_document_details);
+    downloadText(`survey_${activeSurveyId}_document.html`, html, 'text/html');
+    setStatus(`Downloaded printable document for survey ${activeSurveyId}.`);
+  } catch (error) {
+    setStatus(`Document export failed: ${error.message}`);
+  }
+}
+
 function bindTabs() {
   document.querySelectorAll('.tabButton').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -685,6 +821,9 @@ document.getElementById('saveSelectedGeometryBtn').onclick = saveSelectedGeometr
 document.getElementById('saveSelectedDetailsBtn').onclick = saveSelectedDetails;
 document.getElementById('deleteSelectedBtn').onclick = deleteSelectedObject;
 document.getElementById('deleteActiveSurveyBtn').onclick = deleteActiveSurvey;
+document.getElementById('downloadLayerExportBtn').onclick = downloadLayerExport;
+document.getElementById('downloadDataExportBtn').onclick = downloadDataExport;
+document.getElementById('downloadDocumentExportBtn').onclick = downloadDocumentExport;
 document.getElementById('surveySelect').onchange = () => {
   const surveyId = Number(document.getElementById('surveySelect').value);
   activeSurveyId = surveyId || null;

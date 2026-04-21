@@ -19,7 +19,7 @@ APP_HTML = BASE_DIR / "app" / "openlayers_map.html"
 MVT_EXTENT = 4096
 MVT_BUFFER = 64
 
-app = FastAPI(title="surveyCatalyst API", version="0.4.7")
+app = FastAPI(title="surveyCatalyst API", version="0.4.8")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -130,6 +130,52 @@ def survey_layer_geojson(survey_id: int, bounds=None, limit: int = 5000):
     return {"type": "FeatureCollection", "features": features}
 
 
+def build_survey_export_bundle(
+    survey_id: int,
+    include_boundary: bool = True,
+    include_objects: bool = True,
+    include_archived: bool = False,
+    include_geometry: bool = True,
+    include_properties: bool = True,
+) -> dict[str, Any]:
+    hierarchy = SurveyEditService().list_survey_hierarchy(survey_id)
+    survey = dict(hierarchy["survey"])
+    objects = []
+    for obj in hierarchy["objects"]:
+        if not include_archived and not obj.get("is_active", True):
+            continue
+        filtered = dict(obj)
+        if not include_geometry:
+            filtered.pop("geometry", None)
+        if not include_properties:
+            filtered.pop("properties", None)
+        objects.append(filtered)
+
+    if not include_geometry:
+        survey.pop("geometry", None)
+
+    layer_features = []
+    if include_boundary and include_objects:
+        layer_geojson = survey_layer_geojson(survey_id=survey_id, bounds=None, limit=20000)
+        layer_features = list(layer_geojson.get("features", []))
+    elif include_boundary or include_objects:
+        layer_geojson = survey_layer_geojson(survey_id=survey_id, bounds=None, limit=20000)
+        for feature in layer_geojson.get("features", []):
+            role = (feature.get("properties") or {}).get("feature_role")
+            if include_boundary and role == "survey_boundary":
+                layer_features.append(feature)
+            elif include_objects and role == "survey_object":
+                obj_props = feature.get("properties") or {}
+                if include_archived or obj_props.get("is_active", True):
+                    layer_features.append(feature)
+
+    return {
+        "survey": survey,
+        "objects": objects if include_objects else [],
+        "layer": {"type": "FeatureCollection", "features": layer_features},
+    }
+
+
 @app.get("/", response_class=HTMLResponse)
 def root() -> HTMLResponse:
     return HTMLResponse(APP_HTML.read_text(encoding="utf-8"))
@@ -142,7 +188,7 @@ def health():
 
 @app.get("/api")
 def api_root():
-    return {"name": "surveyCatalyst API", "version": "0.4.7"}
+    return {"name": "surveyCatalyst API", "version": "0.4.8"}
 
 
 @app.get("/api/layers")
@@ -338,6 +384,93 @@ def update_survey_object(object_id: int, payload: SurveyObjectUpdate):
 def delete_survey_object(object_id: int):
     SurveyEditService().delete_survey_object(object_id)
     return {"ok": True}
+
+
+@app.get("/api/surveys/{survey_id}/export/layer.geojson")
+def export_survey_layer(
+    survey_id: int,
+    include_boundary: bool = True,
+    include_objects: bool = True,
+    include_archived: bool = False,
+):
+    bundle = build_survey_export_bundle(
+        survey_id=survey_id,
+        include_boundary=include_boundary,
+        include_objects=include_objects,
+        include_archived=include_archived,
+        include_geometry=True,
+        include_properties=True,
+    )
+    return bundle["layer"]
+
+
+@app.get("/api/surveys/{survey_id}/export/data.json")
+def export_survey_data(
+    survey_id: int,
+    include_boundary: bool = True,
+    include_objects: bool = True,
+    include_archived: bool = False,
+    include_geometry: bool = True,
+    include_properties: bool = True,
+):
+    bundle = build_survey_export_bundle(
+        survey_id=survey_id,
+        include_boundary=include_boundary,
+        include_objects=include_objects,
+        include_archived=include_archived,
+        include_geometry=include_geometry,
+        include_properties=include_properties,
+    )
+    return {
+        "survey": bundle["survey"],
+        "objects": bundle["objects"],
+        "options": {
+            "include_boundary": include_boundary,
+            "include_objects": include_objects,
+            "include_archived": include_archived,
+            "include_geometry": include_geometry,
+            "include_properties": include_properties,
+        },
+    }
+
+
+@app.get("/api/surveys/{survey_id}/export/document.json")
+def export_survey_document_data(
+    survey_id: int,
+    include_boundary: bool = True,
+    include_objects: bool = True,
+    include_archived: bool = False,
+    include_geometry: bool = False,
+    include_properties: bool = True,
+):
+    bundle = build_survey_export_bundle(
+        survey_id=survey_id,
+        include_boundary=include_boundary,
+        include_objects=include_objects,
+        include_archived=include_archived,
+        include_geometry=include_geometry,
+        include_properties=include_properties,
+    )
+    survey = bundle["survey"]
+    objects = bundle["objects"]
+    active_count = sum(1 for obj in objects if obj.get("is_active", True))
+    archived_count = sum(1 for obj in objects if not obj.get("is_active", True))
+    return {
+        "survey": survey,
+        "objects": objects,
+        "summary": {
+            "object_count": len(objects),
+            "active_count": active_count,
+            "archived_count": archived_count,
+        },
+        "options": {
+            "include_boundary": include_boundary,
+            "include_objects": include_objects,
+            "include_archived": include_archived,
+            "include_geometry": include_geometry,
+            "include_properties": include_properties,
+        },
+    }
 
 
 
