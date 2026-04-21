@@ -59,6 +59,9 @@ class LiveDBMapService:
             return self._survey_objects_geojson(layer_key, bounds=bounds, limit=limit)
         return self._external_features_geojson(layer_key, bounds=bounds, limit=limit)
 
+    def get_survey_layer_geojson(self, layer_key: str, bounds: tuple[float, float, float, float] | None = None, limit: int = 5000):
+        return self._survey_layer_geojson(layer_key, bounds=bounds, limit=limit)
+
     def _surveys_geojson(self, bounds=None, limit: int = 5000):
         conn = self.backend.connect()
         with conn.cursor() as cur:
