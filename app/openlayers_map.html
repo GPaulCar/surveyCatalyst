@@ -409,6 +409,75 @@
       grid-column: 1 / -1;
     }
 
+
+    .modePanel {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 12px;
+    }
+    .modeCard {
+      padding: 12px;
+      border-radius: 14px;
+      background: #fff;
+      border: 1px solid var(--border);
+    }
+    .modeCardTitle {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      font-weight: 800;
+      margin-bottom: 8px;
+    }
+    .modeValue {
+      font-weight: 800;
+      color: #0f172a;
+      font-size: 14px;
+    }
+    .modeValue.muted { color: var(--muted); }
+    .toolbarRow {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 10px;
+    }
+    .toolbarRow .dangerSoft {
+      background: linear-gradient(180deg, #fff5f5 0%, #feecec 100%);
+      color: #8b1e1e;
+      border-color: rgba(220, 38, 38, 0.18);
+      box-shadow: 0 6px 14px rgba(220, 38, 38, 0.08);
+    }
+    .toggleActive {
+      background: linear-gradient(180deg, #ecfdf5 0%, #d1fae5 100%);
+      color: #065f46;
+      border-color: rgba(16, 185, 129, 0.22);
+    }
+    .dirtyFlag {
+      display: inline-block;
+      margin-top: 8px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 800;
+      color: #92400e;
+      background: #fff7ed;
+      border: 1px solid #fed7aa;
+    }
+    .hintList {
+      margin: 10px 0 0;
+      padding-left: 18px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.45;
+    }
+    button[disabled] {
+      cursor: not-allowed;
+      opacity: 0.55;
+      transform: none;
+      box-shadow: none;
+    }
+
   </style>
 </head>
 <body>
@@ -470,13 +539,35 @@
     </div>
 
     <div class="section">
-      <h3>Actions</h3>
-      <button id="saveSelectedGeometryBtn">Save selected geometry</button>
-      <button id="saveSelectedDetailsBtn">Save selected details</button>
+      <h3>Edit Workspace</h3>
+      <div class="modePanel">
+        <div class="modeCard">
+          <div class="modeCardTitle">Mode</div>
+          <div id="modeIndicator" class="modeValue muted">View</div>
+          <div id="dirtyIndicator" class="dirtyFlag" style="display:none;">Unsaved changes</div>
+        </div>
+        <div class="modeCard">
+          <div class="modeCardTitle">Selection</div>
+          <div id="selectionIndicator" class="modeValue muted">Nothing selected</div>
+        </div>
+      </div>
+      <div class="toolbarRow">
+        <button id="toggleModifyBtn">Enable vertex edit</button>
+        <button id="cancelToolBtn" class="dangerSoft">Cancel current tool</button>
+      </div>
+      <div class="toolbarRow">
+        <button id="saveSelectedGeometryBtn">Save selected geometry</button>
+        <button id="saveSelectedDetailsBtn">Save selected details</button>
+      </div>
       <div class="row">
         <button id="deleteSelectedBtn">Delete selected object</button>
         <button id="deleteActiveSurveyBtn">Delete active survey</button>
       </div>
+      <ul class="hintList">
+        <li>Geometry edits are only active when vertex edit is enabled.</li>
+        <li>Use cancel current tool to exit drawing safely.</li>
+        <li>Selection stays in view mode until you explicitly switch tools.</li>
+      </ul>
     </div>
 
     <div class="section">
@@ -591,6 +682,7 @@ const selectInteraction = new ol.interaction.Select({
 });
 map.addInteraction(selectInteraction);
 const modifyInteraction = new ol.interaction.Modify({features: selectInteraction.getFeatures()});
+modifyInteraction.setActive(false);
 map.addInteraction(modifyInteraction);
 
 let drawInteraction = null;
@@ -598,6 +690,80 @@ let currentMode = null;
 let activeSurveyId = null;
 let loadedSurveys = {};
 let selectedDescriptor = null;
+let modifyEnabled = false;
+let dirtyGeometry = false;
+let dirtyDetails = false;
+
+
+function describeCurrentMode() {
+  if (currentMode === 'createSurvey') return 'Draw survey';
+  if (currentMode === 'Point') return 'Draw point';
+  if (currentMode === 'LineString') return 'Draw line';
+  if (currentMode === 'Polygon') return 'Draw polygon';
+  if (modifyEnabled) return 'Vertex edit';
+  return 'View';
+}
+
+function describeSelection() {
+  if (!selectedDescriptor) return 'Nothing selected';
+  if (selectedDescriptor.kind === 'survey') return `Survey ${selectedDescriptor.surveyId}`;
+  return `Object ${selectedDescriptor.objectId}`;
+}
+
+function setDirtyState(kind, value=true) {
+  if (kind === 'geometry') dirtyGeometry = value;
+  if (kind === 'details') dirtyDetails = value;
+  updateWorkspaceState();
+}
+
+function updateWorkspaceState() {
+  const modeEl = document.getElementById('modeIndicator');
+  const selEl = document.getElementById('selectionIndicator');
+  const dirtyEl = document.getElementById('dirtyIndicator');
+  const toggleBtn = document.getElementById('toggleModifyBtn');
+  const cancelBtn = document.getElementById('cancelToolBtn');
+  const saveGeomBtn = document.getElementById('saveSelectedGeometryBtn');
+  const saveDetailsBtn = document.getElementById('saveSelectedDetailsBtn');
+  const deleteObjBtn = document.getElementById('deleteSelectedBtn');
+  const deleteSurveyBtn = document.getElementById('deleteActiveSurveyBtn');
+
+  modeEl.textContent = describeCurrentMode();
+  modeEl.classList.toggle('muted', describeCurrentMode() === 'View');
+  selEl.textContent = describeSelection();
+  selEl.classList.toggle('muted', !selectedDescriptor);
+
+  const dirty = dirtyGeometry || dirtyDetails;
+  dirtyEl.style.display = dirty ? 'inline-block' : 'none';
+  dirtyEl.textContent = dirtyGeometry && dirtyDetails ? 'Unsaved geometry and details' : dirtyGeometry ? 'Unsaved geometry' : 'Unsaved details';
+
+  toggleBtn.textContent = modifyEnabled ? 'Disable vertex edit' : 'Enable vertex edit';
+  toggleBtn.classList.toggle('toggleActive', modifyEnabled);
+  cancelBtn.disabled = !currentMode && !modifyEnabled;
+  saveGeomBtn.disabled = !selectedDescriptor;
+  saveDetailsBtn.disabled = !selectedDescriptor;
+  deleteObjBtn.disabled = !(selectedDescriptor && selectedDescriptor.kind === 'object');
+  deleteSurveyBtn.disabled = !activeSurveyId;
+}
+
+function cancelCurrentTool() {
+  clearDrawInteraction();
+  modifyEnabled = false;
+  modifyInteraction.setActive(false);
+  setStatus('Returned to view mode.');
+  updateWorkspaceState();
+}
+
+function toggleModifyMode() {
+  if (!selectedDescriptor) {
+    setStatus('Select a survey or object first.', 'error');
+    return;
+  }
+  if (currentMode) clearDrawInteraction();
+  modifyEnabled = !modifyEnabled;
+  modifyInteraction.setActive(modifyEnabled);
+  setStatus(modifyEnabled ? 'Vertex edit enabled for the selected feature.' : 'Vertex edit disabled.');
+  updateWorkspaceState();
+}
 
 function setStatus(msg, level='info') {
   const box = document.getElementById('statusBox');
@@ -708,6 +874,7 @@ function setSelectionFromFeature(feature) {
     renderDetails(null);
     renderEditor(null);
     highlightHierarchySelection();
+    updateWorkspaceState();
     return;
   }
   const role = feature.get('feature_role');
@@ -723,7 +890,9 @@ function setSelectionFromFeature(feature) {
   renderDetails(feature);
   renderEditor(feature);
   highlightHierarchySelection();
+  updateWorkspaceState();
 }
+
 
 selectInteraction.on('select', evt => {
   const feature = evt.selected[0] || null;
@@ -936,7 +1105,9 @@ function renderHierarchy() {
     list.innerHTML = '<tr><td colspan="5" class="mutedEmpty">No loaded survey hierarchy yet.</td></tr>';
   }
   highlightHierarchySelection();
+  updateWorkspaceState();
 }
+
 
 async function refreshHierarchy() {
   if (!activeSurveyId) return;
@@ -954,6 +1125,7 @@ function clearDrawInteraction() {
     drawInteraction = null;
   }
   currentMode = null;
+  updateWorkspaceState();
 }
 
 function armDraw(kind) {
@@ -986,6 +1158,7 @@ function armDraw(kind) {
       });
       setStatus(`Created ${kind} object on survey ${activeSurveyId}.`, 'success');
       clearDrawInteraction();
+      dirtyGeometry = false;
       await loadSurvey(activeSurveyId, false);
     } catch (error) {
       setStatus(`Create object failed: ${error.message}`, 'error');
@@ -993,6 +1166,7 @@ function armDraw(kind) {
   });
   map.addInteraction(drawInteraction);
   setStatus(`Draw ${kind} on the map for survey ${activeSurveyId}.`);
+  updateWorkspaceState();
 }
 
 function armCreateSurveyPolygon() {
@@ -1025,6 +1199,7 @@ function armCreateSurveyPolygon() {
   });
   map.addInteraction(drawInteraction);
   setStatus('Draw a polygon to create a survey.');
+  updateWorkspaceState();
 }
 
 async function saveSelectedGeometry() {
@@ -1041,6 +1216,8 @@ async function saveSelectedGeometry() {
         body: JSON.stringify({geometry: featureToGeoJSONGeometry(feature)})
       });
       setStatus(`Saved boundary geometry for survey ${feature.get('survey_id')}.`, 'success');
+      dirtyGeometry = false;
+      dirtyGeometry = false;
       await loadSurvey(Number(feature.get('survey_id')), false);
     } else {
       await fetchJson(`/api/survey-objects/${feature.get('id')}`, {
@@ -1049,6 +1226,7 @@ async function saveSelectedGeometry() {
         body: JSON.stringify({geometry: featureToGeoJSONGeometry(feature)})
       });
       setStatus(`Saved geometry for object ${feature.get('id')}.`, 'success');
+      dirtyGeometry = false;
       await loadSurvey(Number(feature.get('survey_id')), false);
     }
   } catch (error) {
@@ -1079,6 +1257,8 @@ async function saveSelectedDetails() {
       });
       setStatus(`Saved survey ${selectedDescriptor.surveyId}.`, 'success');
       await refreshSurveyList();
+      dirtyDetails = false;
+      dirtyDetails = false;
       await loadSurvey(selectedDescriptor.surveyId, false);
     } else {
       await fetchJson(`/api/survey-objects/${selectedDescriptor.objectId}`, {
@@ -1087,6 +1267,7 @@ async function saveSelectedDetails() {
         body: JSON.stringify({title, annotation, details, type, properties})
       });
       setStatus(`Saved object ${selectedDescriptor.objectId}.`, 'success');
+      dirtyDetails = false;
       await loadSurvey(selectedDescriptor.surveyId, false);
     }
   } catch (error) {
@@ -1307,6 +1488,19 @@ document.getElementById('loadSurveyBtn').onclick = async () => {
 };
 document.getElementById('showActiveOnlyBtn').onclick = showActiveOnly;
 document.getElementById('zoomActiveBtn').onclick = zoomActiveSurvey;
+
+modifyInteraction.on('modifystart', () => {
+  if (modifyEnabled) setStatus('Editing geometry. Save geometry when finished.');
+});
+modifyInteraction.on('modifyend', () => {
+  if (modifyEnabled) setDirtyState('geometry', true);
+});
+['editorTitle','editorType','editorStatus','editorAnnotation','editorDetails','editorProperties'].forEach(id => {
+  document.getElementById(id).addEventListener('input', () => {
+    if (selectedDescriptor) setDirtyState('details', true);
+  });
+});
+
 document.getElementById('reloadHierarchyBtn').onclick = refreshHierarchy;
 document.getElementById('armPointBtn').onclick = () => armDraw('Point');
 document.getElementById('armLineBtn').onclick = () => armDraw('LineString');
@@ -1319,6 +1513,8 @@ document.getElementById('deleteActiveSurveyBtn').onclick = deleteActiveSurvey;
 document.getElementById('downloadLayerExportBtn').onclick = downloadLayerExport;
 document.getElementById('downloadDataExportBtn').onclick = downloadDataExport;
 document.getElementById('downloadDocumentExportBtn').onclick = downloadDocumentExport;
+document.getElementById('toggleModifyBtn').onclick = toggleModifyMode;
+document.getElementById('cancelToolBtn').onclick = cancelCurrentTool;
 document.getElementById('surveySelect').onchange = () => {
   const surveyId = Number(document.getElementById('surveySelect').value);
   activeSurveyId = surveyId || null;
