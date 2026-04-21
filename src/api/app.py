@@ -516,7 +516,7 @@ def layer_tiles(layer_key: str, z: int, x: int, y: int):
                 ),
                 mvtgeom AS (
                     SELECT ST_AsMVTGeom(
-                        geom,
+                        candidate.geom,
                         tile.geom,
                         %s,
                         %s,
@@ -532,7 +532,7 @@ def layer_tiles(layer_key: str, z: int, x: int, y: int):
                 )
                 SELECT ST_AsMVT(mvtgeom, %s, %s)
                 FROM mvtgeom
-                WHERE geom IS NOT NULL
+                WHERE mvtgeom.geom IS NOT NULL
                 """,
                 (z, x, y, simplify_tolerance, simplify_tolerance, layer_key, MVT_EXTENT, MVT_BUFFER, layer_key, MVT_EXTENT),
             )
