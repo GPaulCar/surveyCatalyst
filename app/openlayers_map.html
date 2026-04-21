@@ -987,6 +987,35 @@ function renderDetails(feature) {
 }
 
 
+
+const OBJECT_TYPE_OPTIONS = [
+  ['find', 'Find'],
+  ['note', 'Note'],
+  ['track', 'Track'],
+  ['area', 'Area'],
+  ['anomaly', 'Anomaly'],
+  ['reference_point', 'Reference point']
+];
+
+function sanitizeObjectType(value) {
+  const allowed = OBJECT_TYPE_OPTIONS.map(([key]) => key);
+  return allowed.includes(value) ? value : 'find';
+}
+
+function rebuildObjectTypeSelect(selectId, selectedValue='find') {
+  const select = document.getElementById(selectId);
+  if (!select) return;
+  const safeValue = sanitizeObjectType(selectedValue || select.value);
+  select.innerHTML = '';
+  OBJECT_TYPE_OPTIONS.forEach(([value, label]) => {
+    const option = document.createElement('option');
+    option.value = value;
+    option.textContent = label;
+    select.appendChild(option);
+  });
+  select.value = safeValue;
+}
+
 const OBJECT_TYPE_SCHEMAS = {
   find: {
     label: 'Find',
