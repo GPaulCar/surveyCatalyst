@@ -9,7 +9,7 @@ class ViabundusProvider(BaseProvider):
     schema_name = "medieval"
     workspace_name = "viabundus"
 
-    DOWNLOAD_URL = "https://zenodo.org/records/16611998/files/viabundus-1-3.zip"
+    DOWNLOAD_URL = "https://zenodo.org/records/10828107"
     VERSION_LABEL = "1.3"
 
     def dry_run(self) -> ProviderResult:
