@@ -9,13 +9,32 @@
     html, body { margin: 0; padding: 0; height: 100%; font-family: Arial, sans-serif; }
     #layout { display: grid; grid-template-columns: 360px 1fr; height: 100%; }
     #sidebar { padding: 12px; overflow: auto; border-right: 1px solid #ddd; background: #fafafa; }
-    #map { width: 100%; height: 100%; }
+    #map { width: 100%; height: 100%; position: relative; }
     .section { margin-bottom: 16px; }
     .hint { color: #555; font-size: 12px; }
     .survey-row, .context-row { display: flex; align-items: center; gap: 8px; margin: 6px 0; }
     code { background: #f1f1f1; padding: 2px 4px; }
     button, select, input { margin-top: 6px; }
     pre { white-space: pre-wrap; }
+    .ol-popup {
+      position: absolute;
+      background: white;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+      padding: 12px;
+      border-radius: 8px;
+      border: 1px solid #cccccc;
+      bottom: 12px;
+      left: -50px;
+      min-width: 260px;
+    }
+    .ol-popup-closer {
+      position: absolute;
+      top: 6px;
+      right: 8px;
+      text-decoration: none;
+      font-weight: bold;
+      color: #444;
+    }
   </style>
 </head>
 <body>
@@ -60,6 +79,10 @@
       </div>
     </div>
     <div id="map"></div>
+    <div id="popup" class="ol-popup">
+      <a href="#" id="popup-closer" class="ol-popup-closer">✕</a>
+      <div id="popup-content">Click a survey feature on the map.</div>
+    </div>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/ol@10.6.1/dist/ol.js"></script>
@@ -77,19 +100,51 @@
     const surveyLayerStore = new Map();
     const surveyStore = new Map();
     const contextLayerStore = new Map();
+    let selectedFeature = null;
 
-    function styleForFeature(feature) {
-      const role = feature.get('feature_role');
-      if (role === 'survey_boundary') {
+    const popupElement = document.getElementById('popup');
+    const popupContent = document.getElementById('popup-content');
+    const popupCloser = document.getElementById('popup-closer');
+    const popupOverlay = new ol.Overlay({
+      element: popupElement,
+      autoPan: { animation: { duration: 200 } }
+    });
+    map.addOverlay(popupOverlay);
+    popupCloser.onclick = function () {
+      popupOverlay.setPosition(undefined);
+      popupCloser.blur();
+      return false;
+    };
+
+    function isSelected(feature) {
+      return selectedFeature === feature;
+    }
+
+    function styleForBoundary(feature) {
+      const selected = isSelected(feature);
+      return new ol.style.Style({
+        stroke: new ol.style.Stroke({ color: selected ? '#d97706' : '#0a8f55', width: selected ? 4 : 3 }),
+        fill: new ol.style.Fill({ color: selected ? 'rgba(245, 158, 11, 0.20)' : 'rgba(184, 245, 209, 0.15)' })
+      });
+    }
+
+    function styleForSurveyObject(feature) {
+      const geometryType = feature.getGeometry() ? feature.getGeometry().getType() : '';
+      const selected = isSelected(feature);
+      const strokeColor = selected ? '#d97706' : '#1557b0';
+      const fillColor = selected ? 'rgba(245, 158, 11, 0.25)' : 'rgba(61, 132, 245, 0.20)';
+      if (geometryType.includes('Point')) {
         return new ol.style.Style({
-          stroke: new ol.style.Stroke({ color: '#0a8f55', width: 3 }),
-          fill: new ol.style.Fill({ color: 'rgba(184, 245, 209, 0.15)' })
+          image: new ol.style.Circle({
+            radius: selected ? 7 : 5,
+            fill: new ol.style.Fill({ color: selected ? '#d97706' : '#1557b0' }),
+            stroke: new ol.style.Stroke({ color: '#ffffff', width: 1.5 })
+          })
         });
       }
       return new ol.style.Style({
-        stroke: new ol.style.Stroke({ color: '#1557b0', width: 2 }),
-        fill: new ol.style.Fill({ color: 'rgba(61, 132, 245, 0.20)' }),
-        image: new ol.style.Circle({ radius: 4, fill: new ol.style.Fill({ color: '#1557b0' }) })
+        stroke: new ol.style.Stroke({ color: strokeColor, width: selected ? 3 : 2 }),
+        fill: new ol.style.Fill({ color: fillColor })
       });
     }
 
@@ -135,9 +190,17 @@
     }
 
     function clearSurveyLayers() {
-      for (const layer of surveyLayerStore.values()) {
-        map.removeLayer(layer);
+      for (const layerGroup of surveyLayerStore.values()) {
+        if (Array.isArray(layerGroup)) {
+          for (const layer of layerGroup) {
+            map.removeLayer(layer);
+          }
+        } else {
+          map.removeLayer(layerGroup);
+        }
       }
+      selectedFeature = null;
+      popupOverlay.setPosition(undefined);
       surveyLayerStore.clear();
     }
 
@@ -172,18 +235,39 @@
       const bbox = getCurrentBbox4326().join(',');
       const limit = document.getElementById('limitInput').value.trim() || '5000';
       const geojson = await fetchJson(`/api/surveys/${surveyId}/features?bbox=${encodeURIComponent(bbox)}&limit=${encodeURIComponent(limit)}`);
+      const features = new ol.format.GeoJSON().readFeatures(geojson, { featureProjection: 'EPSG:3857' });
 
-      const source = new ol.source.Vector({
-        features: new ol.format.GeoJSON().readFeatures(geojson, { featureProjection: 'EPSG:3857' })
-      });
+      const boundaryFeatures = [];
+      const objectFeatures = [];
+      for (const feature of features) {
+        const role = feature.get('feature_role');
+        feature.set('survey_id', surveyId);
+        if (role === 'survey_boundary') {
+          boundaryFeatures.push(feature);
+        } else {
+          objectFeatures.push(feature);
+        }
+      }
 
-      const layer = new ol.layer.Vector({
-        source,
-        style: styleForFeature
+      const boundaryLayer = new ol.layer.Vector({
+        source: new ol.source.Vector({ features: boundaryFeatures }),
+        style: styleForBoundary
       });
-      layer.set('survey_id', surveyId);
-      surveyLayerStore.set(surveyId, layer);
-      map.addLayer(layer);
+      boundaryLayer.set('survey_id', surveyId);
+      boundaryLayer.set('survey_role', 'boundary');
+      boundaryLayer.setZIndex(20);
+
+      const objectLayer = new ol.layer.Vector({
+        source: new ol.source.Vector({ features: objectFeatures }),
+        style: styleForSurveyObject
+      });
+      objectLayer.set('survey_id', surveyId);
+      objectLayer.set('survey_role', 'objects');
+      objectLayer.setZIndex(30);
+
+      surveyLayerStore.set(surveyId, [boundaryLayer, objectLayer]);
+      map.addLayer(boundaryLayer);
+      map.addLayer(objectLayer);
     }
 
     async function loadSelectedSurveys() {
@@ -258,15 +342,64 @@
       populateContextControls(layers);
     }
 
+    function refreshSurveyStyles() {
+      for (const layerGroup of surveyLayerStore.values()) {
+        if (!Array.isArray(layerGroup)) {
+          continue;
+        }
+        for (const layer of layerGroup) {
+          layer.changed();
+        }
+      }
+    }
+
+    function surveySummary(feature) {
+      const props = feature.getProperties();
+      const surveyId = props.survey_id || 'unknown';
+      const title = props.title || `Survey ${surveyId}`;
+      const status = props.status ? `Status: ${props.status}` : '';
+      return `<strong>${title}</strong><br>Survey ID: ${surveyId}${status ? `<br>${status}` : ''}`;
+    }
+
+    function objectSummary(feature) {
+      const props = feature.getProperties();
+      const objectId = props.id || 'unknown';
+      const objectType = props.type || 'survey_object';
+      const surveyId = props.survey_id || 'unknown';
+      const expeditionId = props.expedition_id || 'n/a';
+      return `<strong>${objectType}</strong><br>Object ID: ${objectId}<br>Survey ID: ${surveyId}<br>Expedition ID: ${expeditionId}`;
+    }
+
     map.on('singleclick', function (event) {
       let found = null;
-      map.forEachFeatureAtPixel(event.pixel, function (feature) {
-        found = feature;
-        return true;
+      map.forEachFeatureAtPixel(event.pixel, function (feature, layer) {
+        if (layer && layer.get && layer.get('survey_role')) {
+          found = feature;
+          return true;
+        }
+        return false;
       });
-      document.getElementById('featureInfo').textContent = found
-        ? JSON.stringify(found.getProperties(), null, 2)
-        : 'No feature selected.';
+
+      selectedFeature = found;
+      refreshSurveyStyles();
+
+      if (!found) {
+        popupOverlay.setPosition(undefined);
+        document.getElementById('featureInfo').textContent = 'No survey feature selected.';
+        return;
+      }
+
+      const props = { ...found.getProperties() };
+      delete props.geometry;
+      document.getElementById('featureInfo').textContent = JSON.stringify(props, null, 2);
+
+      const role = found.get('feature_role');
+      if (role === 'survey_boundary') {
+        popupContent.innerHTML = surveySummary(found);
+      } else {
+        popupContent.innerHTML = objectSummary(found);
+      }
+      popupOverlay.setPosition(event.coordinate);
     });
 
     document.getElementById('reloadBtn').addEventListener('click', async () => {
