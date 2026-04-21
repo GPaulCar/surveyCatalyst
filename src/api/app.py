@@ -16,7 +16,16 @@ if str(SRC) not in sys.path:
 
 from core.db import build_backend
 from map.live_db_map_service import LiveDBMapService
-from api.schemas import ApiInfoResponse, HealthResponse, LayerRecord, SurveyRecord
+from survey.edit_service import SurveyEditService
+from api.schemas import (
+    ApiInfoResponse,
+    HealthResponse,
+    LayerRecord,
+    SurveyObjectCreateRequest,
+    SurveyObjectResponse,
+    SurveyObjectUpdateRequest,
+    SurveyRecord,
+)
 
 APP_VERSION = "0.3.0"
 MVT_EXTENT = 4096
@@ -88,6 +97,7 @@ def create_app() -> FastAPI:
     )
 
     map_service = LiveDBMapService()
+    edit_service = SurveyEditService()
 
     @app.get("/", response_class=HTMLResponse)
     def openlayers_client() -> str:
@@ -108,6 +118,8 @@ def create_app() -> FastAPI:
                 "/api/surveys/{survey_id}/features?bbox=minx,miny,maxx,maxy&limit=5000",
                 "/api/layers/{layer_key}/geojson?bbox=minx,miny,maxx,maxy&limit=5000",
                 "/api/layers/{layer_key}/tiles/{z}/{x}/{y}.mvt",
+                "/api/surveys/{survey_id}/objects",
+                "/api/survey-objects/{object_id}",
             ],
         )
 
@@ -203,6 +215,120 @@ def create_app() -> FastAPI:
         if not isinstance(payload, dict) or payload.get("type") != "FeatureCollection":
             raise HTTPException(status_code=500, detail="survey query did not return a GeoJSON FeatureCollection")
         return payload
+
+
+    @app.post("/api/surveys/{survey_id}/objects", response_model=SurveyObjectResponse)
+    def create_survey_object(survey_id: int, payload: SurveyObjectCreateRequest) -> SurveyObjectResponse:
+        conn = build_backend().connect()
+        try:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    SELECT expedition_id, title
+                    FROM surveys
+                    WHERE id = %s
+                    """,
+                    (survey_id,),
+                )
+                row = cur.fetchone()
+            if not row:
+                raise HTTPException(status_code=404, detail=f"survey {survey_id} not found")
+            expedition_id = payload.expedition_id if payload.expedition_id is not None else row[0]
+            if expedition_id is None:
+                raise HTTPException(status_code=400, detail="expedition_id is required for this survey")
+        finally:
+            conn.close()
+
+        geom_wkt = f"POINT({payload.lon} {payload.lat})"
+        try:
+            object_id = edit_service.create_survey_object(
+                survey_id=survey_id,
+                expedition_id=expedition_id,
+                obj_type=payload.obj_type,
+                geom_wkt=geom_wkt,
+                properties=payload.properties,
+            )
+        except Exception as exc:
+            raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+        return SurveyObjectResponse(
+            id=int(object_id),
+            survey_id=int(survey_id),
+            expedition_id=int(expedition_id),
+            obj_type=payload.obj_type,
+            lon=payload.lon,
+            lat=payload.lat,
+            properties=payload.properties,
+            status="created",
+        )
+
+    @app.patch("/api/survey-objects/{object_id}", response_model=SurveyObjectResponse)
+    def update_survey_object(object_id: int, payload: SurveyObjectUpdateRequest) -> SurveyObjectResponse:
+        conn = build_backend().connect()
+        try:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    SELECT id, survey_id, expedition_id, type,
+                           ST_X(ST_Transform(geom, 4326)) AS lon,
+                           ST_Y(ST_Transform(geom, 4326)) AS lat,
+                           COALESCE(properties, '{}'::jsonb) AS properties
+                    FROM survey_objects
+                    WHERE id = %s AND is_active = TRUE
+                    """,
+                    (object_id,),
+                )
+                row = cur.fetchone()
+            if not row:
+                raise HTTPException(status_code=404, detail=f"survey object {object_id} not found")
+
+            lon = payload.lon if payload.lon is not None else float(row[4])
+            lat = payload.lat if payload.lat is not None else float(row[5])
+            properties = payload.properties if payload.properties is not None else (row[6] or {})
+        finally:
+            conn.close()
+
+        geom_wkt = f"POINT({lon} {lat})"
+        try:
+            edit_service.update_survey_object(object_id=object_id, geom_wkt=geom_wkt, properties=properties)
+        except Exception as exc:
+            raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+        return SurveyObjectResponse(
+            id=int(row[0]),
+            survey_id=int(row[1]),
+            expedition_id=int(row[2]) if row[2] is not None else None,
+            obj_type=row[3],
+            lon=lon,
+            lat=lat,
+            properties=properties,
+            status="updated",
+        )
+
+    @app.delete("/api/survey-objects/{object_id}")
+    def archive_survey_object(object_id: int) -> dict[str, Any]:
+        conn = build_backend().connect()
+        try:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    SELECT survey_id
+                    FROM survey_objects
+                    WHERE id = %s AND is_active = TRUE
+                    """,
+                    (object_id,),
+                )
+                row = cur.fetchone()
+            if not row:
+                raise HTTPException(status_code=404, detail=f"survey object {object_id} not found")
+        finally:
+            conn.close()
+
+        try:
+            edit_service.archive_survey_object(object_id)
+        except Exception as exc:
+            raise HTTPException(status_code=500, detail=str(exc)) from exc
+        return {"status": "archived", "id": object_id, "survey_id": int(row[0])}
 
     @app.get("/api/layers/{layer_key}/geojson")
     def layer_geojson(

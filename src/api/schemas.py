@@ -34,3 +34,28 @@ class ApiInfoResponse(BaseModel):
     name: str
     version: str
     endpoints: list[str]
+
+
+class SurveyObjectCreateRequest(BaseModel):
+    expedition_id: int | None = None
+    obj_type: str = Field(min_length=1, max_length=100)
+    lon: float
+    lat: float
+    properties: dict[str, Any] = Field(default_factory=dict)
+
+
+class SurveyObjectUpdateRequest(BaseModel):
+    lon: float | None = None
+    lat: float | None = None
+    properties: dict[str, Any] | None = None
+
+
+class SurveyObjectResponse(BaseModel):
+    id: int
+    survey_id: int
+    expedition_id: int | None = None
+    obj_type: str
+    lon: float
+    lat: float
+    properties: dict[str, Any] = Field(default_factory=dict)
+    status: str

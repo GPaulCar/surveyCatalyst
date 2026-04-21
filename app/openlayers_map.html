@@ -83,6 +83,17 @@
       </div>
 
       <div class="section">
+        <h3>Survey actions</h3>
+        <label for="objectTypeInput"><strong>New object type</strong></label>
+        <input id="objectTypeInput" type="text" value="find_spot" />
+        <div class="hint">Use "Arm add point" then click on the map to create a survey object in the active survey.</div>
+        <button id="armAddPointBtn">Arm add point</button>
+        <button id="reloadAfterActionBtn">Reload active survey</button>
+        <button id="archiveSelectedBtn">Archive selected object</button>
+        <div id="actionStatus" class="hint">No pending action.</div>
+      </div>
+
+      <div class="section">
         <h3>Selected feature</h3>
         <pre id="featureInfo">Click a feature on the map.</pre>
       </div>
@@ -112,6 +123,7 @@
     const contextLayerStore = new Map();
     let selectedFeature = null;
     let activeSurveyId = null;
+    let addPointArmed = false;
 
     const popupElement = document.getElementById('popup');
     const popupContent = document.getElementById('popup-content');
@@ -183,6 +195,43 @@
       if (!response.ok) {
         const text = await response.text();
         throw new Error(text || response.statusText);
+      }
+      return response.json();
+    }
+
+
+    function setActionStatus(message) {
+      document.getElementById('actionStatus').textContent = message;
+    }
+
+    async function createSurveyPointObject(surveyId, coordinate3857) {
+      const lonLat = ol.proj.transform(coordinate3857, 'EPSG:3857', 'EPSG:4326');
+      const objType = document.getElementById('objectTypeInput').value.trim() || 'find_spot';
+      const payload = {
+        obj_type: objType,
+        lon: lonLat[0],
+        lat: lonLat[1],
+        properties: { created_from: 'openlayers_map' }
+      };
+      const response = await fetch(`/api/surveys/${surveyId}/objects`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (!response.ok) {
+        throw new Error(await response.text() || response.statusText);
+      }
+      return response.json();
+    }
+
+    async function archiveSelectedObject() {
+      if (!selectedFeature || selectedFeature.get('feature_role') !== 'survey_object') {
+        throw new Error('Select a survey object first.');
+      }
+      const objectId = selectedFeature.get('id');
+      const response = await fetch(`/api/survey-objects/${objectId}`, { method: 'DELETE' });
+      if (!response.ok) {
+        throw new Error(await response.text() || response.statusText);
       }
       return response.json();
     }
@@ -462,7 +511,25 @@
       return `<strong>${objectType}</strong><br>Object ID: ${objectId}<br>Survey ID: ${surveyId}<br>Expedition ID: ${expeditionId}`;
     }
 
-    map.on('singleclick', function (event) {
+    map.on('singleclick', async function (event) {
+      if (addPointArmed) {
+        if (activeSurveyId === null) {
+          setActionStatus('No active survey selected.');
+          addPointArmed = false;
+          return;
+        }
+        try {
+          const created = await createSurveyPointObject(activeSurveyId, event.coordinate);
+          setActionStatus(`Created ${created.obj_type} object ${created.id} on survey ${created.survey_id}.`);
+          addPointArmed = false;
+          await loadActiveSurveyOnly();
+        } catch (error) {
+          setActionStatus(`Error: ${error.message}`);
+          addPointArmed = false;
+        }
+        return;
+      }
+
       let found = null;
       map.forEachFeatureAtPixel(event.pixel, function (feature, layer) {
         if (layer && layer.get && layer.get('survey_role')) {
@@ -555,6 +622,38 @@
     document.getElementById('focusSurvey').addEventListener('change', (event) => {
       const value = event.target.value;
       setActiveSurvey(value || null, { syncCheckboxes: false });
+    });
+
+
+    document.getElementById('armAddPointBtn').addEventListener('click', () => {
+      if (activeSurveyId === null) {
+        setActionStatus('Select or activate a survey first.');
+        addPointArmed = false;
+        return;
+      }
+      addPointArmed = true;
+      setActionStatus(`Add-point mode armed for survey ${activeSurveyId}. Click the map to create an object.`);
+    });
+
+    document.getElementById('reloadAfterActionBtn').addEventListener('click', async () => {
+      try {
+        await loadActiveSurveyOnly();
+        setActionStatus('Reloaded active survey.');
+      } catch (error) {
+        setActionStatus(`Error: ${error.message}`);
+      }
+    });
+
+    document.getElementById('archiveSelectedBtn').addEventListener('click', async () => {
+      try {
+        const result = await archiveSelectedObject();
+        setActionStatus(`Archived survey object ${result.id} from survey ${result.survey_id}.`);
+        popupOverlay.setPosition(undefined);
+        selectedFeature = null;
+        await loadActiveSurveyOnly();
+      } catch (error) {
+        setActionStatus(`Error: ${error.message}`);
+      }
     });
 
     Promise.all([loadSurveyList(), loadContextLayerList()]).then(() => {
