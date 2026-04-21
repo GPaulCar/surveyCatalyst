@@ -6,32 +6,286 @@
   <title>surveyCatalyst OpenLayers Client</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@v9.2.4/ol.css">
   <style>
-    html, body { margin: 0; height: 100%; font-family: Arial, sans-serif; }
-    #layout { display: grid; grid-template-columns: 320px 1fr 420px; height: 100%; }
-    #leftPanel, #rightPanel { overflow: auto; padding: 12px; box-sizing: border-box; background: #f5f5f5; border-right: 1px solid #ddd; }
-    #rightPanel { border-right: 0; border-left: 1px solid #ddd; }
-    #map { width: 100%; height: 100%; }
-    h2, h3 { margin: 8px 0; }
-    .section { margin-bottom: 14px; padding-bottom: 10px; border-bottom: 1px solid #ddd; }
-    label { display: block; margin: 6px 0 2px; font-size: 13px; }
-    input, select, textarea, button { width: 100%; box-sizing: border-box; margin-bottom: 6px; padding: 6px; }
-    textarea { min-height: 70px; resize: vertical; }
-    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-    .row3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
-    .small { font-size: 12px; color: #555; }
-    .tabs { display: flex; gap: 6px; margin-bottom: 8px; }
-    .tabButton { flex: 1; padding: 8px; border: 1px solid #bbb; background: #fff; cursor: pointer; }
-    .tabButton.active { background: #dcecff; }
-    .tabPanel { display: none; height: calc(100% - 46px); overflow: auto; }
+    :root {
+      --bg: #f3f6fb;
+      --panel: #ffffff;
+      --panel-soft: #f8fafc;
+      --border: #d8e1ee;
+      --border-strong: #c5d2e3;
+      --text: #18212f;
+      --muted: #607086;
+      --primary: #2563eb;
+      --primary-soft: #e8f0ff;
+      --accent: #0f766e;
+      --danger: #dc2626;
+      --warning: #d97706;
+      --shadow: 0 10px 28px rgba(15, 23, 42, 0.08);
+      --radius: 16px;
+    }
+    html, body {
+      margin: 0;
+      height: 100%;
+      font-family: Inter, "Segoe UI", Roboto, Arial, sans-serif;
+      background: linear-gradient(180deg, #edf3fb 0%, #f7f9fc 100%);
+      color: var(--text);
+    }
+    #layout {
+      display: grid;
+      grid-template-columns: 360px 1fr 460px;
+      height: 100%;
+      gap: 14px;
+      padding: 14px;
+      box-sizing: border-box;
+    }
+    #leftPanel, #rightPanel {
+      overflow: auto;
+      padding: 18px;
+      box-sizing: border-box;
+      background: rgba(255, 255, 255, 0.92);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(10px);
+    }
+    #map {
+      width: 100%;
+      height: 100%;
+      border-radius: 22px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow);
+      background: #dfe8f3;
+    }
+    h2, h3 {
+      margin: 0 0 10px;
+      color: #0f172a;
+      letter-spacing: 0.01em;
+    }
+    h2 { font-size: 1.18rem; }
+    h3 { font-size: 0.98rem; }
+    .section {
+      margin-bottom: 16px;
+      padding: 16px;
+      background: var(--panel-soft);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+    }
+    label {
+      display: block;
+      margin: 10px 0 6px;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--muted);
+      font-weight: 700;
+    }
+    input, select, textarea, button {
+      width: 100%;
+      box-sizing: border-box;
+      margin-bottom: 8px;
+      padding: 10px 12px;
+      border-radius: 12px;
+      border: 1px solid var(--border-strong);
+      font-size: 14px;
+      color: var(--text);
+    }
+    input, select, textarea {
+      background: #fff;
+      box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.03);
+    }
+    input:focus, select:focus, textarea:focus {
+      outline: none;
+      border-color: rgba(37, 99, 235, 0.6);
+      box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.12);
+    }
+    button {
+      border: 1px solid rgba(37, 99, 235, 0.18);
+      background: linear-gradient(180deg, #ffffff 0%, #eef4ff 100%);
+      color: #0f2c6f;
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform .12s ease, box-shadow .12s ease, border-color .12s ease;
+      box-shadow: 0 6px 14px rgba(37, 99, 235, 0.08);
+    }
+    button:hover {
+      transform: translateY(-1px);
+      border-color: rgba(37, 99, 235, 0.35);
+      box-shadow: 0 10px 18px rgba(37, 99, 235, 0.12);
+    }
+    button:active { transform: translateY(0); }
+    textarea { min-height: 86px; resize: vertical; }
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .row3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+    .small { font-size: 12px; color: var(--muted); line-height: 1.45; }
+    .tabs {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 12px;
+      position: sticky;
+      top: 0;
+      background: linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(255,255,255,0.86) 100%);
+      padding-bottom: 10px;
+      z-index: 5;
+      backdrop-filter: blur(8px);
+    }
+    .tabButton {
+      flex: 1;
+      padding: 11px 12px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: #fff;
+      color: var(--muted);
+      cursor: pointer;
+      font-weight: 700;
+      box-shadow: none;
+    }
+    .tabButton.active {
+      background: linear-gradient(180deg, #eff5ff 0%, #dbe9ff 100%);
+      color: #0f2c6f;
+      border-color: rgba(37, 99, 235, 0.25);
+    }
+    .tabPanel { display: none; min-height: calc(100% - 58px); }
     .tabPanel.active { display: block; }
-    .hierarchyList { max-height: calc(100vh - 130px); overflow-y: auto; border: 1px solid #ccc; background: #fff; }
-    .hierarchyRow { padding: 8px; border-bottom: 1px solid #eee; cursor: pointer; }
-    .hierarchyRow:hover { background: #f0f7ff; }
-    .hierarchyRow.selected { background: #dcecff; }
-    .hierarchyRow.survey { font-weight: bold; }
-    .badge { display: inline-block; padding: 2px 6px; background: #eee; border-radius: 999px; font-size: 11px; margin-left: 6px; }
-    #statusBox { min-height: 24px; padding: 8px; background: #fff; border: 1px solid #ccc; }
-    #detailsBox { white-space: pre-wrap; background: #fff; border: 1px solid #ccc; padding: 8px; min-height: 240px; }
+    .tableCard, .detailCard {
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 8px 20px rgba(15, 23, 42, 0.05);
+    }
+    .tableScroll {
+      max-height: calc(100vh - 180px);
+      overflow: auto;
+    }
+    .dataTable {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+      background: #fff;
+    }
+    .dataTable th, .dataTable td {
+      padding: 10px 12px;
+      border-bottom: 1px solid #e8eef6;
+      vertical-align: top;
+      text-align: left;
+    }
+    .dataTable th {
+      position: sticky;
+      top: 0;
+      background: #f8fbff;
+      color: #40536d;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      font-size: 11px;
+      z-index: 1;
+    }
+    .dataTable tbody tr:hover { background: #f8fbff; }
+    .dataTable tbody tr.selected { background: #eaf2ff; }
+    .dataTable tbody tr.surveyRow { background: #f6f9fe; font-weight: 700; }
+    .tableAction { cursor: pointer; }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 700;
+      background: #edf3ff;
+      color: #284b8f;
+      border: 1px solid #d7e4ff;
+      white-space: nowrap;
+    }
+    .badge.object { background: #fff4e8; color: #9a4b00; border-color: #ffe2c0; }
+    .badge.archived { background: #fff1f2; color: #b42318; border-color: #ffd0d5; }
+    .summaryPill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: var(--primary-soft);
+      color: #17408b;
+      font-size: 12px;
+      font-weight: 700;
+      border: 1px solid #d7e4ff;
+    }
+    #statusBox {
+      min-height: 44px;
+      padding: 12px 14px;
+      background: #f8fbff;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      color: #23406f;
+      line-height: 1.45;
+    }
+    #statusBox.error {
+      background: #fff3f2;
+      border-color: #fecaca;
+      color: #b42318;
+    }
+    #statusBox.success {
+      background: #ecfdf3;
+      border-color: #bbf7d0;
+      color: #166534;
+    }
+    #detailsBox {
+      min-height: 300px;
+      padding: 0;
+      overflow: hidden;
+    }
+    .detailSectionTitle {
+      margin: 0;
+      padding: 14px 16px 0;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--muted);
+    }
+    .detailMeta {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      padding: 16px;
+      border-bottom: 1px solid #e8eef6;
+      background: #fbfdff;
+    }
+    .detailHero {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 16px;
+      border-bottom: 1px solid #e8eef6;
+    }
+    .detailHero h3 { margin: 0; font-size: 18px; }
+    .detailSubtle { color: var(--muted); font-size: 13px; }
+    .mutedEmpty {
+      padding: 24px 18px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+    .keyValueTable td:first-child {
+      width: 34%;
+      color: var(--muted);
+      font-weight: 700;
+      background: #fbfdff;
+    }
+    .mono { font-family: "SFMono-Regular", Consolas, monospace; }
+    .chipRow {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      padding: 0 16px 16px;
+    }
+    .sectionHeaderRow {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 10px;
+    }
+    .listCount { color: var(--muted); font-size: 12px; font-weight: 700; }
   </style>
 </head>
 <body>
@@ -50,7 +304,7 @@
         <button id="zoomActiveBtn">Zoom active</button>
         <button id="reloadHierarchyBtn">Refresh hierarchy</button>
       </div>
-      <div class="small" id="activeSurveySummary">No active survey</div>
+      <div class="summaryPill" id="activeSurveySummary">No active survey</div>
     </div>
 
     <div class="section">
@@ -119,11 +373,11 @@
     </div>
 
     <div id="hierarchyTab" class="tabPanel active">
-      <div class="hierarchyList" id="hierarchyList"></div>
+      <div class="tableCard tableScroll"><table class="dataTable hierarchyTable"><thead><tr><th>Kind</th><th>ID</th><th>Title</th><th>Type / Status</th><th>Notes</th></tr></thead><tbody id="hierarchyList"></tbody></table></div>
     </div>
 
     <div id="detailsTab" class="tabPanel">
-      <div id="detailsBox">Nothing selected</div>
+      <div id="detailsBox" class="detailCard"><div class="mutedEmpty">Nothing selected</div></div>
     </div>
 
     <div id="editorTab" class="tabPanel">
@@ -208,8 +462,12 @@ let activeSurveyId = null;
 let loadedSurveys = {};
 let selectedDescriptor = null;
 
-function setStatus(msg) {
-  document.getElementById('statusBox').textContent = msg;
+function setStatus(msg, level='info') {
+  const box = document.getElementById('statusBox');
+  box.className = '';
+  if (level === 'error') box.classList.add('error');
+  if (level === 'success') box.classList.add('success');
+  box.textContent = msg;
 }
 
 function setActiveSurveySummary() {
@@ -224,6 +482,30 @@ function safeJsonParse(text, fallback={}) {
   } catch {
     return fallback;
   }
+}
+
+function formatCellValue(value) {
+  if (value === null || value === undefined || value === '') return '<span class="detailSubtle">—</span>';
+  if (typeof value === 'object') return `<span class="mono">${escapeHtml(JSON.stringify(value))}</span>`;
+  if (typeof value === 'boolean') return value ? 'Yes' : 'No';
+  return escapeHtml(String(value));
+}
+
+function buildKeyValueRows(record, orderedKeys=null) {
+  const keys = orderedKeys || Object.keys(record || {});
+  return keys
+    .filter(key => record && Object.prototype.hasOwnProperty.call(record, key))
+    .map(key => `<tr><td>${escapeHtml(key)}</td><td>${formatCellValue(record[key])}</td></tr>`)
+    .join('');
+}
+
+function propertiesToRows(properties) {
+  const props = properties && typeof properties === 'object' ? properties : {};
+  const keys = Object.keys(props);
+  if (!keys.length) {
+    return '<tr><td>properties</td><td><span class="detailSubtle">No extra properties</span></td></tr>';
+  }
+  return keys.map(key => `<tr><td>${escapeHtml(key)}</td><td>${formatCellValue(props[key])}</td></tr>`).join('');
 }
 
 async function fetchJson(url, options) {
@@ -314,10 +596,58 @@ selectInteraction.on('select', evt => {
 function renderDetails(feature) {
   const box = document.getElementById('detailsBox');
   if (!feature) {
-    box.textContent = 'Nothing selected';
+    box.innerHTML = '<div class="mutedEmpty">Nothing selected</div>';
     return;
   }
-  box.textContent = JSON.stringify(feature.getProperties(), null, 2);
+  const props = feature.getProperties();
+  const role = props.feature_role || 'feature';
+  const title = props.title || (role === 'survey_boundary' ? `Survey ${props.survey_id}` : `Object ${props.id}`);
+  const subtitle = role === 'survey_boundary'
+    ? `Survey boundary for layer ${props.layer_key || ''}`
+    : `${props.type || 'object'} on survey ${props.survey_id}`;
+
+  const primaryRows = role === 'survey_boundary'
+    ? buildKeyValueRows({
+        survey_id: props.survey_id,
+        expedition_id: props.expedition_id,
+        title: props.title,
+        status: props.status,
+        layer_key: props.layer_key,
+        object_count: props.object_count,
+        feature_role: props.feature_role
+      })
+    : buildKeyValueRows({
+        id: props.id,
+        survey_id: props.survey_id,
+        expedition_id: props.expedition_id,
+        title: props.title,
+        type: props.type,
+        annotation: props.annotation,
+        details: props.details,
+        is_active: props.is_active,
+        layer_key: props.layer_key,
+        feature_role: props.feature_role
+      });
+
+  const metaBadges = [
+    `<span class="badge ${role === 'survey_boundary' ? '' : 'object'}">${escapeHtml(role.replace('_', ' '))}</span>`
+  ];
+  if (props.status) metaBadges.push(`<span class="badge">${escapeHtml(String(props.status))}</span>`);
+  if (props.is_active === false) metaBadges.push('<span class="badge archived">archived</span>');
+
+  box.innerHTML = `
+    <div class="detailHero">
+      <div>
+        <h3>${escapeHtml(title)}</h3>
+        <div class="detailSubtle">${escapeHtml(subtitle)}</div>
+      </div>
+      <div class="chipRow">${metaBadges.join('')}</div>
+    </div>
+    <div class="detailSectionTitle">Core details</div>
+    <table class="dataTable keyValueTable"><tbody>${primaryRows}</tbody></table>
+    <div class="detailSectionTitle">Extra properties</div>
+    <table class="dataTable keyValueTable"><tbody>${propertiesToRows(props.properties)}</tbody></table>
+  `;
 }
 
 function renderEditor(feature) {
@@ -409,12 +739,12 @@ function findFeatureByDescriptor(descriptor) {
 }
 
 function highlightHierarchySelection() {
-  document.querySelectorAll('.hierarchyRow').forEach(row => row.classList.remove('selected'));
+  document.querySelectorAll('#hierarchyList tr[data-key]').forEach(row => row.classList.remove('selected'));
   if (!selectedDescriptor) return;
   const key = selectedDescriptor.kind === 'survey'
     ? `survey:${selectedDescriptor.surveyId}`
     : `object:${selectedDescriptor.objectId}`;
-  const row = document.querySelector(`.hierarchyRow[data-key="${key}"]`);
+  const row = document.querySelector(`#hierarchyList tr[data-key="${key}"]`);
   if (row) row.classList.add('selected');
 }
 
@@ -423,14 +753,16 @@ function renderHierarchy() {
   list.innerHTML = '';
   Object.values(loadedSurveys).sort((a,b)=>a.hierarchy.survey.id-b.hierarchy.survey.id).forEach(state => {
     const survey = state.hierarchy.survey;
-    const surveyRow = document.createElement('div');
-    surveyRow.className = 'hierarchyRow survey';
+    const surveyRow = document.createElement('tr');
+    surveyRow.className = 'tableAction surveyRow';
     surveyRow.dataset.key = `survey:${survey.id}`;
-    surveyRow.textContent = `${survey.id} — ${survey.title}`;
-    const badge = document.createElement('span');
-    badge.className = 'badge';
-    badge.textContent = `${state.hierarchy.objects.length} objects`;
-    surveyRow.appendChild(badge);
+    surveyRow.innerHTML = `
+      <td><span class="badge">survey</span></td>
+      <td>${escapeHtml(survey.id)}</td>
+      <td>${escapeHtml(survey.title || `Survey ${survey.id}`)}</td>
+      <td>${escapeHtml(survey.status || '')}</td>
+      <td>${escapeHtml(String(state.hierarchy.objects.length))} objects</td>
+    `;
     surveyRow.onclick = () => {
       activeSurveyId = survey.id;
       document.getElementById('surveySelect').value = String(survey.id);
@@ -442,11 +774,16 @@ function renderHierarchy() {
     list.appendChild(surveyRow);
 
     state.hierarchy.objects.forEach(obj => {
-      const row = document.createElement('div');
-      row.className = 'hierarchyRow';
-      row.style.paddingLeft = '22px';
+      const row = document.createElement('tr');
+      row.className = 'tableAction';
       row.dataset.key = `object:${obj.id}`;
-      row.textContent = `${obj.id} — ${obj.title || obj.type}`;
+      row.innerHTML = `
+        <td><span class="badge object">object</span></td>
+        <td>${escapeHtml(obj.id)}</td>
+        <td>${escapeHtml(obj.title || obj.type || '')}</td>
+        <td>${escapeHtml(obj.type || '')}</td>
+        <td>${obj.is_active === false ? '<span class="badge archived">archived</span>' : escapeHtml(obj.annotation || obj.details || '')}</td>
+      `;
       row.onclick = () => {
         activeSurveyId = obj.survey_id;
         document.getElementById('surveySelect').value = String(obj.survey_id);
@@ -458,6 +795,9 @@ function renderHierarchy() {
       list.appendChild(row);
     });
   });
+  if (!list.children.length) {
+    list.innerHTML = '<tr><td colspan="5" class="mutedEmpty">No loaded survey hierarchy yet.</td></tr>';
+  }
   highlightHierarchySelection();
 }
 
@@ -507,11 +847,11 @@ function armDraw(kind) {
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify(payload)
       });
-      setStatus(`Created ${kind} object on survey ${activeSurveyId}.`);
+      setStatus(`Created ${kind} object on survey ${activeSurveyId}.`, 'success');
       clearDrawInteraction();
       await loadSurvey(activeSurveyId, false);
     } catch (error) {
-      setStatus(`Create object failed: ${error.message}`);
+      setStatus(`Create object failed: ${error.message}`, 'error');
     }
   });
   map.addInteraction(drawInteraction);
@@ -537,13 +877,13 @@ function armCreateSurveyPolygon() {
         body: JSON.stringify(payload)
       });
       activeSurveyId = created.survey_id;
-      setStatus(`Created survey ${created.survey_id}.`);
+      setStatus(`Created survey ${created.survey_id}.`, 'success');
       clearDrawInteraction();
       await refreshSurveyList();
       document.getElementById('surveySelect').value = String(activeSurveyId);
       await loadSurvey(activeSurveyId, true);
     } catch (error) {
-      setStatus(`Create survey failed: ${error.message}`);
+      setStatus(`Create survey failed: ${error.message}`, 'error');
     }
   });
   map.addInteraction(drawInteraction);
@@ -563,7 +903,7 @@ async function saveSelectedGeometry() {
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({geometry: featureToGeoJSONGeometry(feature)})
       });
-      setStatus(`Saved boundary geometry for survey ${feature.get('survey_id')}.`);
+      setStatus(`Saved boundary geometry for survey ${feature.get('survey_id')}.`, 'success');
       await loadSurvey(Number(feature.get('survey_id')), false);
     } else {
       await fetchJson(`/api/survey-objects/${feature.get('id')}`, {
@@ -571,11 +911,11 @@ async function saveSelectedGeometry() {
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({geometry: featureToGeoJSONGeometry(feature)})
       });
-      setStatus(`Saved geometry for object ${feature.get('id')}.`);
+      setStatus(`Saved geometry for object ${feature.get('id')}.`, 'success');
       await loadSurvey(Number(feature.get('survey_id')), false);
     }
   } catch (error) {
-    setStatus(`Save geometry failed: ${error.message}`);
+    setStatus(`Save geometry failed: ${error.message}`, 'error');
   }
 }
 
@@ -600,7 +940,7 @@ async function saveSelectedDetails() {
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({title, status, metadata})
       });
-      setStatus(`Saved survey ${selectedDescriptor.surveyId}.`);
+      setStatus(`Saved survey ${selectedDescriptor.surveyId}.`, 'success');
       await refreshSurveyList();
       await loadSurvey(selectedDescriptor.surveyId, false);
     } else {
@@ -609,11 +949,11 @@ async function saveSelectedDetails() {
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({title, annotation, details, type, properties})
       });
-      setStatus(`Saved object ${selectedDescriptor.objectId}.`);
+      setStatus(`Saved object ${selectedDescriptor.objectId}.`, 'success');
       await loadSurvey(selectedDescriptor.surveyId, false);
     }
   } catch (error) {
-    setStatus(`Save details failed: ${error.message}`);
+    setStatus(`Save details failed: ${error.message}`, 'error');
   }
 }
 
@@ -625,12 +965,12 @@ async function deleteSelectedObject() {
   if (!window.confirm(`Delete object ${selectedDescriptor.objectId}?`)) return;
   try {
     await fetchJson(`/api/survey-objects/${selectedDescriptor.objectId}`, {method: 'DELETE'});
-    setStatus(`Deleted object ${selectedDescriptor.objectId}.`);
+    setStatus(`Deleted object ${selectedDescriptor.objectId}.`, 'success');
     selectInteraction.getFeatures().clear();
     selectedDescriptor = null;
     await loadSurvey(selectedDescriptor?.surveyId || activeSurveyId, false);
   } catch (error) {
-    setStatus(`Delete object failed: ${error.message}`);
+    setStatus(`Delete object failed: ${error.message}`, 'error');
   }
 }
 
@@ -652,9 +992,9 @@ async function deleteActiveSurvey() {
     renderDetails(null);
     renderEditor(null);
     await refreshSurveyList();
-    setStatus(`Deleted survey ${old}.`);
+    setStatus(`Deleted survey ${old}.`, 'success');
   } catch (error) {
-    setStatus(`Delete survey failed: ${error.message}`);
+    setStatus(`Delete survey failed: ${error.message}`, 'error');
   }
 }
 
@@ -733,9 +1073,9 @@ async function downloadLayerExport() {
     });
     const payload = await fetchJson(`/api/surveys/${activeSurveyId}/export/layer.geojson?${query}`);
     downloadText(`survey_${activeSurveyId}_layer.geojson`, JSON.stringify(payload, null, 2), 'application/geo+json');
-    setStatus(`Downloaded layer export for survey ${activeSurveyId}.`);
+    setStatus(`Downloaded layer export for survey ${activeSurveyId}.`, 'success');
   } catch (error) {
-    setStatus(`Layer export failed: ${error.message}`);
+    setStatus(`Layer export failed: ${error.message}`, 'error');
   }
 }
 
@@ -752,9 +1092,9 @@ async function downloadDataExport() {
     });
     const payload = await fetchJson(`/api/surveys/${activeSurveyId}/export/data.json?${query}`);
     downloadText(`survey_${activeSurveyId}_data.json`, JSON.stringify(payload, null, 2), 'application/json');
-    setStatus(`Downloaded data export for survey ${activeSurveyId}.`);
+    setStatus(`Downloaded data export for survey ${activeSurveyId}.`, 'success');
   } catch (error) {
-    setStatus(`Data export failed: ${error.message}`);
+    setStatus(`Data export failed: ${error.message}`, 'error');
   }
 }
 
@@ -785,9 +1125,9 @@ async function downloadDocumentExport() {
     const mapImage = opts.include_document_map ? getCurrentMapImageDataUrl() : null;
     const html = buildPrintableDocumentHtml(payload, mapImage, opts.include_document_details);
     downloadText(`survey_${activeSurveyId}_document.html`, html, 'text/html');
-    setStatus(`Downloaded printable document for survey ${activeSurveyId}.`);
+    setStatus(`Downloaded printable document for survey ${activeSurveyId}.`, 'success');
   } catch (error) {
-    setStatus(`Document export failed: ${error.message}`);
+    setStatus(`Document export failed: ${error.message}`, 'error');
   }
 }
 
@@ -803,12 +1143,12 @@ function bindTabs() {
 }
 
 document.getElementById('refreshSurveysBtn').onclick = async () => {
-  try { await refreshSurveyList(); setStatus('Survey list refreshed.'); } catch (error) { setStatus(error.message); }
+  try { await refreshSurveyList(); setStatus('Survey list refreshed.', 'success'); } catch (error) { setStatus(error.message, 'error'); }
 };
 document.getElementById('loadSurveyBtn').onclick = async () => {
   const surveyId = Number(document.getElementById('surveySelect').value);
   if (!surveyId) return;
-  try { await loadSurvey(surveyId, true); setStatus(`Loaded survey ${surveyId}.`); } catch (error) { setStatus(error.message); }
+  try { await loadSurvey(surveyId, true); setStatus(`Loaded survey ${surveyId}.`, 'success'); } catch (error) { setStatus(error.message, 'error'); }
 };
 document.getElementById('showActiveOnlyBtn').onclick = showActiveOnly;
 document.getElementById('zoomActiveBtn').onclick = zoomActiveSurvey;
@@ -831,7 +1171,7 @@ document.getElementById('surveySelect').onchange = () => {
 };
 
 bindTabs();
-refreshSurveyList().then(() => setStatus('Ready.')).catch(error => setStatus(error.message));
+refreshSurveyList().then(() => setStatus('Ready.', 'success')).catch(error => setStatus(error.message, 'error'));
 </script>
 </body>
 </html>
