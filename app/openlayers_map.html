@@ -478,7 +478,17 @@
       box-shadow: none;
     }
 
-  </style>
+  
+    .formHint { color: #6b7280; font-size: 12px; margin-top: 6px; }
+    .subsectionTitle { margin: 14px 0 8px; font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: #64748b; font-weight: 700; }
+    .typedFieldGrid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 10px 12px; margin: 8px 0 12px; }
+    .typedFieldGrid .fieldBlock { display: flex; flex-direction: column; gap: 6px; }
+    .typedFieldGrid .fieldBlock.full { grid-column: 1 / -1; }
+    .typedFieldGrid input, .typedFieldGrid select, .typedFieldGrid textarea { width: 100%; }
+    .editorSplit { display: grid; grid-template-columns: 1fr; gap: 14px; }
+    .advancedToggle { display: inline-flex; align-items: center; gap: 8px; font-size: 12px; color: #64748b; margin-top: 8px; }
+
+</style>
 </head>
 <body>
 <div id="layout">
@@ -516,11 +526,14 @@
       <h3>Create Object</h3>
       <label for="objectType">Object type</label>
       <select id="objectType">
-        <option value="find_spot">find_spot</option>
-        <option value="track">track</option>
-        <option value="area">area</option>
-        <option value="note">note</option>
+        <option value="find">Find</option>
+        <option value="note">Note</option>
+        <option value="track">Track</option>
+        <option value="area">Area</option>
+        <option value="anomaly">Anomaly</option>
+        <option value="reference_point">Reference point</option>
       </select>
+      <div id="objectTypeHint" class="formHint">Structured fields update with the selected object type.</div>
       <label for="objectExpeditionId">Expedition ID</label>
       <input id="objectExpeditionId" type="number" value="1">
       <label for="objectTitle">Title</label>
@@ -529,8 +542,13 @@
       <textarea id="objectAnnotation"></textarea>
       <label for="objectDetails">Details</label>
       <textarea id="objectDetails"></textarea>
-      <label for="objectProperties">Properties (JSON)</label>
-      <textarea id="objectProperties">{}</textarea>
+      <div class="subsectionTitle">Typed fields</div>
+      <div id="objectTypedFields" class="typedFieldGrid"></div>
+      <label class="advancedToggle"><input id="objectPropertiesToggle" type="checkbox"> Show advanced JSON properties</label>
+      <div id="objectPropertiesWrap" style="display:none;">
+        <label for="objectProperties">Advanced properties (JSON)</label>
+        <textarea id="objectProperties">{}</textarea>
+      </div>
       <div class="row3">
         <button id="armPointBtn">Add point</button>
         <button id="armLineBtn">Add line</button>
@@ -589,18 +607,35 @@
     </div>
 
     <div id="editorTab" class="tabPanel">
-      <label for="editorTitle">Title</label>
-      <input id="editorTitle" type="text">
-      <label for="editorType">Type</label>
-      <input id="editorType" type="text">
-      <label for="editorStatus">Status</label>
-      <input id="editorStatus" type="text">
-      <label for="editorAnnotation">Annotation</label>
-      <textarea id="editorAnnotation"></textarea>
-      <label for="editorDetails">Details</label>
-      <textarea id="editorDetails"></textarea>
-      <label for="editorProperties">Properties (JSON)</label>
-      <textarea id="editorProperties">{}</textarea>
+      <div class="editorSplit">
+        <div>
+          <div id="editorContextBadge" class="selectionPill">No selection</div>
+          <label for="editorTitle" id="editorTitleLabel">Title</label>
+          <input id="editorTitle" type="text">
+          <div id="editorTypeRow">
+            <label for="editorType" id="editorTypeLabel">Object type</label>
+            <select id="editorType"></select>
+          </div>
+          <label for="editorStatus" id="editorStatusLabel">Status</label>
+          <input id="editorStatus" type="text">
+          <label for="editorAnnotation">Annotation</label>
+          <textarea id="editorAnnotation"></textarea>
+          <label for="editorDetails">Details</label>
+          <textarea id="editorDetails"></textarea>
+        </div>
+        <div>
+          <div id="editorTypedSection">
+            <div class="subsectionTitle">Typed fields</div>
+            <div id="editorTypeHint" class="formHint">Structured fields update with the selected object type.</div>
+            <div id="editorTypedFields" class="typedFieldGrid"></div>
+          </div>
+          <label class="advancedToggle"><input id="editorPropertiesToggle" type="checkbox"> Show advanced JSON properties</label>
+          <div id="editorPropertiesWrap" style="display:none;">
+            <label for="editorProperties" id="editorPropertiesLabel">Advanced properties (JSON)</label>
+            <textarea id="editorProperties">{}</textarea>
+          </div>
+        </div>
+      </div>
       <div class="small">Edit fields here, then use the action buttons on the left to save geometry or details.</div>
     </div>
 
@@ -956,16 +991,191 @@ function renderDetails(feature) {
   `;
 }
 
+
+const OBJECT_TYPE_SCHEMAS = {
+  find: {
+    label: 'Find',
+    hint: 'For recorded finds or probable finds.',
+    fields: [
+      {key: 'material', label: 'Material'},
+      {key: 'period', label: 'Period'},
+      {key: 'depth_cm', label: 'Depth (cm)', type: 'number'},
+      {key: 'confidence', label: 'Confidence', type: 'select', options: ['low','medium','high']},
+      {key: 'find_ref', label: 'Find reference'},
+      {key: 'condition', label: 'Condition'}
+    ]
+  },
+  note: {
+    label: 'Note',
+    hint: 'For observations, comments, and interpretation notes.',
+    fields: [
+      {key: 'category', label: 'Category'},
+      {key: 'priority', label: 'Priority', type: 'select', options: ['low','normal','high']},
+      {key: 'observer', label: 'Observer'},
+      {key: 'note_text', label: 'Note text', type: 'textarea', full: true}
+    ]
+  },
+  track: {
+    label: 'Track',
+    hint: 'For route traces, paths, and movement records.',
+    fields: [
+      {key: 'interpretation', label: 'Interpretation'},
+      {key: 'surface', label: 'Surface'},
+      {key: 'condition', label: 'Condition'},
+      {key: 'confidence', label: 'Confidence', type: 'select', options: ['low','medium','high']}
+    ]
+  },
+  area: {
+    label: 'Area',
+    hint: 'For zones, extents, and polygons of interest.',
+    fields: [
+      {key: 'area_type', label: 'Area type'},
+      {key: 'interpretation', label: 'Interpretation'},
+      {key: 'priority', label: 'Priority', type: 'select', options: ['low','normal','high']},
+      {key: 'notes', label: 'Area notes', type: 'textarea', full: true}
+    ]
+  },
+  anomaly: {
+    label: 'Anomaly',
+    hint: 'For anomalous signals or observations requiring follow-up.',
+    fields: [
+      {key: 'signal_type', label: 'Signal type'},
+      {key: 'strength', label: 'Strength'},
+      {key: 'interpretation', label: 'Interpretation'},
+      {key: 'confidence', label: 'Confidence', type: 'select', options: ['low','medium','high']}
+    ]
+  },
+  reference_point: {
+    label: 'Reference point',
+    hint: 'For fixed control points, markers, or anchors.',
+    fields: [
+      {key: 'reference_code', label: 'Reference code'},
+      {key: 'marker_type', label: 'Marker type'},
+      {key: 'accuracy_m', label: 'Accuracy (m)', type: 'number'},
+      {key: 'notes', label: 'Reference notes', type: 'textarea', full: true}
+    ]
+  }
+};
+
+function getTypeSchema(type) {
+  return OBJECT_TYPE_SCHEMAS[type] || OBJECT_TYPE_SCHEMAS.find;
+}
+
+function renderTypedFields(prefix, type, values={}) {
+  const schema = getTypeSchema(type);
+  const container = document.getElementById(`${prefix}TypedFields`);
+  if (!container) return;
+  container.innerHTML = '';
+  schema.fields.forEach(field => {
+    const wrap = document.createElement('div');
+    wrap.className = `fieldBlock${field.full ? ' full' : ''}`;
+    const label = document.createElement('label');
+    label.textContent = field.label;
+    label.htmlFor = `${prefix}Typed_${field.key}`;
+    wrap.appendChild(label);
+    let input;
+    if (field.type === 'textarea') {
+      input = document.createElement('textarea');
+    } else if (field.type === 'select') {
+      input = document.createElement('select');
+      (field.options || []).forEach(opt => {
+        const option = document.createElement('option');
+        option.value = opt;
+        option.textContent = opt.charAt(0).toUpperCase() + opt.slice(1);
+        input.appendChild(option);
+      });
+      const blank = document.createElement('option');
+      blank.value = '';
+      blank.textContent = '—';
+      input.insertBefore(blank, input.firstChild);
+    } else {
+      input = document.createElement('input');
+      input.type = field.type === 'number' ? 'number' : 'text';
+    }
+    input.id = `${prefix}Typed_${field.key}`;
+    input.dataset.typedKey = field.key;
+    input.dataset.typedPrefix = prefix;
+    input.value = values[field.key] ?? '';
+    wrap.appendChild(input);
+    container.appendChild(wrap);
+  });
+  const hintEl = document.getElementById(`${prefix}TypeHint`);
+  if (hintEl) hintEl.textContent = schema.hint;
+}
+
+function collectTypedProperties(prefix) {
+  const properties = {};
+  document.querySelectorAll(`[data-typed-prefix="${prefix}"]`).forEach(el => {
+    const key = el.dataset.typedKey;
+    let value = el.value;
+    if (value === '') return;
+    if (el.type === 'number') {
+      const n = Number(value);
+      value = Number.isFinite(n) ? n : value;
+    }
+    properties[key] = value;
+  });
+  return properties;
+}
+
+function setEditorMode(mode) {
+  const badge = document.getElementById('editorContextBadge');
+  const typeRow = document.getElementById('editorTypeRow');
+  const typedSection = document.getElementById('editorTypedSection');
+  const typeHint = document.getElementById('editorTypeHint');
+  const propertiesLabel = document.getElementById('editorPropertiesLabel');
+  const statusLabel = document.getElementById('editorStatusLabel');
+  if (mode === 'object') {
+    badge.textContent = 'Editing object';
+    typeRow.style.display = 'block';
+    typedSection.style.display = 'block';
+    typeHint.textContent = 'Structured fields update with the selected object type.';
+    propertiesLabel.textContent = 'Advanced properties (JSON)';
+    statusLabel.textContent = 'Status';
+  } else if (mode === 'survey') {
+    badge.textContent = 'Editing survey';
+    typeRow.style.display = 'none';
+    typedSection.style.display = 'none';
+    propertiesLabel.textContent = 'Metadata (JSON)';
+    statusLabel.textContent = 'Survey status';
+  } else {
+    badge.textContent = 'No selection';
+    typeRow.style.display = 'none';
+    typedSection.style.display = 'none';
+    propertiesLabel.textContent = 'Metadata / properties (JSON)';
+    statusLabel.textContent = 'Status';
+  }
+}
+
 function renderEditor(feature) {
   const props = feature ? feature.getProperties() : {};
+  const role = props.feature_role || '';
+  const isSurvey = role === 'survey_boundary';
   document.getElementById('editorTitle').value = props.title || '';
-  document.getElementById('editorType').value = props.type || '';
   document.getElementById('editorStatus').value = props.status || '';
   document.getElementById('editorAnnotation').value = props.annotation || '';
   document.getElementById('editorDetails').value = props.details || '';
   const editorProps = {...props};
   delete editorProps.geometry;
-  document.getElementById('editorProperties').value = JSON.stringify(editorProps.properties || {}, null, 2);
+  if (isSurvey) {
+    setEditorMode('survey');
+    const metadata = editorProps.metadata || editorProps.properties || {};
+    document.getElementById('editorProperties').value = JSON.stringify(metadata, null, 2);
+    document.getElementById('editorType').value = 'find';
+    document.getElementById('editorTypedFields').innerHTML = '';
+  } else if (feature) {
+    setEditorMode('object');
+    const safeType = sanitizeObjectType(props.type);
+    document.getElementById('editorType').value = safeType;
+    const typedValues = editorProps.properties || {};
+    document.getElementById('editorProperties').value = JSON.stringify(editorProps.properties || {}, null, 2);
+    renderTypedFields('editor', safeType, typedValues);
+  } else {
+    setEditorMode('none');
+    document.getElementById('editorType').value = 'find';
+    document.getElementById('editorProperties').value = '{}';
+    document.getElementById('editorTypedFields').innerHTML = '';
+  }
 }
 
 function buildFeatureFromGeoJSON(geojson) {
@@ -1144,12 +1354,12 @@ function armDraw(kind) {
       const geometry = featureToGeoJSONGeometry(evt.feature);
       const payload = {
         expedition_id: Number(document.getElementById('objectExpeditionId').value || 1),
-        type: document.getElementById('objectType').value,
+        type: sanitizeObjectType(document.getElementById('objectType').value),
         geometry,
         title: document.getElementById('objectTitle').value || null,
         annotation: document.getElementById('objectAnnotation').value || null,
         details: document.getElementById('objectDetails').value || null,
-        properties: safeJsonParse(document.getElementById('objectProperties').value, {})
+        properties: { ...safeJsonParse(document.getElementById('objectProperties').value, {}), ...collectTypedProperties('object') }
       };
       await fetchJson(`/api/surveys/${activeSurveyId}/objects`, {
         method: 'POST',
@@ -1242,9 +1452,9 @@ async function saveSelectedDetails() {
   const title = document.getElementById('editorTitle').value || null;
   const annotation = document.getElementById('editorAnnotation').value || null;
   const details = document.getElementById('editorDetails').value || null;
-  const type = document.getElementById('editorType').value || null;
+  const type = sanitizeObjectType(document.getElementById('editorType').value);
   const status = document.getElementById('editorStatus').value || null;
-  const properties = safeJsonParse(document.getElementById('editorProperties').value, {});
+  const properties = { ...safeJsonParse(document.getElementById('editorProperties').value, {}), ...collectTypedProperties('editor') };
   try {
     if (selectedDescriptor.kind === 'survey') {
       const metadata = {...properties};
@@ -1425,7 +1635,17 @@ function buildPrintableDocumentHtml(doc, mapImageDataUrl, includeDetails) {
     return `<tr><td>${escapeHtml(obj.id)}</td><td>${escapeHtml(obj.type || '')}</td><td>${escapeHtml(obj.title || '')}</td><td>${escapeHtml(obj.is_active ? 'active' : 'archived')}</td><td>${detailCell}</td></tr>`;
   }).join('');
   const mapSection = mapImageDataUrl ? `<h2>Map snapshot</h2><img src="${mapImageDataUrl}" style="max-width:100%; border:1px solid #ccc;">` : '';
-  return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Survey ${escapeHtml(survey.id)} export</title><style>body{font-family:Arial,sans-serif;margin:24px;line-height:1.4;} table{width:100%;border-collapse:collapse;} th,td{border:1px solid #ccc;padding:8px;vertical-align:top;} h1,h2{margin:16px 0 8px;} pre{white-space:pre-wrap;word-break:break-word;}</style></head><body><h1>Survey ${escapeHtml(survey.id)} — ${escapeHtml(survey.title || '')}</h1><p><strong>Status:</strong> ${escapeHtml(survey.status || '')}<br><strong>Layer key:</strong> ${escapeHtml(survey.layer_key || '')}<br><strong>Expedition:</strong> ${escapeHtml(survey.expedition_id || '')}</p><h2>Summary</h2><p><strong>Total objects:</strong> ${escapeHtml(doc.summary?.object_count || 0)}<br><strong>Active objects:</strong> ${escapeHtml(doc.summary?.active_count || 0)}<br><strong>Archived objects:</strong> ${escapeHtml(doc.summary?.archived_count || 0)}</p>${mapSection}<h2>Survey metadata</h2><pre>${escapeHtml(JSON.stringify(survey.metadata || {}, null, 2))}</pre><h2>Objects</h2><table><thead><tr><th>ID</th><th>Type</th><th>Title</th><th>Status</th><th>Details</th></tr></thead><tbody>${rows}</tbody></table></body></html>`;
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Survey ${escapeHtml(survey.id)} export</title><style>body{font-family:Arial,sans-serif;margin:24px;line-height:1.4;} table{width:100%;border-collapse:collapse;} th,td{border:1px solid #ccc;padding:8px;vertical-align:top;} h1,h2{margin:16px 0 8px;} pre{white-space:pre-wrap;word-break:break-word;}
+    .formHint { color: #6b7280; font-size: 12px; margin-top: 6px; }
+    .subsectionTitle { margin: 14px 0 8px; font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: #64748b; font-weight: 700; }
+    .typedFieldGrid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 10px 12px; margin: 8px 0 12px; }
+    .typedFieldGrid .fieldBlock { display: flex; flex-direction: column; gap: 6px; }
+    .typedFieldGrid .fieldBlock.full { grid-column: 1 / -1; }
+    .typedFieldGrid input, .typedFieldGrid select, .typedFieldGrid textarea { width: 100%; }
+    .editorSplit { display: grid; grid-template-columns: 1fr; gap: 14px; }
+    .advancedToggle { display: inline-flex; align-items: center; gap: 8px; font-size: 12px; color: #64748b; margin-top: 8px; }
+
+</style></head><body><h1>Survey ${escapeHtml(survey.id)} — ${escapeHtml(survey.title || '')}</h1><p><strong>Status:</strong> ${escapeHtml(survey.status || '')}<br><strong>Layer key:</strong> ${escapeHtml(survey.layer_key || '')}<br><strong>Expedition:</strong> ${escapeHtml(survey.expedition_id || '')}</p><h2>Summary</h2><p><strong>Total objects:</strong> ${escapeHtml(doc.summary?.object_count || 0)}<br><strong>Active objects:</strong> ${escapeHtml(doc.summary?.active_count || 0)}<br><strong>Archived objects:</strong> ${escapeHtml(doc.summary?.archived_count || 0)}</p>${mapSection}<h2>Survey metadata</h2><pre>${escapeHtml(JSON.stringify(survey.metadata || {}, null, 2))}</pre><h2>Objects</h2><table><thead><tr><th>ID</th><th>Type</th><th>Title</th><th>Status</th><th>Details</th></tr></thead><tbody>${rows}</tbody></table></body></html>`;
 }
 
 async function downloadDocumentExport() {
@@ -1501,6 +1721,10 @@ modifyInteraction.on('modifyend', () => {
   });
 });
 
+document.getElementById('objectType').onchange = () => { const safeType = sanitizeObjectType(document.getElementById('objectType').value); document.getElementById('objectType').value = safeType; renderTypedFields('object', safeType, {}); };
+document.getElementById('editorType').onchange = () => { const safeType = sanitizeObjectType(document.getElementById('editorType').value); document.getElementById('editorType').value = safeType; renderTypedFields('editor', safeType, safeJsonParse(document.getElementById('editorProperties').value, {})); if (selectedDescriptor) setDirtyState('details', true); };
+document.getElementById('objectPropertiesToggle').onchange = (e) => { document.getElementById('objectPropertiesWrap').style.display = e.target.checked ? 'block' : 'none'; };
+document.getElementById('editorPropertiesToggle').onchange = (e) => { document.getElementById('editorPropertiesWrap').style.display = e.target.checked ? 'block' : 'none'; if (selectedDescriptor) setDirtyState('details', true); };
 document.getElementById('reloadHierarchyBtn').onclick = refreshHierarchy;
 document.getElementById('armPointBtn').onclick = () => armDraw('Point');
 document.getElementById('armLineBtn').onclick = () => armDraw('LineString');
@@ -1520,6 +1744,16 @@ document.getElementById('surveySelect').onchange = () => {
   activeSurveyId = surveyId || null;
   setActiveSurveySummary();
 };
+
+document.addEventListener('input', (event) => {
+  if (event.target.matches('[data-typed-prefix="object"]')) return;
+  if (event.target.matches('[data-typed-prefix="editor"]') && selectedDescriptor) setDirtyState('details', true);
+});
+
+rebuildObjectTypeSelect('objectType', 'find');
+rebuildObjectTypeSelect('editorType', 'find');
+renderTypedFields('object', sanitizeObjectType(document.getElementById('objectType').value), {});
+renderTypedFields('editor', sanitizeObjectType(document.getElementById('editorType').value), {});
 
 bindTabs();
 refreshSurveyList().then(() => setStatus('Ready.', 'success')).catch(error => setStatus(error.message, 'error'));
