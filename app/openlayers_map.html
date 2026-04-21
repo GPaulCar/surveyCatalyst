@@ -1278,11 +1278,28 @@ async function refreshHierarchy() {
   renderHierarchy();
 }
 
+function disableDoubleClickZoom() {
+  map.getInteractions().forEach(interaction => {
+    if (interaction instanceof ol.interaction.DoubleClickZoom) {
+      interaction.setActive(false);
+    }
+  });
+}
+
+function enableDoubleClickZoom() {
+  map.getInteractions().forEach(interaction => {
+    if (interaction instanceof ol.interaction.DoubleClickZoom) {
+      interaction.setActive(true);
+    }
+  });
+}
+
 function clearDrawInteraction() {
   if (drawInteraction) {
     map.removeInteraction(drawInteraction);
     drawInteraction = null;
   }
+  enableDoubleClickZoom();
   currentMode = null;
   updateWorkspaceState();
 }
@@ -1299,7 +1316,11 @@ function armDraw(kind) {
     type: kind,
     stopClick: true
   });
+  drawInteraction.on('drawstart', () => {
+    disableDoubleClickZoom();
+  });
   drawInteraction.on('drawend', async evt => {
+    enableDoubleClickZoom();
     try {
       const geometry = featureToGeoJSONGeometry(evt.feature);
       const payload = {
@@ -1337,7 +1358,11 @@ function armCreateSurveyPolygon() {
     type: 'Polygon',
     stopClick: true
   });
+  drawInteraction.on('drawstart', () => {
+    disableDoubleClickZoom();
+  });
   drawInteraction.on('drawend', async evt => {
+    enableDoubleClickZoom();
     try {
       const payload = {
         expedition_id: Number(document.getElementById('createSurveyExpeditionId').value || 1),
