@@ -31,13 +31,14 @@
     }
     #layout {
       display: grid;
-      grid-template-columns: 360px 1fr 460px;
+      grid-template-columns: 360px 1fr;
       height: 100%;
       gap: 14px;
       padding: 14px;
       box-sizing: border-box;
+      position: relative;
     }
-    #leftPanel, #rightPanel {
+    #leftPanel {
       overflow: auto;
       padding: 18px;
       box-sizing: border-box;
@@ -46,6 +47,12 @@
       border-radius: 20px;
       box-shadow: var(--shadow);
       backdrop-filter: blur(10px);
+      z-index: 3;
+    }
+    #mapWrap {
+      position: relative;
+      min-width: 0;
+      min-height: 0;
     }
     #map {
       width: 100%;
@@ -117,26 +124,51 @@
     .row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
     .row3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
     .small { font-size: 12px; color: var(--muted); line-height: 1.45; }
+    #rightDock {
+      position: absolute;
+      top: 14px;
+      right: 14px;
+      bottom: 14px;
+      display: flex;
+      align-items: stretch;
+      justify-content: flex-end;
+      z-index: 4;
+      pointer-events: none;
+    }
+    #rightDock > * { pointer-events: auto; }
+    .dockRail {
+      width: 64px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      align-items: stretch;
+      justify-content: flex-start;
+      padding: 10px;
+      margin-left: 12px;
+      background: rgba(255,255,255,0.9);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(10px);
+    }
     .tabs {
       display: flex;
+      flex-direction: column;
       gap: 8px;
-      margin-bottom: 12px;
-      position: sticky;
-      top: 0;
-      background: linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(255,255,255,0.86) 100%);
-      padding-bottom: 10px;
-      z-index: 5;
-      backdrop-filter: blur(8px);
     }
     .tabButton {
-      flex: 1;
-      padding: 11px 12px;
-      border-radius: 12px;
+      width: 100%;
+      min-height: 92px;
+      writing-mode: vertical-rl;
+      transform: rotate(180deg);
+      padding: 14px 10px;
+      border-radius: 14px;
       border: 1px solid var(--border);
       background: #fff;
       color: var(--muted);
       cursor: pointer;
-      font-weight: 700;
+      font-weight: 800;
+      letter-spacing: 0.05em;
       box-shadow: none;
     }
     .tabButton.active {
@@ -144,8 +176,41 @@
       color: #0f2c6f;
       border-color: rgba(37, 99, 235, 0.25);
     }
-    .tabPanel { display: none; min-height: calc(100% - 58px); }
+    .tabDrawer {
+      width: 0;
+      opacity: 0;
+      overflow: hidden;
+      transition: width .18s ease, opacity .18s ease;
+      margin-left: 0;
+    }
+    #rightDock.open .tabDrawer {
+      opacity: 1;
+      margin-left: 12px;
+    }
+    #rightDock[data-open-tab='hierarchyTab'].open .tabDrawer { width: min(46vw, 680px); }
+    #rightDock[data-open-tab='detailsTab'].open .tabDrawer { width: min(38vw, 560px); }
+    #rightDock[data-open-tab='editorTab'].open .tabDrawer { width: min(42vw, 620px); }
+    #rightDock[data-open-tab='exportTab'].open .tabDrawer { width: min(34vw, 480px); }
+    #rightPanel {
+      height: 100%;
+      overflow: auto;
+      padding: 18px;
+      box-sizing: border-box;
+      background: rgba(255, 255, 255, 0.96);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(10px);
+    }
+    .tabPanel { display: none; min-height: calc(100% - 16px); }
     .tabPanel.active { display: block; }
+    .drawerHint {
+      font-size: 11px;
+      color: var(--muted);
+      text-align: center;
+      padding: 2px 4px;
+      line-height: 1.3;
+    }
     .tableCard, .detailCard {
       background: #fff;
       border: 1px solid var(--border);
@@ -286,6 +351,23 @@
       margin-bottom: 10px;
     }
     .listCount { color: var(--muted); font-size: 12px; font-weight: 700; }
+    @media (max-width: 1400px) {
+      #layout { grid-template-columns: 320px 1fr; }
+      #rightDock[data-open-tab="hierarchyTab"].open .tabDrawer { width: min(54vw, 620px); }
+      #rightDock[data-open-tab="detailsTab"].open .tabDrawer { width: min(46vw, 520px); }
+      #rightDock[data-open-tab="editorTab"].open .tabDrawer { width: min(50vw, 580px); }
+      #rightDock[data-open-tab="exportTab"].open .tabDrawer { width: min(40vw, 440px); }
+    }
+    @media (max-width: 1024px) {
+      #layout { grid-template-columns: 1fr; }
+      #leftPanel { display: none; }
+      #rightDock { left: 14px; right: 14px; }
+      .dockRail { width: 56px; }
+      #rightDock[data-open-tab='hierarchyTab'].open .tabDrawer,
+      #rightDock[data-open-tab='detailsTab'].open .tabDrawer,
+      #rightDock[data-open-tab='editorTab'].open .tabDrawer,
+      #rightDock[data-open-tab='exportTab'].open .tabDrawer { width: calc(100vw - 120px); max-width: none; }
+    }
   </style>
 </head>
 <body>
@@ -362,16 +444,10 @@
     </div>
   </div>
 
-  <div id="map"></div>
+  <div id="mapWrap"><div id="map"></div>
 
-  <div id="rightPanel">
-    <div class="tabs">
-      <button class="tabButton active" data-tab="hierarchyTab">Hierarchy</button>
-      <button class="tabButton" data-tab="detailsTab">Details</button>
-      <button class="tabButton" data-tab="editorTab">Editor</button>
-      <button class="tabButton" data-tab="exportTab">Export</button>
-    </div>
-
+  <div id="rightDock" class="open" data-open-tab="hierarchyTab">
+    <div class="tabDrawer"><div id="rightPanel">
     <div id="hierarchyTab" class="tabPanel active">
       <div class="tableCard tableScroll"><table class="dataTable hierarchyTable"><thead><tr><th>Kind</th><th>ID</th><th>Title</th><th>Type / Status</th><th>Notes</th></tr></thead><tbody id="hierarchyList"></tbody></table></div>
     </div>
@@ -411,7 +487,17 @@
       <button id="downloadDocumentExportBtn">Download printable document</button>
       <div class="small">Exports use the active survey. The document export is a printable HTML file and can embed the current map image.</div>
     </div>
-  </div>
+  </div></div>
+    <div class="dockRail">
+      <div class="tabs">
+        <button class="tabButton active" data-tab="hierarchyTab">Hierarchy</button>
+        <button class="tabButton" data-tab="detailsTab">Details</button>
+        <button class="tabButton" data-tab="editorTab">Editor</button>
+        <button class="tabButton" data-tab="exportTab">Export</button>
+      </div>
+      <div class="drawerHint">Click an active tab to hide it.</div>
+    </div>
+  </div></div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/ol@v9.2.4/dist/ol.js"></script>
@@ -1132,14 +1218,32 @@ async function downloadDocumentExport() {
 }
 
 function bindTabs() {
+  const dock = document.getElementById('rightDock');
+  const setOpenTab = (tabId, open = true) => {
+    dock.dataset.openTab = tabId;
+    dock.classList.toggle('open', open);
+    document.querySelectorAll('.tabButton').forEach(x => x.classList.toggle('active', open && x.dataset.tab === tabId));
+    document.querySelectorAll('.tabPanel').forEach(x => x.classList.toggle('active', open && x.id === tabId));
+    if (open) {
+      window.setTimeout(() => map.updateSize(), 220);
+    } else {
+      window.setTimeout(() => map.updateSize(), 220);
+    }
+  };
+
   document.querySelectorAll('.tabButton').forEach(btn => {
     btn.addEventListener('click', () => {
-      document.querySelectorAll('.tabButton').forEach(x => x.classList.remove('active'));
-      document.querySelectorAll('.tabPanel').forEach(x => x.classList.remove('active'));
-      btn.classList.add('active');
-      document.getElementById(btn.dataset.tab).classList.add('active');
+      const isSame = dock.dataset.openTab === btn.dataset.tab;
+      const isOpen = dock.classList.contains('open');
+      if (isSame && isOpen) {
+        setOpenTab(btn.dataset.tab, false);
+      } else {
+        setOpenTab(btn.dataset.tab, true);
+      }
     });
   });
+
+  setOpenTab('hierarchyTab', true);
 }
 
 document.getElementById('refreshSurveysBtn').onclick = async () => {
