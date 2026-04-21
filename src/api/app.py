@@ -228,12 +228,12 @@ def list_surveys():
         with conn.cursor() as cur:
             cur.execute(
                 '''
-                SELECT id, expedition_id, title, status, layer_key, metadata,
+                SELECT s.id, s.expedition_id, s.title, s.status, s.layer_key, s.metadata,
                        COUNT(so.id) FILTER (WHERE so.is_active = TRUE) AS object_count
                 FROM surveys s
                 LEFT JOIN survey_objects so ON so.survey_id = s.id
-                GROUP BY id, expedition_id, title, status, layer_key, metadata
-                ORDER BY id
+                GROUP BY s.id, s.expedition_id, s.title, s.status, s.layer_key, s.metadata
+                ORDER BY s.id
                 '''
             )
             rows = cur.fetchall()
