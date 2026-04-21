@@ -94,6 +94,21 @@
       </div>
 
       <div class="section">
+        <h3>Survey export</h3>
+        <div><label><input id="exportIncludeBoundary" type="checkbox" checked> Include boundary</label></div>
+        <div><label><input id="exportIncludeObjects" type="checkbox" checked> Include objects</label></div>
+        <div><label><input id="exportIncludeArchived" type="checkbox"> Include archived objects</label></div>
+        <div><label><input id="exportIncludeGeometry" type="checkbox" checked> Include geometry in data export</label></div>
+        <div><label><input id="exportIncludeProperties" type="checkbox" checked> Include object properties in data export</label></div>
+        <div><label><input id="exportIncludeObjectDetails" type="checkbox" checked> Include object details in document</label></div>
+        <div><label><input id="exportIncludeMapImage" type="checkbox" checked> Include map image in document</label></div>
+        <button id="downloadLayerExportBtn">Download layer GeoJSON</button>
+        <button id="downloadDataExportBtn">Download data JSON</button>
+        <button id="downloadDocumentExportBtn">Download printable document</button>
+        <div id="exportStatus" class="hint">No export requested.</div>
+      </div>
+
+      <div class="section">
         <h3>Selected feature</h3>
         <pre id="featureInfo">Click a feature on the map.</pre>
       </div>
@@ -107,7 +122,7 @@
 
   <script src="https://cdn.jsdelivr.net/npm/ol@10.6.1/dist/ol.js"></script>
   <script>
-    const baseLayer = new ol.layer.Tile({ source: new ol.source.OSM() });
+    const baseLayer = new ol.layer.Tile({ source: new ol.source.OSM({ crossOrigin: 'anonymous' }) });
     const map = new ol.Map({
       target: 'map',
       layers: [baseLayer],
@@ -197,6 +212,168 @@
         throw new Error(text || response.statusText);
       }
       return response.json();
+    }
+
+    async function fetchResponse(url) {
+      const response = await fetch(url);
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(text || response.statusText);
+      }
+      return response;
+    }
+
+    function setExportStatus(message) {
+      document.getElementById('exportStatus').textContent = message;
+    }
+
+    function getExportOptions() {
+      return {
+        includeBoundary: document.getElementById('exportIncludeBoundary').checked,
+        includeObjects: document.getElementById('exportIncludeObjects').checked,
+        includeArchived: document.getElementById('exportIncludeArchived').checked,
+        includeGeometry: document.getElementById('exportIncludeGeometry').checked,
+        includeProperties: document.getElementById('exportIncludeProperties').checked,
+        includeObjectDetails: document.getElementById('exportIncludeObjectDetails').checked,
+        includeMapImage: document.getElementById('exportIncludeMapImage').checked,
+      };
+    }
+
+    function requireActiveSurveyForExport() {
+      if (activeSurveyId === null) {
+        throw new Error('Select or activate a survey first.');
+      }
+      return activeSurveyId;
+    }
+
+    function buildLayerExportUrl(surveyId, options) {
+      const params = new URLSearchParams({
+        include_boundary: String(options.includeBoundary),
+        include_objects: String(options.includeObjects),
+        include_archived: String(options.includeArchived),
+      });
+      return `/api/surveys/${surveyId}/export/layer.geojson?${params.toString()}`;
+    }
+
+    function buildDataExportUrl(surveyId, options) {
+      const params = new URLSearchParams({
+        include_geometry: String(options.includeGeometry),
+        include_properties: String(options.includeProperties),
+        include_archived: String(options.includeArchived),
+      });
+      return `/api/surveys/${surveyId}/export/data.json?${params.toString()}`;
+    }
+
+    async function triggerDownload(url) {
+      const response = await fetchResponse(url);
+      const blob = await response.blob();
+      const disposition = response.headers.get('Content-Disposition') || '';
+      const match = disposition.match(/filename="?([^";]+)"?/i);
+      const filename = match ? match[1] : 'download.bin';
+      downloadBlob(blob, filename);
+      return filename;
+    }
+
+    function downloadBlob(blob, filename) {
+      const objectUrl = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = objectUrl;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+    }
+
+    function htmlEscape(value) {
+      return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    async function captureMapImageDataUrl() {
+      const mapElement = document.getElementById('map');
+      const canvases = mapElement.querySelectorAll('canvas');
+      const exportCanvas = document.createElement('canvas');
+      exportCanvas.width = mapElement.clientWidth || 1200;
+      exportCanvas.height = mapElement.clientHeight || 800;
+      const context = exportCanvas.getContext('2d');
+      context.fillStyle = '#ffffff';
+      context.fillRect(0, 0, exportCanvas.width, exportCanvas.height);
+      canvases.forEach((canvas) => {
+        if (!canvas.width || !canvas.height) {
+          return;
+        }
+        const opacity = canvas.parentNode && canvas.parentNode.style ? Number(canvas.parentNode.style.opacity || 1) : 1;
+        context.save();
+        context.globalAlpha = Number.isFinite(opacity) ? opacity : 1;
+        const transform = canvas.style.transform;
+        if (transform && transform.startsWith('matrix(')) {
+          const matrix = transform.slice(7, -1).split(',').map(Number);
+          context.setTransform(matrix[0], matrix[1], matrix[2], matrix[3], matrix[4], matrix[5]);
+        } else {
+          context.setTransform(1, 0, 0, 1, 0, 0);
+        }
+        context.drawImage(canvas, 0, 0);
+        context.restore();
+      });
+      return exportCanvas.toDataURL('image/png');
+    }
+
+    function buildPrintableDocumentHtml(bundle, options, mapImageDataUrl) {
+      const survey = bundle.survey || {};
+      const summary = bundle.summary || {};
+      const title = survey.title || `Survey ${survey.id}`;
+      const objectSection = options.includeObjectDetails ? `
+        <h2>Survey objects</h2>
+        <table>
+          <thead><tr><th>ID</th><th>Type</th><th>Status</th><th>Expedition</th><th>Properties</th></tr></thead>
+          <tbody>${(bundle.objects || []).map((obj) => `
+            <tr>
+              <td>${htmlEscape(obj.id)}</td>
+              <td>${htmlEscape(obj.type || '')}</td>
+              <td>${htmlEscape(obj.is_active ? 'active' : 'archived')}</td>
+              <td>${htmlEscape(obj.expedition_id ?? '')}</td>
+              <td><pre>${htmlEscape(JSON.stringify(options.includeProperties ? (obj.properties || {}) : {}, null, 2))}</pre></td>
+            </tr>`).join('') || '<tr><td colspan="5">No objects exported.</td></tr>'}
+          </tbody>
+        </table>` : '';
+      const mapSection = mapImageDataUrl ? `
+        <h2>Map image</h2>
+        <img src="${mapImageDataUrl}" alt="Survey map image" />` : '';
+      return `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>${htmlEscape(title)} export</title>
+<style>
+body { font-family: Arial, sans-serif; margin: 24px; color: #222; }
+h1, h2 { margin-bottom: 8px; }
+.meta { margin-bottom: 18px; }
+img { max-width: 100%; border: 1px solid #ccc; }
+table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+th, td { border: 1px solid #ccc; padding: 6px; text-align: left; vertical-align: top; }
+pre { white-space: pre-wrap; margin: 0; }
+@media print { body { margin: 12mm; } }
+</style>
+</head>
+<body>
+<h1>${htmlEscape(title)}</h1>
+<div class="meta">
+  <div><strong>Survey ID:</strong> ${htmlEscape(survey.id)}</div>
+  <div><strong>Status:</strong> ${htmlEscape(survey.status || '')}</div>
+  <div><strong>Expedition:</strong> ${htmlEscape(survey.expedition_id ?? '')}</div>
+  <div><strong>Layer key:</strong> ${htmlEscape(survey.layer_key || '')}</div>
+  <div><strong>Exported at:</strong> ${htmlEscape(bundle.exported_at || '')}</div>
+  <div><strong>Objects:</strong> total=${htmlEscape(summary.total_objects ?? 0)}, active=${htmlEscape(summary.active_objects ?? 0)}, archived=${htmlEscape(summary.archived_objects ?? 0)}</div>
+</div>
+${mapSection}
+${objectSection}
+</body>
+</html>`;
     }
 
 
@@ -653,6 +830,49 @@
         await loadActiveSurveyOnly();
       } catch (error) {
         setActionStatus(`Error: ${error.message}`);
+      }
+    });
+
+    document.getElementById('downloadLayerExportBtn').addEventListener('click', async () => {
+      try {
+        const surveyId = requireActiveSurveyForExport();
+        const filename = await triggerDownload(buildLayerExportUrl(surveyId, getExportOptions()));
+        setExportStatus(`Downloaded ${filename}.`);
+      } catch (error) {
+        setExportStatus(`Error: ${error.message}`);
+      }
+    });
+
+    document.getElementById('downloadDataExportBtn').addEventListener('click', async () => {
+      try {
+        const surveyId = requireActiveSurveyForExport();
+        const filename = await triggerDownload(buildDataExportUrl(surveyId, getExportOptions()));
+        setExportStatus(`Downloaded ${filename}.`);
+      } catch (error) {
+        setExportStatus(`Error: ${error.message}`);
+      }
+    });
+
+    document.getElementById('downloadDocumentExportBtn').addEventListener('click', async () => {
+      try {
+        const surveyId = requireActiveSurveyForExport();
+        const options = getExportOptions();
+        const bundle = await fetchJson(buildDataExportUrl(surveyId, options));
+        let mapImageDataUrl = null;
+        if (options.includeMapImage) {
+          try {
+            mapImageDataUrl = await captureMapImageDataUrl();
+          } catch (captureError) {
+            setExportStatus(`Map image capture skipped: ${captureError.message}`);
+          }
+        }
+        const html = buildPrintableDocumentHtml(bundle, options, mapImageDataUrl);
+        const survey = surveyStore.get(Number(surveyId)) || {};
+        const safeTitle = (survey.title || `survey_${surveyId}`).replace(/[^a-z0-9]+/ig, '_');
+        downloadBlob(new Blob([html], { type: 'text/html;charset=utf-8' }), `${safeTitle}_document.html`);
+        setExportStatus(`Downloaded printable document for survey ${surveyId}.`);
+      } catch (error) {
+        setExportStatus(`Error: ${error.message}`);
       }
     });
 

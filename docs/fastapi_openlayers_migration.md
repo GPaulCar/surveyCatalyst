@@ -32,3 +32,12 @@ The next delta should add:
 - per-layer styling rules for vector tiles
 - optional tile cache headers
 - optional dedicated endpoints for known heavy layers such as legal restricted areas
+
+
+## Survey export workflow
+
+This step adds three survey export levels:
+
+- layer export as GeoJSON
+- data export as JSON with include/exclude controls
+- printable HTML document export with optional embedded map image

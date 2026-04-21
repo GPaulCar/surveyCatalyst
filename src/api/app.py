@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import json
+import re
 import sys
 from pathlib import Path
+from datetime import datetime
 from typing import Any
 
 from fastapi import FastAPI, HTTPException, Query
@@ -77,6 +79,145 @@ def _survey_row_to_dict(row: tuple[Any, ...]) -> dict[str, Any]:
     }
 
 
+
+def _slugify(value: str | None) -> str:
+    if not value:
+        return "survey"
+    value = value.strip().lower()
+    value = re.sub(r"[^a-z0-9]+", "-", value)
+    value = value.strip("-")
+    return value or "survey"
+
+
+def _export_filename(survey_id: int, title: str | None, suffix: str, extension: str) -> str:
+    return f"survey_{survey_id}_{_slugify(title)}_{suffix}.{extension}"
+
+
+def _get_survey_export_bundle(
+    survey_id: int,
+    *,
+    include_geometry: bool,
+    include_properties: bool,
+    include_archived: bool,
+) -> dict[str, Any]:
+    conn = build_backend().connect()
+    try:
+        with conn.cursor() as cur:
+            survey_geometry_sql = (
+                "CASE WHEN geom IS NOT NULL THEN ST_AsGeoJSON(ST_Transform(geom, 4326))::jsonb ELSE NULL END AS geometry"
+                if include_geometry
+                else "NULL::jsonb AS geometry"
+            )
+            cur.execute(
+                f"""
+                SELECT id, expedition_id, title, status, layer_key,
+                       {survey_geometry_sql}
+                FROM surveys
+                WHERE id = %s
+                """,
+                (survey_id,),
+            )
+            survey_row = cur.fetchone()
+            if not survey_row:
+                raise HTTPException(status_code=404, detail=f"survey {survey_id} not found")
+
+            object_geometry_sql = (
+                "CASE WHEN geom IS NOT NULL THEN ST_AsGeoJSON(ST_Transform(geom, 4326))::jsonb ELSE NULL END AS geometry"
+                if include_geometry
+                else "NULL::jsonb AS geometry"
+            )
+            object_properties_sql = "COALESCE(properties, '{}'::jsonb) AS properties" if include_properties else "NULL::jsonb AS properties"
+            active_filter_sql = "" if include_archived else "AND is_active = TRUE"
+            cur.execute(
+                f"""
+                SELECT id, survey_id, expedition_id, type, is_active,
+                       {object_geometry_sql},
+                       {object_properties_sql}
+                FROM survey_objects
+                WHERE survey_id = %s
+                {active_filter_sql}
+                ORDER BY id
+                """,
+                (survey_id,),
+            )
+            object_rows = cur.fetchall()
+    finally:
+        conn.close()
+
+    survey = {
+        "id": int(survey_row[0]),
+        "expedition_id": int(survey_row[1]) if survey_row[1] is not None else None,
+        "title": survey_row[2],
+        "status": survey_row[3],
+        "layer_key": survey_row[4],
+        "geometry": survey_row[5],
+    }
+    objects: list[dict[str, Any]] = []
+    for row in object_rows:
+        objects.append({
+            "id": int(row[0]),
+            "survey_id": int(row[1]),
+            "expedition_id": int(row[2]) if row[2] is not None else None,
+            "type": row[3],
+            "is_active": bool(row[4]),
+            "geometry": row[5],
+            "properties": row[6] if include_properties else None,
+        })
+
+    return {
+        "exported_at": None,
+        "survey": survey,
+        "objects": objects,
+        "summary": {
+            "total_objects": len(objects),
+            "active_objects": sum(1 for obj in objects if obj["is_active"]),
+            "archived_objects": sum(1 for obj in objects if not obj["is_active"]),
+        },
+    }
+
+
+def _build_survey_feature_collection(
+    bundle: dict[str, Any],
+    *,
+    include_boundary: bool,
+    include_objects: bool,
+    include_archived: bool,
+) -> dict[str, Any]:
+    survey = bundle["survey"]
+    features: list[dict[str, Any]] = []
+    if include_boundary and survey.get("geometry") is not None:
+        features.append({
+            "type": "Feature",
+            "geometry": survey["geometry"],
+            "properties": {
+                "survey_id": survey["id"],
+                "title": survey.get("title"),
+                "status": survey.get("status"),
+                "layer_key": survey.get("layer_key"),
+                "feature_role": "survey_boundary",
+            },
+        })
+    if include_objects:
+        for obj in bundle["objects"]:
+            if not include_archived and not obj["is_active"]:
+                continue
+            if obj.get("geometry") is None:
+                continue
+            features.append({
+                "type": "Feature",
+                "geometry": obj["geometry"],
+                "properties": {
+                    "id": obj["id"],
+                    "survey_id": obj["survey_id"],
+                    "expedition_id": obj.get("expedition_id"),
+                    "type": obj.get("type"),
+                    "is_active": obj.get("is_active"),
+                    "feature_role": "survey_object",
+                },
+            })
+    return {"type": "FeatureCollection", "features": features}
+
+
 def _get_external_layer_catalog(map_service: LiveDBMapService) -> list[dict[str, Any]]:
     rows = map_service.list_layers()
     result = [_layer_row_to_dict(row) for row in rows]
@@ -116,6 +257,8 @@ def create_app() -> FastAPI:
                 "/api/surveys",
                 "/api/surveys/{survey_id}",
                 "/api/surveys/{survey_id}/features?bbox=minx,miny,maxx,maxy&limit=5000",
+                "/api/surveys/{survey_id}/export/layer.geojson",
+                "/api/surveys/{survey_id}/export/data.json",
                 "/api/layers/{layer_key}/geojson?bbox=minx,miny,maxx,maxy&limit=5000",
                 "/api/layers/{layer_key}/tiles/{z}/{x}/{y}.mvt",
                 "/api/surveys/{survey_id}/objects",
