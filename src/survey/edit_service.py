@@ -22,6 +22,34 @@ class SurveyEditService:
             return "ST_GeomFromText(%s, 4326)", wkt
         return "NULL", None
 
+    def _normalise_geometry_value(self, conn, geojson: dict[str, Any] | str | None = None, wkt: str | None = None) -> str | None:
+        geom_sql, geom_value = self._geometry_sql_from_inputs(geojson=geojson, wkt=wkt)
+        if geom_value is None:
+            return None
+        with conn.cursor() as cur:
+            cur.execute(
+                f"""
+                SELECT ST_AsGeoJSON(
+                    CASE
+                        WHEN g IS NULL THEN NULL
+                        WHEN ST_IsValid(g) THEN g
+                        ELSE ST_MakeValid(g)
+                    END
+                )
+                FROM (SELECT {geom_sql} AS g) q
+                """,
+                (geom_value,),
+            )
+            row = cur.fetchone()
+        normalised = row[0] if row else None
+        if normalised is None:
+            raise RuntimeError("Unable to validate geometry")
+        return normalised
+
+    @staticmethod
+    def _geojson_insert_sql() -> str:
+        return "ST_SetSRID(ST_GeomFromGeoJSON(%s), 4326)"
+
     def create_survey(
         self,
         expedition_id: int,
@@ -31,43 +59,42 @@ class SurveyEditService:
         metadata: dict[str, Any] | None = None,
         geometry: dict[str, Any] | str | None = None,
     ):
-        geom_sql, geom_value = self._geometry_sql_from_inputs(geojson=geometry, wkt=polygon_wkt)
         conn = self.backend.connect()
         try:
+            normalised_geometry = self._normalise_geometry_value(conn, geojson=geometry, wkt=polygon_wkt) if (geometry is not None or polygon_wkt is not None) else None
             with conn.cursor() as cur:
-                params = [expedition_id, title, status, json.dumps(metadata or {})]
-                if geom_value is None:
+                if normalised_geometry is None:
                     cur.execute(
-                        f'''
+                        """
                         INSERT INTO surveys (expedition_id, title, status, geom, metadata)
-                        VALUES (%s, %s, %s, {geom_sql}, %s::jsonb)
+                        VALUES (%s, %s, %s, NULL, %s::jsonb)
                         RETURNING id
-                        ''',
-                        params,
+                        """,
+                        [expedition_id, title, status, json.dumps(metadata or {})],
                     )
                 else:
                     cur.execute(
-                        f'''
+                        f"""
                         INSERT INTO surveys (expedition_id, title, status, geom, metadata)
-                        VALUES (%s, %s, %s, {geom_sql}, %s::jsonb)
+                        VALUES (%s, %s, %s, {self._geojson_insert_sql()}, %s::jsonb)
                         RETURNING id
-                        ''',
-                        [expedition_id, title, status, geom_value, json.dumps(metadata or {})],
+                        """,
+                        [expedition_id, title, status, normalised_geometry, json.dumps(metadata or {})],
                     )
                 survey_id = cur.fetchone()[0]
                 layer_key = f"survey_{survey_id}"
 
                 cur.execute(
-                    '''
+                    """
                     UPDATE surveys
                     SET layer_key = %s
                     WHERE id = %s
-                    ''',
+                    """,
                     (layer_key, survey_id),
                 )
 
                 cur.execute(
-                    '''
+                    """
                     INSERT INTO layers_registry (
                         layer_key, layer_name, layer_group, source_table, geometry_type,
                         is_user_selectable, is_visible, opacity, sort_order, metadata
@@ -81,7 +108,7 @@ class SurveyEditService:
                     SET layer_name = EXCLUDED.layer_name,
                         metadata = EXCLUDED.metadata,
                         updated_at = NOW()
-                    ''',
+                    """,
                     (layer_key, title, survey_id),
                 )
             conn.commit()
@@ -115,35 +142,35 @@ class SurveyEditService:
             assignments.append("metadata = %s::jsonb")
             params.append(json.dumps(metadata))
 
-        geom_sql, geom_value = self._geometry_sql_from_inputs(geojson=geometry, wkt=polygon_wkt)
-        if geometry is not None or polygon_wkt is not None:
-            assignments.append(f"geom = {geom_sql}")
-            params.append(geom_value)
-
-        if not assignments:
-            return
-
-        params.append(survey_id)
         conn = self.backend.connect()
         try:
+            if geometry is not None or polygon_wkt is not None:
+                normalised_geometry = self._normalise_geometry_value(conn, geojson=geometry, wkt=polygon_wkt)
+                assignments.append(f"geom = {self._geojson_insert_sql()}")
+                params.append(normalised_geometry)
+
+            if not assignments:
+                return
+
+            params.append(survey_id)
             with conn.cursor() as cur:
                 cur.execute(
-                    f'''
+                    f"""
                     UPDATE surveys
                     SET {', '.join(assignments)}
                     WHERE id = %s
-                    ''',
+                    """,
                     params,
                 )
                 if title is not None:
                     cur.execute(
-                        '''
+                        """
                         UPDATE layers_registry
                         SET layer_name = %s,
                             updated_at = NOW()
                         WHERE metadata->>'survey_id' = %s
                            OR layer_key = %s
-                        ''',
+                        """,
                         (title, str(survey_id), f"survey_{survey_id}"),
                     )
             conn.commit()
@@ -181,6 +208,7 @@ class SurveyEditService:
     ):
         conn = self.backend.connect()
         try:
+            normalised_geometry = self._normalise_geometry_value(conn, geojson=geometry, wkt=geom_wkt) if (geometry is not None or geom_wkt is not None) else None
             with conn.cursor() as cur:
                 cur.execute('SELECT layer_key FROM surveys WHERE id = %s', (survey_id,))
                 row = cur.fetchone()
@@ -195,14 +223,15 @@ class SurveyEditService:
                 if details is not None:
                     merged_properties["details"] = details
 
-                geom_sql, geom_value = self._geometry_sql_from_inputs(geojson=geometry, wkt=geom_wkt)
+                if normalised_geometry is None:
+                    raise RuntimeError("Survey object geometry is required")
                 cur.execute(
-                    f'''
+                    f"""
                     INSERT INTO survey_objects (survey_id, expedition_id, layer_key, type, geom, properties, is_active)
-                    VALUES (%s, %s, %s, %s, {geom_sql}, %s::jsonb, TRUE)
+                    VALUES (%s, %s, %s, %s, {self._geojson_insert_sql()}, %s::jsonb, TRUE)
                     RETURNING id
-                    ''',
-                    (survey_id, expedition_id, layer_key, obj_type, geom_value, json.dumps(merged_properties)),
+                    """,
+                    (survey_id, expedition_id, layer_key, obj_type, normalised_geometry, json.dumps(merged_properties)),
                 )
                 object_id = cur.fetchone()[0]
             conn.commit()
@@ -224,13 +253,16 @@ class SurveyEditService:
     ):
         conn = self.backend.connect()
         try:
+            normalised_geometry = None
+            if geometry is not None or geom_wkt is not None:
+                normalised_geometry = self._normalise_geometry_value(conn, geojson=geometry, wkt=geom_wkt)
             with conn.cursor() as cur:
                 cur.execute(
-                    '''
+                    """
                     SELECT properties, type, is_active
                     FROM survey_objects
                     WHERE id = %s
-                    ''',
+                    """,
                     (object_id,),
                 )
                 row = cur.fetchone()
@@ -251,17 +283,16 @@ class SurveyEditService:
                 params: list[Any] = [json.dumps(merged_properties), obj_type or current_type, current_active if is_active is None else is_active]
 
                 if geometry is not None or geom_wkt is not None:
-                    geom_sql, geom_value = self._geometry_sql_from_inputs(geojson=geometry, wkt=geom_wkt)
-                    assignments.append(f"geom = {geom_sql}")
-                    params.append(geom_value)
+                    assignments.append(f"geom = {self._geojson_insert_sql()}")
+                    params.append(normalised_geometry)
 
                 params.append(object_id)
                 cur.execute(
-                    f'''
+                    f"""
                     UPDATE survey_objects
                     SET {', '.join(assignments)}
                     WHERE id = %s
-                    ''',
+                    """,
                     params,
                 )
             conn.commit()
@@ -285,7 +316,7 @@ class SurveyEditService:
         try:
             with conn.cursor() as cur:
                 cur.execute(
-                    '''
+                    """
                     SELECT id,
                            expedition_id,
                            title,
@@ -296,14 +327,14 @@ class SurveyEditService:
                            CASE WHEN geom IS NOT NULL THEN ST_AsText(ST_Envelope(geom)) ELSE NULL END
                     FROM surveys
                     WHERE id = %s
-                    ''',
+                    """,
                     (survey_id,),
                 )
                 survey_row = cur.fetchone()
                 if not survey_row:
                     raise RuntimeError(f"Survey {survey_id} not found")
                 cur.execute(
-                    '''
+                    """
                     SELECT id,
                            survey_id,
                            expedition_id,
@@ -315,7 +346,7 @@ class SurveyEditService:
                     FROM survey_objects
                     WHERE survey_id = %s
                     ORDER BY id
-                    ''',
+                    """,
                     (survey_id,),
                 )
                 object_rows = cur.fetchall()

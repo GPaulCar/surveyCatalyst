@@ -1,25 +1,27 @@
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
 from typing import Any
 
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, HTMLResponse, Response
+from fastapi.responses import HTMLResponse, Response
 
 from core.db import build_backend
 from map.live_db_map_service import LiveDBMapService
 from survey.edit_service import SurveyEditService
-from survey.service import SurveyService
 from .schemas import SurveyCreate, SurveyObjectCreate, SurveyObjectUpdate, SurveyUpdate
 
 BASE_DIR = Path(__file__).resolve().parents[2]
 APP_HTML = BASE_DIR / "app" / "openlayers_map.html"
 MVT_EXTENT = 4096
 MVT_BUFFER = 64
+TILE_CACHE_DIR = BASE_DIR / ".cache" / "mvt"
+TILE_CACHE_DIR.mkdir(parents=True, exist_ok=True)
 
-app = FastAPI(title="surveyCatalyst API", version="0.4.8")
+app = FastAPI(title="surveyCatalyst API", version="0.4.9")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -38,6 +40,46 @@ def parse_bbox(bbox: str | None) -> tuple[float, float, float, float] | None:
     return parts[0], parts[1], parts[2], parts[3]
 
 
+def _cache_file_for_tile(layer_key: str, z: int, x: int, y: int) -> Path:
+    layer_hash = hashlib.sha1(layer_key.encode("utf-8")).hexdigest()[:16]
+    path = TILE_CACHE_DIR / layer_hash / str(z) / str(x)
+    path.mkdir(parents=True, exist_ok=True)
+    return path / f"{y}.mvt"
+
+
+def _read_cached_tile(layer_key: str, z: int, x: int, y: int) -> bytes | None:
+    cache_file = _cache_file_for_tile(layer_key, z, x, y)
+    if cache_file.exists():
+        return cache_file.read_bytes()
+    return None
+
+
+def _write_cached_tile(layer_key: str, z: int, x: int, y: int, payload: bytes) -> None:
+    _cache_file_for_tile(layer_key, z, x, y).write_bytes(payload)
+
+
+def _bbox_simplification_tolerance(bounds: tuple[float, float, float, float] | None) -> float:
+    if not bounds:
+        return 0.0
+    minx, miny, maxx, maxy = bounds
+    span = max(abs(maxx - minx), abs(maxy - miny))
+    if span <= 0.02:
+        return 0.0
+    if span <= 0.2:
+        return 0.00001
+    if span <= 1.0:
+        return 0.00005
+    if span <= 5.0:
+        return 0.0002
+    return 0.001
+
+
+def _geojson_geom_sql(column: str, tolerance: float) -> str:
+    if tolerance <= 0.0:
+        return f"ST_AsGeoJSON({column})::jsonb"
+    return f"ST_AsGeoJSON(ST_SimplifyPreserveTopology({column}, {tolerance}))::jsonb"
+
+
 def survey_layer_geojson(survey_id: int, bounds=None, limit: int = 5000):
     service = LiveDBMapService()
     layer_key = f"survey_{survey_id}"
@@ -45,10 +87,12 @@ def survey_layer_geojson(survey_id: int, bounds=None, limit: int = 5000):
         return service.get_survey_layer_geojson(layer_key=layer_key, bounds=bounds, limit=limit)
 
     backend = build_backend()
+    simplify_tolerance = _bbox_simplification_tolerance(bounds)
+    survey_geom_sql = _geojson_geom_sql("geom", simplify_tolerance)
+    object_geom_sql = _geojson_geom_sql("geom", simplify_tolerance)
     conn = backend.connect()
     try:
         with conn.cursor() as cur:
-            params: list[Any] = [survey_id]
             boundary_filter = "WHERE id = %s"
             object_filter = "WHERE survey_id = %s AND is_active = TRUE"
             if bounds:
@@ -56,40 +100,43 @@ def survey_layer_geojson(survey_id: int, bounds=None, limit: int = 5000):
                 envelope = "ST_MakeEnvelope(%s, %s, %s, %s, 4326)"
                 boundary_filter += f" AND geom IS NOT NULL AND geom && {envelope} AND ST_Intersects(geom, {envelope})"
                 object_filter += f" AND geom IS NOT NULL AND geom && {envelope} AND ST_Intersects(geom, {envelope})"
-                params.extend([minx, miny, maxx, maxy, minx, miny, maxx, maxy])
-                object_params = [survey_id, minx, miny, maxx, maxy, minx, miny, maxx, maxy, limit]
+                boundary_params: list[Any] = [survey_id, minx, miny, maxx, maxy, minx, miny, maxx, maxy]
+                object_params: list[Any] = [survey_id, minx, miny, maxx, maxy, minx, miny, maxx, maxy, limit]
             else:
+                boundary_params = [survey_id]
                 object_params = [survey_id, limit]
+
             cur.execute(
-                f'''
-                SELECT id, title, status, layer_key, expedition_id, metadata, ST_AsGeoJSON(geom)::jsonb
+                f"""
+                SELECT id, title, status, layer_key, expedition_id, metadata, {survey_geom_sql}
                 FROM surveys
                 {boundary_filter}
                 LIMIT 1
-                ''',
-                params,
+                """,
+                boundary_params,
             )
             survey = cur.fetchone()
             if not survey:
                 raise HTTPException(status_code=404, detail="Survey not found")
+
             if bounds:
                 cur.execute(
-                    f'''
-                    SELECT id, survey_id, expedition_id, type, layer_key, properties, ST_AsGeoJSON(geom)::jsonb
+                    f"""
+                    SELECT id, survey_id, expedition_id, type, layer_key, properties, is_active, {object_geom_sql}
                     FROM survey_objects
                     {object_filter}
                     LIMIT %s
-                    ''',
+                    """,
                     object_params,
                 )
             else:
                 cur.execute(
-                    '''
-                    SELECT id, survey_id, expedition_id, type, layer_key, properties, ST_AsGeoJSON(geom)::jsonb
+                    f"""
+                    SELECT id, survey_id, expedition_id, type, layer_key, properties, is_active, {object_geom_sql}
                     FROM survey_objects
                     WHERE survey_id = %s AND is_active = TRUE
                     LIMIT %s
-                    ''',
+                    """,
                     object_params,
                 )
             objects = cur.fetchall()
@@ -124,9 +171,10 @@ def survey_layer_geojson(survey_id: int, bounds=None, limit: int = 5000):
                 "type": row[3],
                 "layer_key": row[4],
                 "feature_role": "survey_object",
+                "is_active": row[6],
             }
         )
-        features.append({"type": "Feature", "geometry": row[6], "properties": props})
+        features.append({"type": "Feature", "geometry": row[7], "properties": props})
     return {"type": "FeatureCollection", "features": features}
 
 
@@ -188,7 +236,7 @@ def health():
 
 @app.get("/api")
 def api_root():
-    return {"name": "surveyCatalyst API", "version": "0.4.8"}
+    return {"name": "surveyCatalyst API", "version": "0.4.9"}
 
 
 @app.get("/api/layers")
@@ -219,51 +267,80 @@ def list_context_layers():
 
 @app.get("/api/layers/{layer_key}/geojson")
 def layer_geojson(layer_key: str, bbox: str | None = None, limit: int = Query(default=5000, ge=1, le=20000)):
+    bounds = parse_bbox(bbox)
     service = LiveDBMapService()
-    return service.get_layer_geojson(layer_key=layer_key, bounds=parse_bbox(bbox), limit=limit)
+    return service.get_layer_geojson(layer_key=layer_key, bounds=bounds, limit=limit)
 
 
 @app.get("/api/layers/{layer_key}/tiles/{z}/{x}/{y}.mvt")
 def layer_tiles(layer_key: str, z: int, x: int, y: int):
+    cached = _read_cached_tile(layer_key, z, x, y)
+    if cached is not None:
+        return Response(content=cached, media_type="application/vnd.mapbox-vector-tile", headers={"X-Tile-Cache": "HIT"})
+
     backend = build_backend()
     conn = backend.connect()
     try:
         with conn.cursor() as cur:
+            simplify_tolerance = 0
+            if z <= 8:
+                simplify_tolerance = 50
+            elif z <= 10:
+                simplify_tolerance = 10
+            elif z <= 12:
+                simplify_tolerance = 2
+
             cur.execute(
-                '''
+                """
                 WITH tile AS (
                     SELECT ST_TileEnvelope(%s, %s, %s) AS geom
                 ),
-                mvtgeom AS (
-                    SELECT ST_AsMVTGeom(
-                        ST_Transform(f.geom, 3857),
-                        tile.geom,
-                        %s,
-                        %s,
-                        TRUE
-                    ) AS geom,
-                    f.id,
-                    f.layer,
-                    f.source_table,
-                    f.source_id,
-                    COALESCE(f.properties, '{}'::jsonb) AS properties
+                candidate AS (
+                    SELECT
+                        CASE
+                            WHEN %s > 0 THEN ST_SimplifyPreserveTopology(ST_Transform(f.geom, 3857), %s)
+                            ELSE ST_Transform(f.geom, 3857)
+                        END AS geom,
+                        f.id,
+                        f.layer,
+                        f.source_table,
+                        f.source_id,
+                        COALESCE(f.properties, '{}'::jsonb) AS properties
                     FROM external_features f
                     CROSS JOIN tile
                     WHERE f.layer = %s
                       AND f.geom IS NOT NULL
                       AND ST_Intersects(ST_Transform(f.geom, 3857), tile.geom)
+                ),
+                mvtgeom AS (
+                    SELECT ST_AsMVTGeom(
+                        geom,
+                        tile.geom,
+                        %s,
+                        %s,
+                        TRUE
+                    ) AS geom,
+                    id,
+                    layer,
+                    source_table,
+                    source_id,
+                    properties
+                    FROM candidate
+                    CROSS JOIN tile
                 )
                 SELECT ST_AsMVT(mvtgeom, %s, %s)
                 FROM mvtgeom
                 WHERE geom IS NOT NULL
-                ''',
-                (z, x, y, MVT_EXTENT, MVT_BUFFER, layer_key, layer_key, MVT_EXTENT),
+                """,
+                (z, x, y, simplify_tolerance, simplify_tolerance, layer_key, MVT_EXTENT, MVT_BUFFER, layer_key, MVT_EXTENT),
             )
             row = cur.fetchone()
-            payload = row[0] if row else None
+            payload = bytes(row[0] or b"") if row else b""
     finally:
         conn.close()
-    return Response(content=bytes(payload or b""), media_type="application/vnd.mapbox-vector-tile")
+
+    _write_cached_tile(layer_key, z, x, y, payload)
+    return Response(content=payload, media_type="application/vnd.mapbox-vector-tile", headers={"X-Tile-Cache": "MISS"})
 
 
 @app.get("/api/surveys")
@@ -273,14 +350,14 @@ def list_surveys():
     try:
         with conn.cursor() as cur:
             cur.execute(
-                '''
+                """
                 SELECT s.id, s.expedition_id, s.title, s.status, s.layer_key, s.metadata,
                        COUNT(so.id) FILTER (WHERE so.is_active = TRUE) AS object_count
                 FROM surveys s
                 LEFT JOIN survey_objects so ON so.survey_id = s.id
                 GROUP BY s.id, s.expedition_id, s.title, s.status, s.layer_key, s.metadata
                 ORDER BY s.id
-                '''
+                """
             )
             rows = cur.fetchall()
     finally:
