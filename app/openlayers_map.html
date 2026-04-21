@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>surveyCatalyst OpenLayers Prototype</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@10.6.1/ol.css">
+  <style>
+    html, body { margin: 0; padding: 0; height: 100%; font-family: Arial, sans-serif; }
+    #layout { display: grid; grid-template-columns: 340px 1fr; height: 100%; }
+    #sidebar { padding: 12px; overflow: auto; border-right: 1px solid #ddd; background: #fafafa; }
+    #map { width: 100%; height: 100%; }
+    .section { margin-bottom: 16px; }
+    .layer-row { display: flex; align-items: center; gap: 8px; margin: 6px 0; }
+    .hint { color: #555; font-size: 12px; }
+    code { background: #f1f1f1; padding: 2px 4px; }
+    button { margin-top: 6px; }
+    pre { white-space: pre-wrap; }
+  </style>
+</head>
+<body>
+  <div id="layout">
+    <div id="sidebar">
+      <div class="section">
+        <h2>surveyCatalyst</h2>
+        <div class="hint">FastAPI + OpenLayers prototype against the existing PostGIS services.</div>
+      </div>
+
+      <div class="section">
+        <label for="bboxInput"><strong>BBox</strong></label>
+        <input id="bboxInput" type="text" style="width:100%" value="10.5,47.0,13.8,50.8">
+        <div class="hint">EPSG:4326 as <code>minx,miny,maxx,maxy</code></div>
+        <label for="limitInput"><strong>Feature limit</strong></label>
+        <input id="limitInput" type="number" style="width:100%" value="5000" min="1" max="50000">
+        <button id="refreshBtn">Reload visible layers</button>
+      </div>
+
+      <div class="section">
+        <h3>Layers</h3>
+        <div id="layers"></div>
+      </div>
+
+      <div class="section">
+        <h3>Selected feature</h3>
+        <pre id="featureInfo">Click a feature on the map.</pre>
+      </div>
+    </div>
+    <div id="map"></div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/ol@10.6.1/dist/ol.js"></script>
+  <script>
+    const baseLayer = new ol.layer.Tile({ source: new ol.source.OSM() });
+    const map = new ol.Map({
+      target: 'map',
+      layers: [baseLayer],
+      view: new ol.View({
+        center: ol.proj.fromLonLat([11.55, 48.15]),
+        zoom: 7,
+      })
+    });
+
+    const layerStore = new Map();
+    const vectorLayerStore = new Map();
+
+    function styleForLayer(layerKey) {
+      if (layerKey.startsWith('legal_')) {
+        return new ol.style.Style({
+          stroke: new ol.style.Stroke({ color: '#b00020', width: 1 }),
+          fill: new ol.style.Fill({ color: 'rgba(255, 221, 227, 0.35)' }),
+          image: new ol.style.Circle({ radius: 4, fill: new ol.style.Fill({ color: '#b00020' }) })
+        });
+      }
+      if (layerKey.startsWith('survey_') || layerKey === 'surveys' || layerKey === 'survey_objects') {
+        return new ol.style.Style({
+          stroke: new ol.style.Stroke({ color: '#0a8f55', width: 2 }),
+          fill: new ol.style.Fill({ color: 'rgba(184, 245, 209, 0.35)' }),
+          image: new ol.style.Circle({ radius: 4, fill: new ol.style.Fill({ color: '#0a8f55' }) })
+        });
+      }
+      return new ol.style.Style({
+        stroke: new ol.style.Stroke({ color: '#666666', width: 1 }),
+        fill: new ol.style.Fill({ color: 'rgba(102, 102, 102, 0.15)' }),
+        image: new ol.style.Circle({ radius: 4, fill: new ol.style.Fill({ color: '#666666' }) })
+      });
+    }
+
+    async function fetchJson(url) {
+      const response = await fetch(url);
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(text || response.statusText);
+      }
+      return response.json();
+    }
+
+    async function loadLayers() {
+      const container = document.getElementById('layers');
+      container.innerHTML = '<div class="hint">Loading layers...</div>';
+      const layers = await fetchJson('/api/layers');
+      layerStore.clear();
+      container.innerHTML = '';
+      for (const layer of layers) {
+        layerStore.set(layer.layer_key, layer);
+        const row = document.createElement('div');
+        row.className = 'layer-row';
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.checked = false;
+        checkbox.dataset.layerKey = layer.layer_key;
+        const label = document.createElement('label');
+        label.textContent = `${layer.layer_name} [${layer.layer_key}]`;
+        row.appendChild(checkbox);
+        row.appendChild(label);
+        container.appendChild(row);
+      }
+    }
+
+    function currentParams() {
+      const bbox = document.getElementById('bboxInput').value.trim();
+      const limit = document.getElementById('limitInput').value.trim() || '5000';
+      return { bbox, limit };
+    }
+
+    async function reloadVisibleLayers() {
+      for (const layer of vectorLayerStore.values()) {
+        map.removeLayer(layer);
+      }
+      vectorLayerStore.clear();
+
+      const { bbox, limit } = currentParams();
+      const checkboxes = document.querySelectorAll('#layers input[type="checkbox"]:checked');
+      for (const checkbox of checkboxes) {
+        const layerKey = checkbox.dataset.layerKey;
+        const url = `/api/layers/${encodeURIComponent(layerKey)}/geojson?bbox=${encodeURIComponent(bbox)}&limit=${encodeURIComponent(limit)}`;
+        const geojson = await fetchJson(url);
+        const source = new ol.source.Vector({
+          features: new ol.format.GeoJSON({ featureProjection: 'EPSG:3857' }).readFeatures(geojson)
+        });
+        const layer = new ol.layer.Vector({ source, style: styleForLayer(layerKey) });
+        vectorLayerStore.set(layerKey, layer);
+        map.addLayer(layer);
+      }
+    }
+
+    map.on('singleclick', function (event) {
+      let found = null;
+      map.forEachFeatureAtPixel(event.pixel, function (feature) {
+        found = feature;
+        return true;
+      });
+      document.getElementById('featureInfo').textContent = found
+        ? JSON.stringify(found.getProperties(), null, 2)
+        : 'No feature selected.';
+    });
+
+    document.getElementById('refreshBtn').addEventListener('click', async () => {
+      try {
+        await reloadVisibleLayers();
+      } catch (error) {
+        document.getElementById('featureInfo').textContent = `Error: ${error.message}`;
+      }
+    });
+
+    loadLayers().catch((error) => {
+      document.getElementById('layers').innerHTML = `<pre>${error.message}</pre>`;
+    });
+  </script>
+</body>
+</html>
