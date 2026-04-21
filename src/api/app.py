@@ -61,6 +61,68 @@ def _clear_tile_cache(layer_key: str | None = None) -> dict[str, Any]:
     return {"scope": "all", "removed_tiles": removed}
 
 
+def _tile_cache_status() -> dict[str, Any]:
+    entries: list[dict[str, Any]] = []
+    total_tiles = 0
+    if TILE_CACHE_DIR.exists():
+        for layer_dir in sorted([p for p in TILE_CACHE_DIR.iterdir() if p.is_dir()]):
+            count = sum(1 for _ in layer_dir.rglob("*.mvt"))
+            total_tiles += count
+            entries.append({"cache_bucket": layer_dir.name, "tiles": count})
+    return {
+        "cache_root": str(TILE_CACHE_DIR),
+        "layers": entries,
+        "layer_buckets": len(entries),
+        "total_tiles": total_tiles,
+    }
+
+
+def _fetch_one_value(query: str, params: tuple[Any, ...]) -> Any | None:
+    backend = build_backend()
+    conn = backend.connect()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(query, params)
+            row = cur.fetchone()
+            return row[0] if row else None
+    finally:
+        conn.close()
+
+
+def _get_survey_layer_key(survey_id: int) -> str | None:
+    value = _fetch_one_value("SELECT layer_key FROM surveys WHERE id = %s", (survey_id,))
+    return str(value) if value else None
+
+
+def _get_object_survey_layer_key(object_id: int) -> str | None:
+    value = _fetch_one_value(
+        """
+        SELECT s.layer_key
+        FROM survey_objects so
+        JOIN surveys s ON s.id = so.survey_id
+        WHERE so.id = %s
+        """,
+        (object_id,),
+    )
+    return str(value) if value else None
+
+
+def _clear_tile_cache_for_layers(layer_keys: list[str] | tuple[str, ...]) -> dict[str, Any]:
+    unique_layer_keys: list[str] = []
+    for key in layer_keys:
+        if key and key not in unique_layer_keys:
+            unique_layer_keys.append(key)
+    if not unique_layer_keys:
+        return {"scope": "none", "layers": [], "removed_tiles": 0}
+    cleared = [_clear_tile_cache(layer_key=key) for key in unique_layer_keys]
+    return {
+        "scope": "layers",
+        "layers": unique_layer_keys,
+        "removed_tiles": sum(item["removed_tiles"] for item in cleared),
+        "details": cleared,
+    }
+
+
 def _get_spatial_index_status() -> list[dict[str, Any]]:
     backend = build_backend()
     conn = backend.connect()
@@ -364,6 +426,11 @@ def ensure_spatial_indexes():
     return {"indexes": _ensure_spatial_indexes()}
 
 
+@app.get("/api/cache/status")
+def tile_cache_status():
+    return {"ok": True, **_tile_cache_status()}
+
+
 @app.delete("/api/cache/tiles")
 def clear_all_tile_cache():
     return {"ok": True, **_clear_tile_cache()}
@@ -540,12 +607,13 @@ def create_survey(payload: SurveyCreate):
         geometry=payload.geometry,
         metadata=payload.metadata,
     )
-    _clear_tile_cache()
-    return {"survey_id": survey_id, "layer_key": layer_key}
+    invalidation = _clear_tile_cache_for_layers([layer_key])
+    return {"survey_id": survey_id, "layer_key": layer_key, "cache_invalidation": invalidation}
 
 
 @app.patch("/api/surveys/{survey_id}")
 def update_survey(survey_id: int, payload: SurveyUpdate):
+    layer_key = _get_survey_layer_key(survey_id)
     SurveyEditService().update_survey(
         survey_id=survey_id,
         expedition_id=payload.expedition_id,
@@ -554,15 +622,16 @@ def update_survey(survey_id: int, payload: SurveyUpdate):
         geometry=payload.geometry,
         metadata=payload.metadata,
     )
-    _clear_tile_cache()
-    return {"ok": True}
+    invalidation = _clear_tile_cache_for_layers([layer_key] if layer_key else [])
+    return {"ok": True, "cache_invalidation": invalidation}
 
 
 @app.delete("/api/surveys/{survey_id}")
 def delete_survey(survey_id: int):
+    layer_key = _get_survey_layer_key(survey_id)
     SurveyEditService().delete_survey(survey_id)
-    _clear_tile_cache()
-    return {"ok": True}
+    invalidation = _clear_tile_cache_for_layers([layer_key] if layer_key else [])
+    return {"ok": True, "cache_invalidation": invalidation}
 
 
 @app.post("/api/surveys/{survey_id}/objects")
@@ -577,12 +646,14 @@ def create_survey_object(survey_id: int, payload: SurveyObjectCreate):
         annotation=payload.annotation,
         details=payload.details,
     )
-    _clear_tile_cache()
-    return {"object_id": object_id}
+    layer_key = _get_survey_layer_key(survey_id)
+    invalidation = _clear_tile_cache_for_layers([layer_key] if layer_key else [])
+    return {"object_id": object_id, "cache_invalidation": invalidation}
 
 
 @app.patch("/api/survey-objects/{object_id}")
 def update_survey_object(object_id: int, payload: SurveyObjectUpdate):
+    layer_key = _get_object_survey_layer_key(object_id)
     SurveyEditService().update_survey_object(
         object_id=object_id,
         geometry=payload.geometry,
@@ -593,15 +664,16 @@ def update_survey_object(object_id: int, payload: SurveyObjectUpdate):
         details=payload.details,
         is_active=payload.is_active,
     )
-    _clear_tile_cache()
-    return {"ok": True}
+    invalidation = _clear_tile_cache_for_layers([layer_key] if layer_key else [])
+    return {"ok": True, "cache_invalidation": invalidation}
 
 
 @app.delete("/api/survey-objects/{object_id}")
 def delete_survey_object(object_id: int):
+    layer_key = _get_object_survey_layer_key(object_id)
     SurveyEditService().delete_survey_object(object_id)
-    _clear_tile_cache()
-    return {"ok": True}
+    invalidation = _clear_tile_cache_for_layers([layer_key] if layer_key else [])
+    return {"ok": True, "cache_invalidation": invalidation}
 
 
 @app.get("/api/surveys/{survey_id}/export/layer.geojson")
