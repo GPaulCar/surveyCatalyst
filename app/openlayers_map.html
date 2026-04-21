@@ -1056,6 +1056,26 @@ function getTypeSchema(type) {
   return OBJECT_TYPE_SCHEMAS[type] || OBJECT_TYPE_SCHEMAS.find;
 }
 
+
+function sanitizeObjectType(value) {
+  return Object.prototype.hasOwnProperty.call(OBJECT_TYPE_SCHEMAS, value) ? value : 'find';
+}
+
+function rebuildObjectTypeSelect(selectId, selectedValue='find') {
+  const select = document.getElementById(selectId);
+  if (!select) return;
+  const normalized = sanitizeObjectType(selectedValue || select.value);
+  select.innerHTML = '';
+  Object.entries(OBJECT_TYPE_SCHEMAS).forEach(([value, schema]) => {
+    const option = document.createElement('option');
+    option.value = value;
+    option.textContent = schema.label;
+    select.appendChild(option);
+  });
+  select.value = normalized;
+}
+
+
 function renderTypedFields(prefix, type, values={}) {
   const schema = getTypeSchema(type);
   const container = document.getElementById(`${prefix}TypedFields`);
@@ -1278,28 +1298,11 @@ async function refreshHierarchy() {
   renderHierarchy();
 }
 
-function disableDoubleClickZoom() {
-  map.getInteractions().forEach(interaction => {
-    if (interaction instanceof ol.interaction.DoubleClickZoom) {
-      interaction.setActive(false);
-    }
-  });
-}
-
-function enableDoubleClickZoom() {
-  map.getInteractions().forEach(interaction => {
-    if (interaction instanceof ol.interaction.DoubleClickZoom) {
-      interaction.setActive(true);
-    }
-  });
-}
-
 function clearDrawInteraction() {
   if (drawInteraction) {
     map.removeInteraction(drawInteraction);
     drawInteraction = null;
   }
-  enableDoubleClickZoom();
   currentMode = null;
   updateWorkspaceState();
 }
@@ -1313,14 +1316,9 @@ function armDraw(kind) {
   currentMode = kind;
   drawInteraction = new ol.interaction.Draw({
     source: new ol.source.Vector(),
-    type: kind,
-    stopClick: true
-  });
-  drawInteraction.on('drawstart', () => {
-    disableDoubleClickZoom();
+    type: kind
   });
   drawInteraction.on('drawend', async evt => {
-    enableDoubleClickZoom();
     try {
       const geometry = featureToGeoJSONGeometry(evt.feature);
       const payload = {
@@ -1353,16 +1351,8 @@ function armDraw(kind) {
 function armCreateSurveyPolygon() {
   clearDrawInteraction();
   currentMode = 'createSurvey';
-  drawInteraction = new ol.interaction.Draw({
-    source: new ol.source.Vector(),
-    type: 'Polygon',
-    stopClick: true
-  });
-  drawInteraction.on('drawstart', () => {
-    disableDoubleClickZoom();
-  });
+  drawInteraction = new ol.interaction.Draw({source: new ol.source.Vector(), type: 'Polygon'});
   drawInteraction.on('drawend', async evt => {
-    enableDoubleClickZoom();
     try {
       const payload = {
         expedition_id: Number(document.getElementById('createSurveyExpeditionId').value || 1),
