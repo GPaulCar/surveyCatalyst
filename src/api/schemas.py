@@ -5,57 +5,37 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 
-class HealthResponse(BaseModel):
-    status: str
-    database: str
-
-
-class LayerRecord(BaseModel):
-    layer_key: str
-    layer_name: str
-    layer_group: str
-    source_table: str | None = None
-    geometry_type: str | None = None
-    is_visible: bool
-    opacity: float | None = None
-    sort_order: int | None = None
+class SurveyCreate(BaseModel):
+    expedition_id: int
+    title: str
+    status: str = "planned"
+    geometry: dict[str, Any] | None = None
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 
-class SurveyRecord(BaseModel):
-    id: int
+class SurveyUpdate(BaseModel):
     expedition_id: int | None = None
-    title: str
+    title: str | None = None
     status: str | None = None
-    layer_key: str | None = None
+    geometry: dict[str, Any] | None = None
+    metadata: dict[str, Any] | None = None
 
 
-class ApiInfoResponse(BaseModel):
-    name: str
-    version: str
-    endpoints: list[str]
-
-
-class SurveyObjectCreateRequest(BaseModel):
-    expedition_id: int | None = None
-    obj_type: str = Field(min_length=1, max_length=100)
-    lon: float
-    lat: float
+class SurveyObjectCreate(BaseModel):
+    expedition_id: int
+    type: str
+    geometry: dict[str, Any]
+    title: str | None = None
+    annotation: str | None = None
+    details: str | None = None
     properties: dict[str, Any] = Field(default_factory=dict)
 
 
-class SurveyObjectUpdateRequest(BaseModel):
-    lon: float | None = None
-    lat: float | None = None
+class SurveyObjectUpdate(BaseModel):
+    type: str | None = None
+    geometry: dict[str, Any] | None = None
+    title: str | None = None
+    annotation: str | None = None
+    details: str | None = None
     properties: dict[str, Any] | None = None
-
-
-class SurveyObjectResponse(BaseModel):
-    id: int
-    survey_id: int
-    expedition_id: int | None = None
-    obj_type: str
-    lon: float
-    lat: float
-    properties: dict[str, Any] = Field(default_factory=dict)
-    status: str
+    is_active: bool | None = None
