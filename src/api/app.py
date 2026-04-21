@@ -2,12 +2,15 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
+import shutil
 from pathlib import Path
 from typing import Any
 
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, Response
+from fastapi.responses import HTMLResponse, JSONResponse, Response
 
 from core.db import build_backend
 from map.live_db_map_service import LiveDBMapService
@@ -21,7 +24,92 @@ MVT_BUFFER = 64
 TILE_CACHE_DIR = BASE_DIR / ".cache" / "mvt"
 TILE_CACHE_DIR.mkdir(parents=True, exist_ok=True)
 
-app = FastAPI(title="surveyCatalyst API", version="0.4.9")
+logger = logging.getLogger(__name__)
+
+SPATIAL_INDEXES = [
+    {"table": "surveys", "column": "geom", "index_name": "idx_surveys_geom_gist"},
+    {"table": "survey_objects", "column": "geom", "index_name": "idx_survey_objects_geom_gist"},
+    {"table": "external_features", "column": "geom", "index_name": "idx_external_features_geom_gist"},
+]
+
+
+def _structured_error(status_code: int, code: str, message: str, details: Any | None = None) -> dict[str, Any]:
+    return {
+        "error": {
+            "status_code": status_code,
+            "code": code,
+            "message": message,
+            "details": details,
+        }
+    }
+
+
+def _clear_tile_cache(layer_key: str | None = None) -> dict[str, Any]:
+    if layer_key:
+        layer_hash = hashlib.sha1(layer_key.encode("utf-8")).hexdigest()[:16]
+        target = TILE_CACHE_DIR / layer_hash
+        removed = 0
+        if target.exists():
+            removed = sum(1 for _ in target.rglob("*.mvt"))
+            shutil.rmtree(target, ignore_errors=True)
+        return {"scope": "layer", "layer_key": layer_key, "removed_tiles": removed}
+    removed = 0
+    if TILE_CACHE_DIR.exists():
+        removed = sum(1 for _ in TILE_CACHE_DIR.rglob("*.mvt"))
+        shutil.rmtree(TILE_CACHE_DIR, ignore_errors=True)
+    TILE_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+    return {"scope": "all", "removed_tiles": removed}
+
+
+def _get_spatial_index_status() -> list[dict[str, Any]]:
+    backend = build_backend()
+    conn = backend.connect()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT schemaname, tablename, indexname, indexdef
+                FROM pg_indexes
+                WHERE schemaname = ANY (current_schemas(false))
+                """
+            )
+            rows = cur.fetchall()
+    finally:
+        conn.close()
+
+    statuses = []
+    for spec in SPATIAL_INDEXES:
+        matches = [
+            row for row in rows
+            if row[1] == spec["table"]
+            and "USING gist" in row[3].lower()
+            and spec["column"] in row[3]
+        ]
+        statuses.append({
+            "table": spec["table"],
+            "column": spec["column"],
+            "expected_index": spec["index_name"],
+            "present": bool(matches),
+            "indexes": [m[2] for m in matches],
+        })
+    return statuses
+
+
+def _ensure_spatial_indexes() -> list[dict[str, Any]]:
+    backend = build_backend()
+    conn = backend.connect()
+    try:
+        with conn.cursor() as cur:
+            for spec in SPATIAL_INDEXES:
+                cur.execute(
+                    f'CREATE INDEX IF NOT EXISTS {spec["index_name"]} ON {spec["table"]} USING GIST ({spec["column"]})'
+                )
+        conn.commit()
+    finally:
+        conn.close()
+    return _get_spatial_index_status()
+
+app = FastAPI(title="surveyCatalyst API", version="0.5.0")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -29,6 +117,33 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.exception_handler(HTTPException)
+def http_exception_handler(request: Request, exc: HTTPException):
+    detail = exc.detail
+    if isinstance(detail, dict) and "error" in detail:
+        payload = detail
+    else:
+        payload = _structured_error(exc.status_code, "http_error", str(detail), None)
+    return JSONResponse(status_code=exc.status_code, content=payload)
+
+
+@app.exception_handler(RequestValidationError)
+def validation_exception_handler(request: Request, exc: RequestValidationError):
+    return JSONResponse(
+        status_code=422,
+        content=_structured_error(422, "validation_error", "Request validation failed", exc.errors()),
+    )
+
+
+@app.exception_handler(Exception)
+def unhandled_exception_handler(request: Request, exc: Exception):
+    logger.exception("Unhandled API error")
+    return JSONResponse(
+        status_code=500,
+        content=_structured_error(500, "internal_error", "Internal server error", {"type": exc.__class__.__name__}),
+    )
 
 
 def parse_bbox(bbox: str | None) -> tuple[float, float, float, float] | None:
@@ -236,7 +351,27 @@ def health():
 
 @app.get("/api")
 def api_root():
-    return {"name": "surveyCatalyst API", "version": "0.4.9"}
+    return {"name": "surveyCatalyst API", "version": "0.5.0"}
+
+
+@app.get("/api/admin/index-status")
+def index_status():
+    return {"indexes": _get_spatial_index_status()}
+
+
+@app.post("/api/admin/ensure-spatial-indexes")
+def ensure_spatial_indexes():
+    return {"indexes": _ensure_spatial_indexes()}
+
+
+@app.delete("/api/cache/tiles")
+def clear_all_tile_cache():
+    return {"ok": True, **_clear_tile_cache()}
+
+
+@app.delete("/api/cache/tiles/{layer_key}")
+def clear_layer_tile_cache(layer_key: str):
+    return {"ok": True, **_clear_tile_cache(layer_key=layer_key)}
 
 
 @app.get("/api/layers")
@@ -405,6 +540,7 @@ def create_survey(payload: SurveyCreate):
         geometry=payload.geometry,
         metadata=payload.metadata,
     )
+    _clear_tile_cache()
     return {"survey_id": survey_id, "layer_key": layer_key}
 
 
@@ -418,12 +554,14 @@ def update_survey(survey_id: int, payload: SurveyUpdate):
         geometry=payload.geometry,
         metadata=payload.metadata,
     )
+    _clear_tile_cache()
     return {"ok": True}
 
 
 @app.delete("/api/surveys/{survey_id}")
 def delete_survey(survey_id: int):
     SurveyEditService().delete_survey(survey_id)
+    _clear_tile_cache()
     return {"ok": True}
 
 
@@ -439,6 +577,7 @@ def create_survey_object(survey_id: int, payload: SurveyObjectCreate):
         annotation=payload.annotation,
         details=payload.details,
     )
+    _clear_tile_cache()
     return {"object_id": object_id}
 
 
@@ -454,12 +593,14 @@ def update_survey_object(object_id: int, payload: SurveyObjectUpdate):
         details=payload.details,
         is_active=payload.is_active,
     )
+    _clear_tile_cache()
     return {"ok": True}
 
 
 @app.delete("/api/survey-objects/{object_id}")
 def delete_survey_object(object_id: int):
     SurveyEditService().delete_survey_object(object_id)
+    _clear_tile_cache()
     return {"ok": True}
 
 
@@ -549,6 +690,13 @@ def export_survey_document_data(
         },
     }
 
+
+@app.on_event("startup")
+def startup_index_check() -> None:
+    statuses = _get_spatial_index_status()
+    missing = [s for s in statuses if not s["present"]]
+    if missing:
+        logger.warning("Missing spatial indexes: %s", missing)
 
 
 def create_app() -> FastAPI:
