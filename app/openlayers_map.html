@@ -841,6 +841,37 @@ function propertiesToRows(properties) {
   return keys.map(key => `<tr><td>${escapeHtml(key)}</td><td>${formatCellValue(props[key])}</td></tr>`).join('');
 }
 
+const RESERVED_OBJECT_PROPERTY_KEYS = new Set([
+  'geometry',
+  'id',
+  'survey_id',
+  'expedition_id',
+  'type',
+  'layer_key',
+  'feature_role',
+  'is_active',
+  'title',
+  'annotation',
+  'details',
+  'status',
+  'metadata',
+  'object_count'
+]);
+
+function extractObjectCustomProperties(props) {
+  if (!props || typeof props !== 'object') return {};
+  if (props.properties && typeof props.properties === 'object' && !Array.isArray(props.properties)) {
+    return {...props.properties};
+  }
+  const custom = {};
+  Object.entries(props).forEach(([key, value]) => {
+    if (RESERVED_OBJECT_PROPERTY_KEYS.has(key)) return;
+    if (value === undefined) return;
+    custom[key] = value;
+  });
+  return custom;
+}
+
 async function fetchJson(url, options) {
   const response = await fetch(url, options);
   if (!response.ok) {
@@ -982,39 +1013,10 @@ function renderDetails(feature) {
     <div class="detailSectionTitle">Core details</div>
     <table class="dataTable keyValueTable"><tbody>${primaryRows}</tbody></table>
     <div class="detailSectionTitle">Extra properties</div>
-    <table class="dataTable keyValueTable"><tbody>${propertiesToRows(props.properties)}</tbody></table>
+    <table class="dataTable keyValueTable"><tbody>${propertiesToRows(role === 'survey_boundary' ? (props.metadata || {}) : extractObjectCustomProperties(props))}</tbody></table>
   `;
 }
 
-
-
-const OBJECT_TYPE_OPTIONS = [
-  ['find', 'Find'],
-  ['note', 'Note'],
-  ['track', 'Track'],
-  ['area', 'Area'],
-  ['anomaly', 'Anomaly'],
-  ['reference_point', 'Reference point']
-];
-
-function sanitizeObjectType(value) {
-  const allowed = OBJECT_TYPE_OPTIONS.map(([key]) => key);
-  return allowed.includes(value) ? value : 'find';
-}
-
-function rebuildObjectTypeSelect(selectId, selectedValue='find') {
-  const select = document.getElementById(selectId);
-  if (!select) return;
-  const safeValue = sanitizeObjectType(selectedValue || select.value);
-  select.innerHTML = '';
-  OBJECT_TYPE_OPTIONS.forEach(([value, label]) => {
-    const option = document.createElement('option');
-    option.value = value;
-    option.textContent = label;
-    select.appendChild(option);
-  });
-  select.value = safeValue;
-}
 
 const OBJECT_TYPE_SCHEMAS = {
   find: {
@@ -1149,11 +1151,11 @@ function renderEditor(feature) {
   document.getElementById('editorStatus').value = props.status || '';
   document.getElementById('editorAnnotation').value = props.annotation || '';
   document.getElementById('editorDetails').value = props.details || '';
-  const editorProps = {...props};
-  delete editorProps.geometry;
-  const typedValues = editorProps.properties || {};
-  document.getElementById('editorProperties').value = JSON.stringify(editorProps.properties || {}, null, 2);
-  renderTypedFields('editor', sanitizeObjectType(document.getElementById('editorType').value), typedValues);
+  const customProperties = props.feature_role === 'survey_boundary'
+    ? {...(props.metadata || {})}
+    : extractObjectCustomProperties(props);
+  document.getElementById('editorProperties').value = JSON.stringify(customProperties, null, 2);
+  renderTypedFields('editor', sanitizeObjectType(document.getElementById('editorType').value), customProperties);
 }
 
 function buildFeatureFromGeoJSON(geojson) {
