@@ -269,7 +269,7 @@ def create_app() -> FastAPI:
                     FROM mvtgeom
                     WHERE geom IS NOT NULL
                     ''',
-                    (z, x, y, MVT_EXTENT, MVT_BUFFER, layer_key, layer_key, "geom"),
+                    (z, x, y, MVT_EXTENT, MVT_BUFFER, layer_key, layer_key, MVT_EXTENT),
                 )
                 tile_bytes = cur.fetchone()[0]
             return Response(content=bytes(tile_bytes), media_type="application/vnd.mapbox-vector-tile")
