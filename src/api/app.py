@@ -338,3 +338,8 @@ def update_survey_object(object_id: int, payload: SurveyObjectUpdate):
 def delete_survey_object(object_id: int):
     SurveyEditService().delete_survey_object(object_id)
     return {"ok": True}
+
+
+
+def create_app() -> FastAPI:
+    return app
