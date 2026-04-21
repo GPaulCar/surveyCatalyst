@@ -82,8 +82,8 @@ def _get_spatial_index_status() -> list[dict[str, Any]]:
         matches = [
             row for row in rows
             if row[1] == spec["table"]
-            and "USING gist" in row[3].lower()
-            and spec["column"] in row[3]
+            and "using gist" in row[3].lower()
+            and spec["column"].lower() in row[3].lower()
         ]
         statuses.append({
             "table": spec["table"],
