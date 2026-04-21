@@ -74,6 +74,15 @@
       </div>
 
       <div class="section">
+        <h3>Active survey</h3>
+        <div id="activeSurveyInfo" class="hint">No active survey.</div>
+        <button id="activateFocusedBtn">Set focused survey active</button>
+        <button id="loadActiveBtn">Load active survey</button>
+        <button id="showActiveOnlyBtn">Show active only</button>
+        <button id="zoomActiveBtn">Zoom to active survey</button>
+      </div>
+
+      <div class="section">
         <h3>Selected feature</h3>
         <pre id="featureInfo">Click a feature on the map.</pre>
       </div>
@@ -99,8 +108,10 @@
 
     const surveyLayerStore = new Map();
     const surveyStore = new Map();
+    const surveyExtentStore = new Map();
     const contextLayerStore = new Map();
     let selectedFeature = null;
+    let activeSurveyId = null;
 
     const popupElement = document.getElementById('popup');
     const popupContent = document.getElementById('popup-content');
@@ -120,19 +131,25 @@
       return selectedFeature === feature;
     }
 
+    function isActiveSurveyFeature(feature) {
+      return activeSurveyId !== null && Number(feature.get('survey_id')) === Number(activeSurveyId);
+    }
+
     function styleForBoundary(feature) {
       const selected = isSelected(feature);
+      const active = isActiveSurveyFeature(feature);
       return new ol.style.Style({
-        stroke: new ol.style.Stroke({ color: selected ? '#d97706' : '#0a8f55', width: selected ? 4 : 3 }),
-        fill: new ol.style.Fill({ color: selected ? 'rgba(245, 158, 11, 0.20)' : 'rgba(184, 245, 209, 0.15)' })
+        stroke: new ol.style.Stroke({ color: selected ? '#d97706' : (active ? '#047857' : '#0a8f55'), width: selected ? 4 : (active ? 4 : 3) }),
+        fill: new ol.style.Fill({ color: selected ? 'rgba(245, 158, 11, 0.20)' : (active ? 'rgba(16, 185, 129, 0.18)' : 'rgba(184, 245, 209, 0.15)') })
       });
     }
 
     function styleForSurveyObject(feature) {
       const geometryType = feature.getGeometry() ? feature.getGeometry().getType() : '';
       const selected = isSelected(feature);
-      const strokeColor = selected ? '#d97706' : '#1557b0';
-      const fillColor = selected ? 'rgba(245, 158, 11, 0.25)' : 'rgba(61, 132, 245, 0.20)';
+      const active = isActiveSurveyFeature(feature);
+      const strokeColor = selected ? '#d97706' : (active ? '#0f766e' : '#1557b0');
+      const fillColor = selected ? 'rgba(245, 158, 11, 0.25)' : (active ? 'rgba(13, 148, 136, 0.22)' : 'rgba(61, 132, 245, 0.20)');
       if (geometryType.includes('Point')) {
         return new ol.style.Style({
           image: new ol.style.Circle({
@@ -189,6 +206,47 @@
         .filter(Boolean);
     }
 
+    function syncSurveyCheckboxesToActive() {
+      for (const checkbox of document.querySelectorAll('#surveyList input[type="checkbox"]')) {
+        const surveyId = Number(checkbox.dataset.surveyId);
+        checkbox.checked = activeSurveyId !== null && surveyId === Number(activeSurveyId);
+      }
+    }
+
+    function updateActiveSurveyInfo() {
+      const el = document.getElementById('activeSurveyInfo');
+      if (activeSurveyId === null || !surveyStore.has(Number(activeSurveyId))) {
+        el.textContent = 'No active survey.';
+        return;
+      }
+      const survey = surveyStore.get(Number(activeSurveyId));
+      const title = survey.title || `Survey ${survey.id}`;
+      const status = survey.status || 'unknown';
+      const expedition = survey.expedition_id ?? 'n/a';
+      el.textContent = `${title} [${survey.id}] | status=${status} | expedition=${expedition}`;
+    }
+
+    function setActiveSurvey(surveyId, options = {}) {
+      const parsed = surveyId === null || surveyId === '' ? null : Number(surveyId);
+      activeSurveyId = Number.isFinite(parsed) ? parsed : null;
+      const focus = document.getElementById('focusSurvey');
+      focus.value = activeSurveyId === null ? '' : String(activeSurveyId);
+      if (options.syncCheckboxes) {
+        syncSurveyCheckboxesToActive();
+      }
+      updateActiveSurveyInfo();
+      refreshSurveyStyles();
+    }
+
+    function zoomToSurvey(surveyId) {
+      const extent = surveyExtentStore.get(Number(surveyId));
+      if (!extent) {
+        document.getElementById('featureInfo').textContent = `Survey ${surveyId} is not loaded yet.`;
+        return;
+      }
+      map.getView().fit(extent, { padding: [40, 40, 40, 40], duration: 250, maxZoom: 17 });
+    }
+
     function clearSurveyLayers() {
       for (const layerGroup of surveyLayerStore.values()) {
         if (Array.isArray(layerGroup)) {
@@ -202,6 +260,7 @@
       selectedFeature = null;
       popupOverlay.setPosition(undefined);
       surveyLayerStore.clear();
+      surveyExtentStore.clear();
     }
 
     function syncContextLayers() {
@@ -265,6 +324,17 @@
       objectLayer.set('survey_role', 'objects');
       objectLayer.setZIndex(30);
 
+      const combinedExtent = ol.extent.createEmpty();
+      if (boundaryFeatures.length > 0) {
+        ol.extent.extend(combinedExtent, boundaryLayer.getSource().getExtent());
+      }
+      if (objectFeatures.length > 0) {
+        ol.extent.extend(combinedExtent, objectLayer.getSource().getExtent());
+      }
+      if (!ol.extent.isEmpty(combinedExtent)) {
+        surveyExtentStore.set(Number(surveyId), combinedExtent.slice());
+      }
+
       surveyLayerStore.set(surveyId, [boundaryLayer, objectLayer]);
       map.addLayer(boundaryLayer);
       map.addLayer(objectLayer);
@@ -276,6 +346,22 @@
       for (const surveyId of selected) {
         await loadSurvey(surveyId);
       }
+      if (selected.length === 1) {
+        setActiveSurvey(selected[0], { syncCheckboxes: false });
+      } else {
+        refreshSurveyStyles();
+      }
+    }
+
+    async function loadActiveSurveyOnly() {
+      if (activeSurveyId === null) {
+        document.getElementById('featureInfo').textContent = 'No active survey selected.';
+        return;
+      }
+      for (const checkbox of document.querySelectorAll('#surveyList input[type="checkbox"]')) {
+        checkbox.checked = Number(checkbox.dataset.surveyId) === Number(activeSurveyId);
+      }
+      await loadSelectedSurveys();
     }
 
     function populateSurveyControls(surveys) {
@@ -285,7 +371,7 @@
       focus.innerHTML = '<option value="">None</option>';
 
       for (const survey of surveys) {
-        surveyStore.set(survey.id, survey);
+        surveyStore.set(Number(survey.id), survey);
 
         const row = document.createElement('div');
         row.className = 'survey-row';
@@ -293,6 +379,12 @@
         const checkbox = document.createElement('input');
         checkbox.type = 'checkbox';
         checkbox.dataset.surveyId = survey.id;
+        checkbox.addEventListener('change', () => {
+          const checkedIds = getSelectedSurveyIds();
+          if (checkedIds.length === 1) {
+            setActiveSurvey(checkedIds[0], { syncCheckboxes: false });
+          }
+        });
 
         const label = document.createElement('label');
         const title = survey.title || `Survey ${survey.id}`;
@@ -381,7 +473,16 @@
       });
 
       selectedFeature = found;
-      refreshSurveyStyles();
+      if (found) {
+        const clickedSurveyId = found.get('survey_id');
+        if (clickedSurveyId !== undefined && clickedSurveyId !== null) {
+          setActiveSurvey(clickedSurveyId, { syncCheckboxes: false });
+        } else {
+          refreshSurveyStyles();
+        }
+      } else {
+        refreshSurveyStyles();
+      }
 
       if (!found) {
         popupOverlay.setPosition(undefined);
@@ -416,12 +517,49 @@
 
     document.getElementById('showFocusedBtn').addEventListener('click', () => {
       const selectedId = document.getElementById('focusSurvey').value;
+      setActiveSurvey(selectedId || null, { syncCheckboxes: false });
       for (const checkbox of document.querySelectorAll('#surveyList input[type="checkbox"]')) {
         checkbox.checked = selectedId !== '' && checkbox.dataset.surveyId === selectedId;
       }
     });
 
-    Promise.all([loadSurveyList(), loadContextLayerList()]).catch((error) => {
+    document.getElementById('activateFocusedBtn').addEventListener('click', () => {
+      const selectedId = document.getElementById('focusSurvey').value;
+      setActiveSurvey(selectedId || null, { syncCheckboxes: true });
+    });
+
+    document.getElementById('loadActiveBtn').addEventListener('click', async () => {
+      try {
+        await loadActiveSurveyOnly();
+      } catch (error) {
+        document.getElementById('featureInfo').textContent = `Error: ${error.message}`;
+      }
+    });
+
+    document.getElementById('showActiveOnlyBtn').addEventListener('click', async () => {
+      try {
+        await loadActiveSurveyOnly();
+      } catch (error) {
+        document.getElementById('featureInfo').textContent = `Error: ${error.message}`;
+      }
+    });
+
+    document.getElementById('zoomActiveBtn').addEventListener('click', () => {
+      if (activeSurveyId === null) {
+        document.getElementById('featureInfo').textContent = 'No active survey selected.';
+        return;
+      }
+      zoomToSurvey(activeSurveyId);
+    });
+
+    document.getElementById('focusSurvey').addEventListener('change', (event) => {
+      const value = event.target.value;
+      setActiveSurvey(value || null, { syncCheckboxes: false });
+    });
+
+    Promise.all([loadSurveyList(), loadContextLayerList()]).then(() => {
+      updateActiveSurveyInfo();
+    }).catch((error) => {
       document.getElementById('featureInfo').textContent = `Error: ${error.message}`;
     });
   </script>
