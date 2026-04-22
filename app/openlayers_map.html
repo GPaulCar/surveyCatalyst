@@ -763,6 +763,9 @@
           <label><input id="exportDocumentIncludeMap" type="checkbox" checked> Map image</label>
         </div>
       </div>
+      <label for="exportDescription">Export description</label>
+      <input id="exportDescription" type="text" placeholder="brief label for folder name">
+      <div class="small">Exports are downloaded locally and also saved under workspace/exports/&lt;timestamp&gt;_&lt;description&gt;/.</div>
       <div class="buttonGridCompact">
         <button id="downloadLayerExportBtn">GeoJSON</button>
         <button id="downloadDataExportBtn">Data JSON</button>
@@ -1924,6 +1927,52 @@ function getCurrentMapImageDataUrl() {
   }
 }
 
+
+function slugifyText(value, fallback='export') {
+  const slug = String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+  return slug || fallback;
+}
+
+function currentExportDescription() {
+  const input = document.getElementById('exportDescription');
+  return input ? input.value.trim() : '';
+}
+
+function utf8ToBase64(text) {
+  const bytes = new TextEncoder().encode(text);
+  const chunkSize = 0x8000;
+  let binary = '';
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+  }
+  return btoa(binary);
+}
+
+async function saveServerExport(kind, filename, content, mimeType) {
+  const res = await fetch('/api/exports/save', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({
+      kind,
+      description: currentExportDescription() || `survey-${activeSurveyId || 'export'}-${kind}`,
+      filename,
+      mime_type: mimeType,
+      survey_id: activeSurveyId,
+      content_base64: utf8ToBase64(content)
+    })
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(text || 'Failed to save export on server');
+  }
+  return await res.json();
+}
+
+
 async function downloadLayerExport() {
   if (!activeSurveyId) { setStatus('Select an active survey first.'); return; }
   try {
@@ -1934,8 +1983,12 @@ async function downloadLayerExport() {
       include_archived: opts.include_archived
     });
     const payload = await fetchJson(`/api/surveys/${activeSurveyId}/export/layer.geojson?${query}`);
-    downloadText(`survey_${activeSurveyId}_layer.geojson`, JSON.stringify(payload, null, 2), 'application/geo+json');
-    setStatus(`Downloaded layer export for survey ${activeSurveyId}.`, 'success');
+    const descriptionSlug = slugifyText(currentExportDescription(), `survey-${activeSurveyId}-layer`);
+    const filename = `survey_${activeSurveyId}_${descriptionSlug}_layer.geojson`;
+    const content = JSON.stringify(payload, null, 2);
+    const saved = await saveServerExport('layer', filename, content, 'application/geo+json');
+    downloadText(filename, content, 'application/geo+json');
+    setStatus(`Downloaded layer export and saved server copy in ${saved.folder}.`, 'success');
   } catch (error) {
     setStatus(`Layer export failed: ${error.message}`, 'error');
   }
@@ -1953,8 +2006,12 @@ async function downloadDataExport() {
       include_properties: opts.include_properties
     });
     const payload = await fetchJson(`/api/surveys/${activeSurveyId}/export/data.json?${query}`);
-    downloadText(`survey_${activeSurveyId}_data.json`, JSON.stringify(payload, null, 2), 'application/json');
-    setStatus(`Downloaded data export for survey ${activeSurveyId}.`, 'success');
+    const descriptionSlug = slugifyText(currentExportDescription(), `survey-${activeSurveyId}-data`);
+    const filename = `survey_${activeSurveyId}_${descriptionSlug}_data.json`;
+    const content = JSON.stringify(payload, null, 2);
+    const saved = await saveServerExport('data', filename, content, 'application/json');
+    downloadText(filename, content, 'application/json');
+    setStatus(`Downloaded data export and saved server copy in ${saved.folder}.`, 'success');
   } catch (error) {
     setStatus(`Data export failed: ${error.message}`, 'error');
   }
@@ -2066,8 +2123,11 @@ async function downloadDocumentExport() {
     const payload = await fetchJson(`/api/surveys/${activeSurveyId}/export/document.json?${query}`);
     const mapImage = opts.include_document_map ? getCurrentMapImageDataUrl() : null;
     const html = buildPrintableDocumentHtml(payload, mapImage, opts.include_document_details);
-    downloadText(`survey_${activeSurveyId}_document.html`, html, 'text/html');
-    setStatus(`Downloaded printable document for survey ${activeSurveyId}.`, 'success');
+    const descriptionSlug = slugifyText(currentExportDescription(), `survey-${activeSurveyId}-document`);
+    const filename = `survey_${activeSurveyId}_${descriptionSlug}_document.html`;
+    const saved = await saveServerExport('document', filename, html, 'text/html');
+    downloadText(filename, html, 'text/html');
+    setStatus(`Downloaded printable document and saved server copy in ${saved.folder}.`, 'success');
   } catch (error) {
     setStatus(`Document export failed: ${error.message}`, 'error');
   }

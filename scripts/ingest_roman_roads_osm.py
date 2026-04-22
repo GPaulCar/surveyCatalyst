@@ -17,6 +17,10 @@ OVERPASS_URL = "https://overpass-api.de/api/interpreter"
 BAVARIA_BBOX = (47.20, 8.95, 50.65, 13.95)
 LAYER_KEY = "roman_roads_osm"
 
+RAW_OUTPUT_DIR = ROOT / "workspace" / "downloads" / "raw" / "osm"
+RAW_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+
+
 QUERY = f"""
 [out:json][timeout:180];
 (
@@ -28,6 +32,7 @@ out tags geom;
 """
 
 def fetch_overpass() -> dict:
+    from datetime import datetime
     data = urllib.parse.urlencode({"data": QUERY}).encode("utf-8")
     req = urllib.request.Request(
         OVERPASS_URL,
@@ -36,7 +41,11 @@ def fetch_overpass() -> dict:
         method="POST",
     )
     with urllib.request.urlopen(req, timeout=300) as resp:
-        return json.loads(resp.read().decode("utf-8"))
+        payload = json.loads(resp.read().decode("utf-8"))
+    stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    raw_file = RAW_OUTPUT_DIR / f"roman_roads_osm_{stamp}.json"
+    raw_file.write_text(json.dumps(payload), encoding="utf-8")
+    return payload
 
 def element_to_geojson(element: dict) -> dict | None:
     geom = element.get("geometry") or []

@@ -806,3 +806,65 @@ def startup_index_check() -> None:
 
 def create_app() -> FastAPI:
     return app
+
+
+# === surveyCatalyst storage/export extension ===
+def _sc_storage_root():
+    from pathlib import Path
+    root = Path.cwd() / "workspace"
+    (root / "downloads" / "raw" / "osm").mkdir(parents=True, exist_ok=True)
+    (root / "downloads" / "curated" / "itinere").mkdir(parents=True, exist_ok=True)
+    (root / "exports").mkdir(parents=True, exist_ok=True)
+    return root
+
+def _sc_slugify(value: str | None, default: str = "export") -> str:
+    import re
+    raw = (value or "").strip().lower()
+    raw = re.sub(r"[^a-z0-9]+", "-", raw).strip("-")
+    return raw or default
+
+@app.get("/api/storage/summary")
+def sc_storage_summary():
+    root = _sc_storage_root()
+    return {
+        "workspace": str(root),
+        "downloads_raw": str(root / "downloads" / "raw"),
+        "downloads_curated": str(root / "downloads" / "curated"),
+        "exports": str(root / "exports"),
+    }
+
+@app.post("/api/exports/save")
+def sc_save_export(payload: dict):
+    import base64
+    from datetime import datetime
+    from pathlib import Path
+
+    root = _sc_storage_root()
+    description = payload.get("description") or "export"
+    kind = payload.get("kind") or "export"
+    filename = payload.get("filename") or f"{kind}.bin"
+    content_b64 = payload.get("content_base64") or ""
+    survey_id = payload.get("survey_id")
+    folder_name = f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{_sc_slugify(description, default='export')}"
+    folder = root / "exports" / folder_name
+    folder.mkdir(parents=True, exist_ok=True)
+
+    target = folder / filename
+    target.write_bytes(base64.b64decode(content_b64))
+
+    meta = {
+        "description": description,
+        "kind": kind,
+        "filename": filename,
+        "mime_type": payload.get("mime_type"),
+        "survey_id": survey_id,
+        "saved_at": datetime.now().isoformat(),
+        "path": str(target),
+    }
+    (folder / "export_meta.json").write_text(__import__("json").dumps(meta, indent=2), encoding="utf-8")
+    return {
+        "ok": True,
+        "folder": str(folder),
+        "path": str(target),
+        "filename": filename,
+    }

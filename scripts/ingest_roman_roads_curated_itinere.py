@@ -15,7 +15,7 @@ from core.db import build_backend
 LAYER_KEY = "roman_roads_curated"
 ZENODO_RECORD_ID = "17122148"
 BAVARIA_BBOX = (47.20, 8.95, 50.65, 13.95)  # south, west, north, east
-OUTPUT_DIR = ROOT / "runtime" / "downloads"
+OUTPUT_DIR = ROOT / "workspace" / "downloads" / "curated" / "itinere"
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 def ensure_registry(cur) -> None:
@@ -114,7 +114,8 @@ def discover_zenodo_geojson_url() -> str:
     raise RuntimeError("Could not find GeoJSON file in Zenodo record")
 
 def download_geojson(url: str) -> Path:
-    out_path = OUTPUT_DIR / "itinere_roads.geojson"
+    from datetime import datetime
+    out_path = OUTPUT_DIR / f"itinere_roads_{datetime.now().strftime('%Y%m%d_%H%M%S')}.geojson"
     req = urllib.request.Request(url, headers={"User-Agent": "surveyCatalyst/phase2-curated-itinere"})
     with urllib.request.urlopen(req, timeout=600) as resp, out_path.open("wb") as f:
         f.write(resp.read())
