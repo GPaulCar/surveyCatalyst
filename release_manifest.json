@@ -1,5 +1,0 @@
-{
-  "app": "surveyCatalyst",
-  "runtime": "portable-postgresql-postgis",
-  "status": "release-candidate-1"
-}

@@ -489,58 +489,93 @@
     .advancedToggle { display: inline-flex; align-items: center; gap: 8px; font-size: 12px; color: #64748b; margin-top: 8px; }
 
 
-#service-panel {
-  padding: 12px 14px;
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  background: #0f172a;
-  color: #fff;
-}
-.service-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-.service-label {
-  font-weight: 800;
-  min-width: 70px;
-}
-.service-status {
-  font-weight: 800;
-  padding: 4px 10px;
-  border-radius: 999px;
-  font-size: 12px;
-  letter-spacing: 0.05em;
-}
-.service-status.on {
-  background: #166534;
-  color: #fff;
-}
-.service-status.off {
-  background: #991b1b;
-  color: #fff;
-}
-#service-panel .service-button-row {
-  display: flex;
-  gap: 10px;
-  margin-top: 10px;
-}
-#service-panel .service-button-row button {
-  margin-bottom: 0;
-}
-#sys-detail {
-  margin-top: 10px;
-  color: #cbd5e1;
-  font-size: 12px;
-  line-height: 1.4;
-}
+    .layerStack { display: grid; gap: 10px; }
+    .toggleList { display: grid; gap: 8px; margin-top: 8px; }
+    .toggleItem { display: grid; grid-template-columns: auto 1fr; align-items: start; gap: 10px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 12px; background: #fff; }
+    .toggleItem input { width: auto; margin: 2px 0 0; }
+    .toggleMeta { display: grid; gap: 2px; }
+    .toggleTitle { font-weight: 700; color: var(--text); font-size: 13px; }
+    .toggleSub { color: var(--muted); font-size: 12px; line-height: 1.35; }
+    .lookupActions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .lookupResults { margin-top: 10px; max-height: 260px; overflow: auto; border: 1px solid var(--border); border-radius: 14px; background: #fff; }
+    .lookupRow { padding: 12px 14px; border-bottom: 1px solid #e8eef6; cursor: pointer; }
+    .lookupRow:last-child { border-bottom: 0; }
+    .lookupRow:hover { background: #f8fbff; }
+    .lookupTitle { font-weight: 700; font-size: 13px; color: var(--text); }
+    .lookupMeta { font-size: 12px; color: var(--muted); margin-top: 3px; }
+    .lookupExtract { font-size: 12px; color: #334155; margin-top: 8px; line-height: 1.45; }
+    .mapAttributionBox { position: absolute; left: 18px; bottom: 18px; z-index: 3; background: rgba(255,255,255,0.9); border: 1px solid var(--border); border-radius: 12px; padding: 8px 10px; font-size: 11px; color: var(--muted); box-shadow: var(--shadow); max-width: min(45vw, 420px); line-height: 1.35; backdrop-filter: blur(10px); }
+    .mapAttributionBox a { color: #1d4ed8; text-decoration: none; }
+    .mapAttributionBox a:hover { text-decoration: underline; }
+
+
+    #service-panel {
+      margin-bottom: 16px;
+      padding: 12px 14px;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      background: linear-gradient(180deg, #0f172a 0%, #172554 100%);
+      color: #fff;
+      box-shadow: var(--shadow);
+    }
+    .service-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 8px;
+      flex-wrap: wrap;
+    }
+    .service-row > span:first-child {
+      font-weight: 800;
+      min-width: 64px;
+    }
+    .service-row button {
+      width: auto;
+      margin-bottom: 0;
+      padding: 8px 12px;
+      background: rgba(255,255,255,0.95);
+      color: #0f172a;
+      box-shadow: none;
+    }
+    .service-row button[disabled] {
+      opacity: 0.55;
+    }
+    .status {
+      font-weight: 800;
+      padding: 4px 10px;
+      border-radius: 999px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 48px;
+      color: #fff;
+    }
+    .status.on { background: #15803d; }
+    .status.off { background: #b91c1c; }
+    .status.waiting { background: #b45309; }
+    #sys-detail {
+      color: rgba(255,255,255,0.9);
+      font-size: 12px;
+      line-height: 1.4;
+      min-height: 16px;
+    }
 
 </style>
 </head>
 <body>
 <div id="layout">
   <div id="leftPanel">
+
+    <div id="service-panel">
+      <div class="service-row">
+        <span>System</span>
+        <span id="sys-status" class="status off">OFF</span>
+        <button id="btn-start" type="button">Start</button>
+        <button id="btn-restart" type="button">Restart</button>
+      </div>
+      <div class="small" id="sys-detail">Checking service status…</div>
+    </div>
+
     <div class="section">
       <h2>Surveys</h2>
       <button id="refreshSurveysBtn">Refresh survey list</button>
@@ -555,6 +590,36 @@
         <button id="reloadHierarchyBtn">Refresh hierarchy</button>
       </div>
       <div class="summaryPill" id="activeSurveySummary">No active survey</div>
+    </div>
+
+    <div class="section">
+      <h3>Map Layers</h3>
+      <label for="basemapSelect">Basemap</label>
+      <select id="basemapSelect">
+        <option value="osm">Street</option>
+        <option value="opentopo">Topographic + contours</option>
+        <option value="nasa_satellite">Satellite (NASA global)</option>
+      </select>
+      <div class="small">Street uses OpenStreetMap. Topographic + contours uses OpenTopoMap. Satellite uses NASA GIBS global imagery and is lower-detail than the map layers.</div>
+      <div class="layerStack">
+        <div>
+          <div class="subsectionTitle">Context layers</div>
+          <div class="small">These come from your own surveyCatalyst layer catalog. Restricted and other context layers can be toggled independently.</div>
+          <div class="toggleList" id="contextLayerList"><div class="small">Loading context layers…</div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <h3>Lookup</h3>
+      <label for="wikiSearchInput">Wikipedia search</label>
+      <input id="wikiSearchInput" type="text" placeholder="Place, region, monument, object…">
+      <div class="lookupActions">
+        <button id="wikiSearchBtn">Search</button>
+        <button id="wikiNearbyBtn">Nearby current view</button>
+      </div>
+      <div class="small">Searches Wikipedia directly or finds nearby pages around the current map centre.</div>
+      <div id="wikiLookupResults" class="lookupResults"><div class="lookupRow"><div class="lookupMeta">No lookup results yet.</div></div></div>
     </div>
 
     <div class="section">
@@ -636,29 +701,13 @@
       </ul>
     </div>
 
-
-<div class="section">
-  <h3>Service Control</h3>
-  <div id="service-panel">
-    <div class="service-row">
-      <span class="service-label">System</span>
-      <span id="sys-status" class="service-status off">OFF</span>
-    </div>
-    <div class="service-button-row">
-      <button id="btn-start" type="button" onclick="startSystem()">Start</button>
-      <button id="btn-restart" type="button" onclick="restartSystem()">Restart</button>
-    </div>
-    <div class="small" id="sys-detail">Checking health…</div>
-  </div>
-</div>
-
     <div class="section">
       <h3>Status</h3>
       <div id="statusBox"></div>
     </div>
   </div>
 
-  <div id="mapWrap"><div id="map"></div>
+  <div id="mapWrap"><div id="map"></div><div id="mapAttributionBox" class="mapAttributionBox"></div>
 
   <div id="rightDock" class="open" data-open-tab="hierarchyTab">
     <div class="tabDrawer"><div id="rightPanel">
@@ -738,13 +787,37 @@
 
 <script src="https://cdn.jsdelivr.net/npm/ol@v9.2.4/dist/ol.js"></script>
 <script>
+const basemapLayers = {
+  osm: new ol.layer.Tile({
+    visible: true,
+    source: new ol.source.OSM({crossOrigin: 'anonymous'})
+  }),
+  opentopo: new ol.layer.Tile({
+    visible: false,
+    source: new ol.source.XYZ({
+      crossOrigin: 'anonymous',
+      url: 'https://{a-c}.tile.opentopomap.org/{z}/{x}/{y}.png'
+    })
+  }),
+  nasa_satellite: new ol.layer.Tile({
+    visible: false,
+    source: new ol.source.XYZ({
+      crossOrigin: 'anonymous',
+      maxZoom: 9,
+      url: 'https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/MODIS_Terra_CorrectedReflectance_TrueColor/default/GoogleMapsCompatible_Level9/{z}/{y}/{x}.jpg'
+    })
+  })
+};
+
+const BASEMAP_ATTRIBUTIONS = {
+  osm: 'Street: © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap contributors</a>.',
+  opentopo: 'Topographic + contours: Kartendaten © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap-Mitwirkende</a>, SRTM | Kartendarstellung © <a href="https://opentopomap.org/about" target="_blank" rel="noopener">OpenTopoMap</a> (CC-BY-SA).',
+  nasa_satellite: 'Satellite: imagery from <a href="https://www.earthdata.nasa.gov/engage/open-data-services-software/earthdata-developer-portal/gibs-api" target="_blank" rel="noopener">NASA GIBS</a> MODIS Terra Corrected Reflectance True Color.'
+};
+
 const map = new ol.Map({
   target: 'map',
-  layers: [
-    new ol.layer.Tile({
-      source: new ol.source.OSM({crossOrigin: 'anonymous'})
-    })
-  ],
+  layers: [basemapLayers.osm, basemapLayers.opentopo, basemapLayers.nasa_satellite],
   view: new ol.View({
     center: ol.proj.fromLonLat([11.5, 48.8]),
     zoom: 8
@@ -787,6 +860,10 @@ let selectedDescriptor = null;
 let modifyEnabled = false;
 let dirtyGeometry = false;
 let dirtyDetails = false;
+let activeBasemapKey = 'osm';
+let availableContextLayers = [];
+const activeContextLayers = new Map();
+const contextLayerColorCache = new Map();
 
 
 function describeCurrentMode() {
@@ -859,52 +936,184 @@ function toggleModifyMode() {
   updateWorkspaceState();
 }
 
+function updateBasemapAttribution() {
+  const el = document.getElementById('mapAttributionBox');
+  if (!el) return;
+  el.innerHTML = BASEMAP_ATTRIBUTIONS[activeBasemapKey] || '';
+}
 
+function setBasemap(key) {
+  const next = basemapLayers[key] ? key : 'osm';
+  Object.entries(basemapLayers).forEach(([name, layer]) => layer.setVisible(name === next));
+  activeBasemapKey = next;
+  document.getElementById('basemapSelect').value = next;
+  updateBasemapAttribution();
+}
 
-async function checkHealth() {
-  try {
-    const res = await fetch('/health', {cache: 'no-store'});
-    if (res.ok) {
-      setSystemHealthState(true, '127.0.0.1:8000 healthy');
-    } else {
-      setSystemHealthState(false, 'API not responding');
+function colorForLayer(layerKey) {
+  if (!contextLayerColorCache.has(layerKey)) {
+    const palette = ['#dc2626', '#2563eb', '#0f766e', '#9333ea', '#d97706', '#0891b2'];
+    let sum = 0;
+    for (let i = 0; i < layerKey.length; i++) sum += layerKey.charCodeAt(i);
+    contextLayerColorCache.set(layerKey, palette[sum % palette.length]);
+  }
+  return contextLayerColorCache.get(layerKey);
+}
+
+function buildContextLayerStyle(layerKey) {
+  const color = colorForLayer(layerKey);
+  return function(feature) {
+    const geomType = feature.getGeometry() ? feature.getGeometry().getType() : '';
+    if (geomType.includes('Point')) {
+      return new ol.style.Style({
+        image: new ol.style.Circle({radius: 5, fill: new ol.style.Fill({color}), stroke: new ol.style.Stroke({color: '#ffffff', width: 1.5})})
+      });
     }
-  } catch {
-    setSystemHealthState(false, 'API unreachable');
+    if (geomType.includes('Line')) {
+      return new ol.style.Style({ stroke: new ol.style.Stroke({color, width: 3}) });
+    }
+    return new ol.style.Style({
+      stroke: new ol.style.Stroke({color, width: 2.2}),
+      fill: new ol.style.Fill({color: color + '33'})
+    });
+  };
+}
+
+function buildContextLayer(layer) {
+  return new ol.layer.VectorTile({
+    declutter: true,
+    source: new ol.source.VectorTile({
+      format: new ol.format.MVT(),
+      url: `/api/layers/${encodeURIComponent(layer.layer_key)}/tiles/{z}/{x}/{y}.mvt`
+    }),
+    style: buildContextLayerStyle(layer.layer_key)
+  });
+}
+
+function setContextLayerEnabled(layerKey, enabled) {
+  const existing = activeContextLayers.get(layerKey);
+  if (enabled && !existing) {
+    const def = availableContextLayers.find(layer => layer.layer_key === layerKey);
+    if (!def) return;
+    const layer = buildContextLayer(def);
+    layer.set('contextLayerKey', layerKey);
+    map.addLayer(layer);
+    activeContextLayers.set(layerKey, layer);
+  }
+  if (!enabled && existing) {
+    map.removeLayer(existing);
+    activeContextLayers.delete(layerKey);
   }
 }
 
-function setSystemHealthState(on, text) {
-  const statusEl = document.getElementById('sys-status');
-  const detailEl = document.getElementById('sys-detail');
-  const startBtn = document.getElementById('btn-start');
-  const restartBtn = document.getElementById('btn-restart');
-
-  if (!statusEl || !detailEl || !startBtn || !restartBtn) return;
-
-  statusEl.textContent = on ? 'ON' : 'OFF';
-  statusEl.className = 'service-status ' + (on ? 'on' : 'off');
-  detailEl.textContent = text;
-
-  startBtn.disabled = on;
-  restartBtn.disabled = !on;
+function renderContextLayerList() {
+  const box = document.getElementById('contextLayerList');
+  if (!availableContextLayers.length) {
+    box.innerHTML = '<div class="small">No context layers available.</div>';
+    return;
+  }
+  box.innerHTML = availableContextLayers.map(layer => {
+    const checked = activeContextLayers.has(layer.layer_key) ? 'checked' : '';
+    const title = escapeHtml(layer.layer_name || layer.layer_key);
+    const sub = escapeHtml([layer.layer_group, layer.geometry_type].filter(Boolean).join(' · '));
+    return `<label class="toggleItem"><input type="checkbox" data-context-layer="${escapeHtml(layer.layer_key)}" ${checked}><div class="toggleMeta"><div class="toggleTitle">${title}</div><div class="toggleSub">${sub}</div></div></label>`;
+  }).join('');
 }
 
-function startSystem() {
-  window.alert('Use start_surveyCatalyst.bat from the project root or desktop shortcut.');
+async function refreshContextLayers() {
+  availableContextLayers = await fetchJson('/api/context-layers');
+  renderContextLayerList();
 }
 
-async function restartSystem() {
-  const restartBtn = document.getElementById('btn-restart');
-  if (restartBtn) restartBtn.disabled = true;
-  setSystemHealthState(false, 'Restarting web server…');
+function renderWikiResults(items) {
+  const box = document.getElementById('wikiLookupResults');
+  if (!items || !items.length) {
+    box.innerHTML = '<div class="lookupRow"><div class="lookupMeta">No lookup results.</div></div>';
+    return;
+  }
+  box.innerHTML = items.map(item => {
+    const coords = item.lat != null && item.lon != null ? ` data-lat="${item.lat}" data-lon="${item.lon}"` : '';
+    return `<div class="lookupRow"${coords}><div class="lookupTitle">${escapeHtml(item.title || '')}</div><div class="lookupMeta">${escapeHtml(item.meta || '')}</div>${item.extract ? `<div class="lookupExtract">${escapeHtml(item.extract)}</div>` : ''}</div>`;
+  }).join('');
+}
+
+async function fetchWikipediaSummary(title) {
+  const params = new URLSearchParams({
+    action: 'query',
+    format: 'json',
+    prop: 'extracts|coordinates',
+    exintro: '1',
+    explaintext: '1',
+    redirects: '1',
+    titles: title,
+    origin: '*'
+  });
+  const data = await fetchJson(`https://en.wikipedia.org/w/api.php?${params.toString()}`);
+  const pages = data?.query?.pages || {};
+  const page = Object.values(pages)[0] || {};
+  const coord = Array.isArray(page.coordinates) ? page.coordinates[0] : null;
+  return {
+    title: page.title || title,
+    extract: page.extract || '',
+    lat: coord?.lat ?? null,
+    lon: coord?.lon ?? null,
+    meta: coord ? `Wikipedia article · ${coord.lat.toFixed(4)}, ${coord.lon.toFixed(4)}` : 'Wikipedia article'
+  };
+}
+
+async function runWikipediaSearch() {
+  const q = document.getElementById('wikiSearchInput').value.trim();
+  if (!q) { setStatus('Enter a lookup term first.'); return; }
   try {
-    await fetch('/api/admin/services/web/restart', {method: 'POST'});
-  } catch {
-    // current process may terminate before the fetch resolves cleanly
+    const params = new URLSearchParams({
+      action: 'query',
+      format: 'json',
+      list: 'search',
+      srsearch: q,
+      srlimit: '8',
+      origin: '*'
+    });
+    const data = await fetchJson(`https://en.wikipedia.org/w/api.php?${params.toString()}`);
+    const results = Array.isArray(data?.query?.search) ? data.query.search : [];
+    const summaries = [];
+    for (const item of results.slice(0, 6)) {
+      summaries.push(await fetchWikipediaSummary(item.title));
+    }
+    renderWikiResults(summaries);
+    setStatus(`Loaded ${summaries.length} Wikipedia results.`, 'success');
+  } catch (error) {
+    setStatus(`Wikipedia search failed: ${error.message}`, 'error');
   }
-  window.setTimeout(checkHealth, 4500);
 }
+
+async function runWikipediaNearby() {
+  try {
+    const center = ol.proj.toLonLat(map.getView().getCenter());
+    const [lon, lat] = center;
+    const params = new URLSearchParams({
+      action: 'query',
+      format: 'json',
+      list: 'geosearch',
+      gscoord: `${lat}|${lon}`,
+      gsradius: '10000',
+      gslimit: '8',
+      origin: '*'
+    });
+    const data = await fetchJson(`https://en.wikipedia.org/w/api.php?${params.toString()}`);
+    const results = Array.isArray(data?.query?.geosearch) ? data.query.geosearch : [];
+    renderWikiResults(results.map(item => ({
+      title: item.title,
+      extract: '',
+      lat: item.lat,
+      lon: item.lon,
+      meta: `${Math.round(item.dist || 0)} m away`
+    })));
+    setStatus(`Loaded ${results.length} nearby Wikipedia results.`, 'success');
+  } catch (error) {
+    setStatus(`Nearby Wikipedia lookup failed: ${error.message}`, 'error');
+  }
+}
+
 
 function setStatus(msg, level='info') {
   const box = document.getElementById('statusBox');
@@ -1095,6 +1304,37 @@ function renderDetails(feature) {
     <div class="detailSectionTitle">Extra properties</div>
     <table class="dataTable keyValueTable"><tbody>${propertiesToRows(props.properties)}</tbody></table>
   `;
+}
+
+
+
+const OBJECT_TYPE_OPTIONS = [
+  ['find', 'Find'],
+  ['note', 'Note'],
+  ['track', 'Track'],
+  ['area', 'Area'],
+  ['anomaly', 'Anomaly'],
+  ['reference_point', 'Reference point']
+];
+
+function sanitizeObjectType(value) {
+  const safe = String(value || '').trim().toLowerCase();
+  const allowed = OBJECT_TYPE_OPTIONS.map(([key]) => key);
+  return allowed.includes(safe) ? safe : 'find';
+}
+
+function rebuildObjectTypeSelect(selectId, selectedValue='find') {
+  const select = document.getElementById(selectId);
+  if (!select) return;
+  const safeSelected = sanitizeObjectType(selectedValue);
+  select.innerHTML = '';
+  OBJECT_TYPE_OPTIONS.forEach(([key, label]) => {
+    const option = document.createElement('option');
+    option.value = key;
+    option.textContent = label;
+    if (key === safeSelected) option.selected = true;
+    select.appendChild(option);
+  });
 }
 
 
@@ -1706,52 +1946,76 @@ function buildPrintableDocumentHtml(doc, mapImageDataUrl, includeDetails) {
     .advancedToggle { display: inline-flex; align-items: center; gap: 8px; font-size: 12px; color: #64748b; margin-top: 8px; }
 
 
-#service-panel {
-  padding: 12px 14px;
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  background: #0f172a;
-  color: #fff;
-}
-.service-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-.service-label {
-  font-weight: 800;
-  min-width: 70px;
-}
-.service-status {
-  font-weight: 800;
-  padding: 4px 10px;
-  border-radius: 999px;
-  font-size: 12px;
-  letter-spacing: 0.05em;
-}
-.service-status.on {
-  background: #166534;
-  color: #fff;
-}
-.service-status.off {
-  background: #991b1b;
-  color: #fff;
-}
-#service-panel .service-button-row {
-  display: flex;
-  gap: 10px;
-  margin-top: 10px;
-}
-#service-panel .service-button-row button {
-  margin-bottom: 0;
-}
-#sys-detail {
-  margin-top: 10px;
-  color: #cbd5e1;
-  font-size: 12px;
-  line-height: 1.4;
-}
+    .layerStack { display: grid; gap: 10px; }
+    .toggleList { display: grid; gap: 8px; margin-top: 8px; }
+    .toggleItem { display: grid; grid-template-columns: auto 1fr; align-items: start; gap: 10px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 12px; background: #fff; }
+    .toggleItem input { width: auto; margin: 2px 0 0; }
+    .toggleMeta { display: grid; gap: 2px; }
+    .toggleTitle { font-weight: 700; color: var(--text); font-size: 13px; }
+    .toggleSub { color: var(--muted); font-size: 12px; line-height: 1.35; }
+    .lookupActions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .lookupResults { margin-top: 10px; max-height: 260px; overflow: auto; border: 1px solid var(--border); border-radius: 14px; background: #fff; }
+    .lookupRow { padding: 12px 14px; border-bottom: 1px solid #e8eef6; cursor: pointer; }
+    .lookupRow:last-child { border-bottom: 0; }
+    .lookupRow:hover { background: #f8fbff; }
+    .lookupTitle { font-weight: 700; font-size: 13px; color: var(--text); }
+    .lookupMeta { font-size: 12px; color: var(--muted); margin-top: 3px; }
+    .lookupExtract { font-size: 12px; color: #334155; margin-top: 8px; line-height: 1.45; }
+    .mapAttributionBox { position: absolute; left: 18px; bottom: 18px; z-index: 3; background: rgba(255,255,255,0.9); border: 1px solid var(--border); border-radius: 12px; padding: 8px 10px; font-size: 11px; color: var(--muted); box-shadow: var(--shadow); max-width: min(45vw, 420px); line-height: 1.35; backdrop-filter: blur(10px); }
+    .mapAttributionBox a { color: #1d4ed8; text-decoration: none; }
+    .mapAttributionBox a:hover { text-decoration: underline; }
+
+
+    #service-panel {
+      margin-bottom: 16px;
+      padding: 12px 14px;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      background: linear-gradient(180deg, #0f172a 0%, #172554 100%);
+      color: #fff;
+      box-shadow: var(--shadow);
+    }
+    .service-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 8px;
+      flex-wrap: wrap;
+    }
+    .service-row > span:first-child {
+      font-weight: 800;
+      min-width: 64px;
+    }
+    .service-row button {
+      width: auto;
+      margin-bottom: 0;
+      padding: 8px 12px;
+      background: rgba(255,255,255,0.95);
+      color: #0f172a;
+      box-shadow: none;
+    }
+    .service-row button[disabled] {
+      opacity: 0.55;
+    }
+    .status {
+      font-weight: 800;
+      padding: 4px 10px;
+      border-radius: 999px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 48px;
+      color: #fff;
+    }
+    .status.on { background: #15803d; }
+    .status.off { background: #b91c1c; }
+    .status.waiting { background: #b45309; }
+    #sys-detail {
+      color: rgba(255,255,255,0.9);
+      font-size: 12px;
+      line-height: 1.4;
+      min-height: 16px;
+    }
 
 </style></head><body><h1>Survey ${escapeHtml(survey.id)} — ${escapeHtml(survey.title || '')}</h1><p><strong>Status:</strong> ${escapeHtml(survey.status || '')}<br><strong>Layer key:</strong> ${escapeHtml(survey.layer_key || '')}<br><strong>Expedition:</strong> ${escapeHtml(survey.expedition_id || '')}</p><h2>Summary</h2><p><strong>Total objects:</strong> ${escapeHtml(doc.summary?.object_count || 0)}<br><strong>Active objects:</strong> ${escapeHtml(doc.summary?.active_count || 0)}<br><strong>Archived objects:</strong> ${escapeHtml(doc.summary?.archived_count || 0)}</p>${mapSection}<h2>Survey metadata</h2><pre>${escapeHtml(JSON.stringify(survey.metadata || {}, null, 2))}</pre><h2>Objects</h2><table><thead><tr><th>ID</th><th>Type</th><th>Title</th><th>Status</th><th>Details</th></tr></thead><tbody>${rows}</tbody></table></body></html>`;
 }
@@ -1776,6 +2040,89 @@ async function downloadDocumentExport() {
     setStatus(`Document export failed: ${error.message}`, 'error');
   }
 }
+
+
+let serviceRecoverTimer = null;
+let serviceRestartInProgress = false;
+
+function setServiceStatus(state, detailText) {
+  const badge = document.getElementById('sys-status');
+  const detail = document.getElementById('sys-detail');
+  const startBtn = document.getElementById('btn-start');
+  const restartBtn = document.getElementById('btn-restart');
+  if (!badge || !detail || !startBtn || !restartBtn) return;
+
+  if (state === 'on') {
+    badge.textContent = 'ON';
+    badge.className = 'status on';
+    startBtn.disabled = true;
+    restartBtn.disabled = false;
+  } else if (state === 'waiting') {
+    badge.textContent = 'WAIT';
+    badge.className = 'status waiting';
+    startBtn.disabled = true;
+    restartBtn.disabled = true;
+  } else {
+    badge.textContent = 'OFF';
+    badge.className = 'status off';
+    startBtn.disabled = false;
+    restartBtn.disabled = true;
+  }
+
+  detail.textContent = detailText || '';
+}
+
+async function checkHealth() {
+  try {
+    const res = await fetch('/health', {cache: 'no-store'});
+    if (res.ok) {
+      setServiceStatus('on', '127.0.0.1:8000 healthy');
+      if (serviceRestartInProgress) {
+        serviceRestartInProgress = false;
+        if (serviceRecoverTimer) {
+          clearTimeout(serviceRecoverTimer);
+          serviceRecoverTimer = null;
+        }
+        setStatus('Web server restarted and UI recovered automatically.', 'success');
+      }
+      return true;
+    }
+  } catch (error) {
+  }
+  setServiceStatus(serviceRestartInProgress ? 'waiting' : 'off', serviceRestartInProgress ? 'waiting for 127.0.0.1:8000 to return…' : '127.0.0.1:8000 unreachable');
+  return false;
+}
+
+function pollHealthUntilRecovered() {
+  const started = Date.now();
+  const attempt = async () => {
+    const healthy = await checkHealth();
+    if (healthy) return;
+    if (Date.now() - started > 45000) {
+      serviceRestartInProgress = false;
+      setServiceStatus('off', '127.0.0.1:8000 unreachable');
+      setStatus('Web server did not recover within 45 seconds.', 'error');
+      return;
+    }
+    serviceRecoverTimer = setTimeout(attempt, 1500);
+  };
+  attempt();
+}
+
+function restartSystem() {
+  if (serviceRestartInProgress) return;
+  serviceRestartInProgress = true;
+  setServiceStatus('waiting', 'restarting 127.0.0.1:8000…');
+  setStatus('Restarting web server…', 'info');
+  fetch('/api/admin/services/web/restart', {method: 'POST'}).catch(() => {});
+  if (serviceRecoverTimer) clearTimeout(serviceRecoverTimer);
+  serviceRecoverTimer = setTimeout(pollHealthUntilRecovered, 1200);
+}
+
+function startSystem() {
+  alert('Use start_surveyCatalyst.bat from the desktop or repo root.');
+}
+
 
 function bindTabs() {
   const dock = document.getElementById('rightDock');
@@ -1805,6 +2152,40 @@ function bindTabs() {
 
   setOpenTab('hierarchyTab', true);
 }
+
+document.getElementById('basemapSelect').onchange = (event) => setBasemap(event.target.value);
+document.getElementById('wikiSearchBtn').onclick = runWikipediaSearch;
+document.getElementById('wikiNearbyBtn').onclick = runWikipediaNearby;
+document.getElementById('wikiSearchInput').addEventListener('keydown', (event) => {
+  if (event.key === 'Enter') {
+    event.preventDefault();
+    runWikipediaSearch();
+  }
+});
+document.getElementById('contextLayerList').addEventListener('change', (event) => {
+  if (!event.target.matches('[data-context-layer]')) return;
+  setContextLayerEnabled(event.target.dataset.contextLayer, event.target.checked);
+});
+document.getElementById('wikiLookupResults').addEventListener('click', async (event) => {
+  const row = event.target.closest('.lookupRow');
+  if (!row) return;
+  const lat = row.dataset.lat;
+  const lon = row.dataset.lon;
+  if (lat && lon) {
+    map.getView().animate({center: ol.proj.fromLonLat([Number(lon), Number(lat)]), zoom: Math.max(map.getView().getZoom(), 12), duration: 400});
+  }
+  const title = row.querySelector('.lookupTitle')?.textContent;
+  if (title && !row.querySelector('.lookupExtract')?.textContent) {
+    try {
+      const enriched = await fetchWikipediaSummary(title);
+      row.dataset.lat = enriched.lat ?? row.dataset.lat;
+      row.dataset.lon = enriched.lon ?? row.dataset.lon;
+      row.innerHTML = `<div class="lookupTitle">${escapeHtml(enriched.title)}</div><div class="lookupMeta">${escapeHtml(enriched.meta || '')}</div>${enriched.extract ? `<div class="lookupExtract">${escapeHtml(enriched.extract)}</div>` : ''}`;
+    } catch (error) {
+      setStatus(`Wikipedia detail lookup failed: ${error.message}`, 'error');
+    }
+  }
+});
 
 document.getElementById('refreshSurveysBtn').onclick = async () => {
   try { await refreshSurveyList(); setStatus('Survey list refreshed.', 'success'); } catch (error) { setStatus(error.message, 'error'); }
@@ -1863,8 +2244,16 @@ rebuildObjectTypeSelect('editorType', 'find');
 renderTypedFields('object', sanitizeObjectType(document.getElementById('objectType').value), {});
 renderTypedFields('editor', sanitizeObjectType(document.getElementById('editorType').value), {});
 
+
+document.getElementById('btn-start').onclick = startSystem;
+document.getElementById('btn-restart').onclick = restartSystem;
+
 bindTabs();
+setBasemap('osm');
+refreshContextLayers().catch(error => setStatus(`Context layer load failed: ${error.message}`, 'error'));
 refreshSurveyList().then(() => setStatus('Ready.', 'success')).catch(error => setStatus(error.message, 'error'));
+checkHealth();
+setInterval(checkHealth, 5000);
 </script>
 </body>
 </html>
