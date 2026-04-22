@@ -4,6 +4,7 @@ import hashlib
 import json
 import logging
 import shutil
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -18,6 +19,20 @@ from survey.edit_service import SurveyEditService
 from .schemas import SurveyCreate, SurveyObjectCreate, SurveyObjectUpdate, SurveyUpdate
 
 BASE_DIR = Path(__file__).resolve().parents[2]
+if str(BASE_DIR) not in sys.path:
+    sys.path.insert(0, str(BASE_DIR))
+
+from scripts.service_control import (
+    api_start,
+    api_status,
+    api_stop,
+    combined_status,
+    db_restart,
+    db_start,
+    db_status,
+    db_stop,
+    schedule_api_restart,
+)
 APP_HTML = BASE_DIR / "app" / "openlayers_map.html"
 MVT_EXTENT = 4096
 MVT_BUFFER = 64
@@ -415,6 +430,49 @@ def health():
 def api_root():
     return {"name": "surveyCatalyst API", "version": "0.5.0"}
 
+
+
+
+@app.get("/api/admin/services/status")
+def service_status():
+    return {"ok": True, **combined_status()}
+
+
+@app.post("/api/admin/services/database/start")
+def service_database_start():
+    result = db_start()
+    return {"ok": result.get("ok", False), "database": db_status(), "detail": result.get("detail", "")}
+
+
+@app.post("/api/admin/services/database/stop")
+def service_database_stop():
+    result = db_stop()
+    return {"ok": result.get("ok", False), "database": db_status(), "detail": result.get("detail", "")}
+
+
+@app.post("/api/admin/services/database/restart")
+def service_database_restart():
+    result = db_restart()
+    return {"ok": result.get("ok", False), "database": db_status(), "detail": result.get("detail", "")}
+
+
+@app.post("/api/admin/services/web/start")
+def service_web_start():
+    result = api_start()
+    return {"ok": result.get("ok", False), "web_server": api_status(), "detail": result.get("detail", "")}
+
+
+@app.post("/api/admin/services/web/stop")
+def service_web_stop():
+    result = api_stop()
+    return {"ok": result.get("ok", False), "detail": result.get("detail", "")}
+
+
+@app.post("/api/admin/services/web/restart")
+def service_web_restart(request: Request):
+    current_pid = api_status().get("pid")
+    result = schedule_api_restart(current_pid=current_pid, delay_seconds=1)
+    return {"ok": result.get("ok", False), "detail": result.get("detail", ""), "web_server": {"state": "RESTARTING"}}
 
 @app.get("/api/admin/index-status")
 def index_status():

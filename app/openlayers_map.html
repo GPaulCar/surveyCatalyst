@@ -489,30 +489,73 @@
     .advancedToggle { display: inline-flex; align-items: center; gap: 8px; font-size: 12px; color: #64748b; margin-top: 8px; }
 
 
-    .layerStack { display: grid; gap: 10px; }
-    .toggleList { display: grid; gap: 8px; margin-top: 8px; }
-    .toggleItem { display: grid; grid-template-columns: auto 1fr; align-items: start; gap: 10px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 12px; background: #fff; }
-    .toggleItem input { width: auto; margin: 2px 0 0; }
-    .toggleMeta { display: grid; gap: 2px; }
-    .toggleTitle { font-weight: 700; color: var(--text); font-size: 13px; }
-    .toggleSub { color: var(--muted); font-size: 12px; line-height: 1.35; }
-    .lookupActions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-    .lookupResults { margin-top: 10px; max-height: 260px; overflow: auto; border: 1px solid var(--border); border-radius: 14px; background: #fff; }
-    .lookupRow { padding: 12px 14px; border-bottom: 1px solid #e8eef6; cursor: pointer; }
-    .lookupRow:last-child { border-bottom: 0; }
-    .lookupRow:hover { background: #f8fbff; }
-    .lookupTitle { font-weight: 700; font-size: 13px; color: var(--text); }
-    .lookupMeta { font-size: 12px; color: var(--muted); margin-top: 3px; }
-    .lookupExtract { font-size: 12px; color: #334155; margin-top: 8px; line-height: 1.45; }
-    .mapAttributionBox { position: absolute; left: 18px; bottom: 18px; z-index: 3; background: rgba(255,255,255,0.9); border: 1px solid var(--border); border-radius: 12px; padding: 8px 10px; font-size: 11px; color: var(--muted); box-shadow: var(--shadow); max-width: min(45vw, 420px); line-height: 1.35; backdrop-filter: blur(10px); }
-    .mapAttributionBox a { color: #1d4ed8; text-decoration: none; }
-    .mapAttributionBox a:hover { text-decoration: underline; }
+    .servicePanel {
+      display: grid;
+      gap: 10px;
+    }
+    .serviceCard {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 10px;
+      align-items: center;
+      padding: 12px 14px;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      background: #fff;
+    }
+    .serviceName { font-weight: 800; color: var(--text); }
+    .serviceDetail { color: var(--muted); font-size: 12px; margin-top: 2px; }
+    .serviceState {
+      min-width: 54px;
+      text-align: center;
+      padding: 6px 10px;
+      border-radius: 999px;
+      color: #fff;
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: .04em;
+    }
+    .serviceState.on { background: #15803d; }
+    .serviceState.off { background: #dc2626; }
+    .serviceState.pending { background: #d97706; }
 
 </style>
 </head>
 <body>
 <div id="layout">
   <div id="leftPanel">
+
+    <div class="section">
+      <h3>Service Control</h3>
+      <div class="servicePanel">
+        <div class="serviceCard">
+          <div>
+            <div class="serviceName">Database</div>
+            <div id="dbServiceDetail" class="serviceDetail">Checking status…</div>
+          </div>
+          <div id="dbServiceState" class="serviceState off">OFF</div>
+        </div>
+        <div class="row3">
+          <button id="dbStartBtn">Start DB</button>
+          <button id="dbStopBtn">Stop DB</button>
+          <button id="dbRestartBtn">Restart DB</button>
+        </div>
+        <div class="serviceCard">
+          <div>
+            <div class="serviceName">Web server</div>
+            <div id="webServiceDetail" class="serviceDetail">Checking status…</div>
+          </div>
+          <div id="webServiceState" class="serviceState off">OFF</div>
+        </div>
+        <div class="row3">
+          <button id="webStartBtn">Start Web</button>
+          <button id="webStopBtn">Stop Web</button>
+          <button id="webRestartBtn">Restart Web</button>
+        </div>
+        <div class="small">The database can be started, stopped, and restarted directly. Web restart is handled through a detached helper so the page can come back after a short interruption.</div>
+      </div>
+    </div>
+
     <div class="section">
       <h2>Surveys</h2>
       <button id="refreshSurveysBtn">Refresh survey list</button>
@@ -527,68 +570,6 @@
         <button id="reloadHierarchyBtn">Refresh hierarchy</button>
       </div>
       <div class="summaryPill" id="activeSurveySummary">No active survey</div>
-    </div>
-
-    <div class="section">
-      <h3>Map Layers</h3>
-      <label for="basemapSelect">Basemap</label>
-      <select id="basemapSelect">
-        <option value="osm">Street</option>
-        <option value="opentopo">Topographic</option>
-        <option value="nasa_satellite">Satellite (NASA global)</option>
-      </select>
-      <div class="small">Basemaps show what the ground looks like now. Terrain and historic overlays sit on top.</div>
-      <div class="layerStack">
-        <div class="optionGroup">
-          <div class="optionGroupTitle">Terrain overlays</div>
-          <div class="optionGrid">
-            <label><input id="terrainHillshadeToggle" type="checkbox"> Hillshade</label>
-            <label><input id="terrainContoursToggle" type="checkbox"> Contours</label>
-          </div>
-          <div class="small">Phase-1 terrain context overlays.</div>
-        </div>
-        <div class="optionGroup">
-          <div class="optionGroupTitle">Historic map overlay</div>
-          <label for="historicWmsUrl">WMS URL</label>
-          <input id="historicWmsUrl" type="text" placeholder="https://example.service/wms?">
-          <label for="historicWmsLayer">Layer name</label>
-          <input id="historicWmsLayer" type="text" placeholder="layer_name">
-          <label for="historicWmsOpacity">Opacity</label>
-          <input id="historicWmsOpacity" type="range" min="0.1" max="1" step="0.1" value="0.65">
-          <div class="row">
-            <button id="applyHistoricWmsBtn">Apply historic overlay</button>
-            <button id="clearHistoricWmsBtn">Clear historic overlay</button>
-          </div>
-          <div class="small">Use this for georeferenced cadastral, village, or military-survey WMS layers.</div>
-        </div>
-        <div>
-          <div class="subsectionTitle">Historical interest layers</div>
-          <div class="small">Roman roads, medieval roads, old villages, find spots, excavation records, floodplains and similar context from your catalogue.</div>
-          <div class="toggleList" id="historicalLayerList"><div class="small">Loading historical layers…</div></div>
-        </div>
-        <div>
-          <div class="subsectionTitle">Legal / permission layers</div>
-          <div class="small">Restricted areas, protection buffers, parcels, field names and permission-support layers.</div>
-          <div class="toggleList" id="legalLayerList"><div class="small">Loading legal layers…</div></div>
-        </div>
-        <div>
-          <div class="subsectionTitle">Supplementary layers</div>
-          <div class="small">Additional catalogued layers that do not yet fall into the historical or legal groups.</div>
-          <div class="toggleList" id="supplementaryLayerList"><div class="small">Loading supplementary layers…</div></div>
-        </div>
-      </div>
-    </div>
-
-    <div class="section">
-      <h3>Lookup</h3>
-      <label for="wikiSearchInput">Wikipedia search</label>
-      <input id="wikiSearchInput" type="text" placeholder="Place, region, monument, object…">
-      <div class="lookupActions">
-        <button id="wikiSearchBtn">Search</button>
-        <button id="wikiNearbyBtn">Nearby current view</button>
-      </div>
-      <div class="small">Searches Wikipedia directly or finds nearby pages around the current map centre.</div>
-      <div id="wikiLookupResults" class="lookupResults"><div class="lookupRow"><div class="lookupMeta">No lookup results yet.</div></div></div>
     </div>
 
     <div class="section">
@@ -676,7 +657,7 @@
     </div>
   </div>
 
-  <div id="mapWrap"><div id="map"></div><div id="mapAttributionBox" class="mapAttributionBox"></div>
+  <div id="mapWrap"><div id="map"></div>
 
   <div id="rightDock" class="open" data-open-tab="hierarchyTab">
     <div class="tabDrawer"><div id="rightPanel">
@@ -756,37 +737,13 @@
 
 <script src="https://cdn.jsdelivr.net/npm/ol@v9.2.4/dist/ol.js"></script>
 <script>
-const basemapLayers = {
-  osm: new ol.layer.Tile({
-    visible: true,
-    source: new ol.source.OSM({crossOrigin: 'anonymous'})
-  }),
-  opentopo: new ol.layer.Tile({
-    visible: false,
-    source: new ol.source.XYZ({
-      crossOrigin: 'anonymous',
-      url: 'https://{a-c}.tile.opentopomap.org/{z}/{x}/{y}.png'
-    })
-  }),
-  nasa_satellite: new ol.layer.Tile({
-    visible: false,
-    source: new ol.source.XYZ({
-      crossOrigin: 'anonymous',
-      maxZoom: 9,
-      url: 'https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/MODIS_Terra_CorrectedReflectance_TrueColor/default/GoogleMapsCompatible_Level9/{z}/{y}/{x}.jpg'
-    })
-  })
-};
-
-const BASEMAP_ATTRIBUTIONS = {
-  osm: 'Street: © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap contributors</a>.',
-  opentopo: 'Topographic + contours: Kartendaten © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap-Mitwirkende</a>, SRTM | Kartendarstellung © <a href="https://opentopomap.org/about" target="_blank" rel="noopener">OpenTopoMap</a> (CC-BY-SA).',
-  nasa_satellite: 'Satellite: imagery from <a href="https://www.earthdata.nasa.gov/engage/open-data-services-software/earthdata-developer-portal/gibs-api" target="_blank" rel="noopener">NASA GIBS</a> MODIS Terra Corrected Reflectance True Color.'
-};
-
 const map = new ol.Map({
   target: 'map',
-  layers: [basemapLayers.osm, basemapLayers.opentopo, basemapLayers.nasa_satellite],
+  layers: [
+    new ol.layer.Tile({
+      source: new ol.source.OSM({crossOrigin: 'anonymous'})
+    })
+  ],
   view: new ol.View({
     center: ol.proj.fromLonLat([11.5, 48.8]),
     zoom: 8
@@ -829,45 +786,6 @@ let selectedDescriptor = null;
 let modifyEnabled = false;
 let dirtyGeometry = false;
 let dirtyDetails = false;
-let activeBasemapKey = 'osm';
-let availableContextLayers = [];
-const activeContextLayers = new Map();
-const contextLayerColorCache = new Map();
-
-const terrainOverlays = {
-  hillshade: new ol.layer.Tile({
-    visible: false,
-    opacity: 0.6,
-    source: new ol.source.TileWMS({
-      url: 'https://ows.terrestris.de/osm/service?',
-      params: {LAYERS: 'SRTM30 Hillshade', FORMAT: 'image/png', TRANSPARENT: true},
-      crossOrigin: 'anonymous'
-    })
-  }),
-  contours: new ol.layer.Tile({
-    visible: false,
-    opacity: 0.7,
-    source: new ol.source.TileWMS({
-      url: 'https://ows.terrestris.de/osm/service?',
-      params: {LAYERS: 'SRTM30 Contour Lines', FORMAT: 'image/png', TRANSPARENT: true},
-      crossOrigin: 'anonymous'
-    })
-  })
-};
-map.addLayer(terrainOverlays.hillshade);
-map.addLayer(terrainOverlays.contours);
-
-let customHistoricWmsLayer = null;
-
-const HISTORICAL_LAYER_KEYWORDS = [
-  'roman', 'medieval', 'road', 'village', 'settlement', 'historic', 'history',
-  'find', 'excav', 'archae', 'monument', 'site', 'flood', 'creek', 'channel', 'watercourse'
-];
-const LEGAL_LAYER_KEYWORDS = [
-  'restrict', 'legal', 'protect', 'buffer', 'parcel', 'field_name', 'fieldname',
-  'owner', 'permission', 'access', 'right_of_way', 'rights_of_way', 'natura'
-];
-
 
 
 function describeCurrentMode() {
@@ -939,246 +857,6 @@ function toggleModifyMode() {
   setStatus(modifyEnabled ? 'Vertex edit enabled for the selected feature.' : 'Vertex edit disabled.');
   updateWorkspaceState();
 }
-
-function updateBasemapAttribution() {
-  const el = document.getElementById('mapAttributionBox');
-  if (!el) return;
-  el.innerHTML = BASEMAP_ATTRIBUTIONS[activeBasemapKey] || '';
-}
-
-function setBasemap(key) {
-  const next = basemapLayers[key] ? key : 'osm';
-  Object.entries(basemapLayers).forEach(([name, layer]) => layer.setVisible(name === next));
-  activeBasemapKey = next;
-  document.getElementById('basemapSelect').value = next;
-  updateBasemapAttribution();
-}
-
-function colorForLayer(layerKey) {
-  if (!contextLayerColorCache.has(layerKey)) {
-    const palette = ['#dc2626', '#2563eb', '#0f766e', '#9333ea', '#d97706', '#0891b2'];
-    let sum = 0;
-    for (let i = 0; i < layerKey.length; i++) sum += layerKey.charCodeAt(i);
-    contextLayerColorCache.set(layerKey, palette[sum % palette.length]);
-  }
-  return contextLayerColorCache.get(layerKey);
-}
-
-function buildContextLayerStyle(layerKey) {
-  const color = colorForLayer(layerKey);
-  return function(feature) {
-    const geomType = feature.getGeometry() ? feature.getGeometry().getType() : '';
-    if (geomType.includes('Point')) {
-      return new ol.style.Style({
-        image: new ol.style.Circle({radius: 5, fill: new ol.style.Fill({color}), stroke: new ol.style.Stroke({color: '#ffffff', width: 1.5})})
-      });
-    }
-    if (geomType.includes('Line')) {
-      return new ol.style.Style({ stroke: new ol.style.Stroke({color, width: 3}) });
-    }
-    return new ol.style.Style({
-      stroke: new ol.style.Stroke({color, width: 2.2}),
-      fill: new ol.style.Fill({color: color + '33'})
-    });
-  };
-}
-
-function buildContextLayer(layer) {
-  return new ol.layer.VectorTile({
-    declutter: true,
-    source: new ol.source.VectorTile({
-      format: new ol.format.MVT(),
-      url: `/api/layers/${encodeURIComponent(layer.layer_key)}/tiles/{z}/{x}/{y}.mvt`
-    }),
-    style: buildContextLayerStyle(layer.layer_key)
-  });
-}
-
-function setContextLayerEnabled(layerKey, enabled) {
-  const existing = activeContextLayers.get(layerKey);
-  if (enabled && !existing) {
-    const def = availableContextLayers.find(layer => layer.layer_key === layerKey);
-    if (!def) return;
-    const layer = buildContextLayer(def);
-    layer.set('contextLayerKey', layerKey);
-    map.addLayer(layer);
-    activeContextLayers.set(layerKey, layer);
-  }
-  if (!enabled && existing) {
-    map.removeLayer(existing);
-    activeContextLayers.delete(layerKey);
-  }
-}
-
-
-function classifyContextLayer(layer) {
-  const haystack = [
-    layer.layer_key || '',
-    layer.layer_name || '',
-    layer.source_table || '',
-    layer.layer_group || ''
-  ].join(' ').toLowerCase();
-  if (LEGAL_LAYER_KEYWORDS.some(keyword => haystack.includes(keyword))) return 'legal';
-  if (HISTORICAL_LAYER_KEYWORDS.some(keyword => haystack.includes(keyword))) return 'historical';
-  return 'supplementary';
-}
-
-function renderContextLayerGroup(containerId, layers) {
-  const box = document.getElementById(containerId);
-  if (!box) return;
-  if (!layers.length) {
-    box.innerHTML = '<div class="small">No layers in this group yet.</div>';
-    return;
-  }
-  box.innerHTML = layers.map(layer => {
-    const checked = activeContextLayers.has(layer.layer_key) ? 'checked' : '';
-    const title = escapeHtml(layer.layer_name || layer.layer_key);
-    const sub = escapeHtml([layer.layer_group, layer.geometry_type].filter(Boolean).join(' · '));
-    return `<label class="toggleItem"><input type="checkbox" data-context-layer="${escapeHtml(layer.layer_key)}" ${checked}><div class="toggleMeta"><div class="toggleTitle">${title}</div><div class="toggleSub">${sub}</div></div></label>`;
-  }).join('');
-}
-
-function renderContextLayerList() {
-  const grouped = {historical: [], legal: [], supplementary: []};
-  availableContextLayers.forEach(layer => {
-    grouped[classifyContextLayer(layer)].push(layer);
-  });
-  renderContextLayerGroup('historicalLayerList', grouped.historical);
-  renderContextLayerGroup('legalLayerList', grouped.legal);
-  renderContextLayerGroup('supplementaryLayerList', grouped.supplementary);
-}
-
-
-async function refreshContextLayers() {
-  availableContextLayers = await fetchJson('/api/context-layers');
-  renderContextLayerList();
-}
-
-
-function setTerrainOverlayEnabled(name, enabled) {
-  const layer = terrainOverlays[name];
-  if (!layer) return;
-  layer.setVisible(Boolean(enabled));
-}
-
-function clearHistoricWmsOverlay() {
-  if (customHistoricWmsLayer) {
-    map.removeLayer(customHistoricWmsLayer);
-    customHistoricWmsLayer = null;
-  }
-}
-
-function applyHistoricWmsOverlay() {
-  const url = document.getElementById('historicWmsUrl').value.trim();
-  const layerName = document.getElementById('historicWmsLayer').value.trim();
-  const opacity = Number(document.getElementById('historicWmsOpacity').value || 0.65);
-  if (!url || !layerName) {
-    setStatus('Enter both a historic WMS URL and layer name.', 'error');
-    return;
-  }
-  clearHistoricWmsOverlay();
-  customHistoricWmsLayer = new ol.layer.Tile({
-    opacity,
-    source: new ol.source.TileWMS({
-      url,
-      params: {LAYERS: layerName, FORMAT: 'image/png', TRANSPARENT: true},
-      crossOrigin: 'anonymous'
-    })
-  });
-  customHistoricWmsLayer.set('customHistoricWms', true);
-  map.addLayer(customHistoricWmsLayer);
-  setStatus(`Applied historic overlay ${layerName}.`, 'success');
-}
-
-function renderWikiResults(items) {
-  const box = document.getElementById('wikiLookupResults');
-  if (!items || !items.length) {
-    box.innerHTML = '<div class="lookupRow"><div class="lookupMeta">No lookup results.</div></div>';
-    return;
-  }
-  box.innerHTML = items.map(item => {
-    const coords = item.lat != null && item.lon != null ? ` data-lat="${item.lat}" data-lon="${item.lon}"` : '';
-    return `<div class="lookupRow"${coords}><div class="lookupTitle">${escapeHtml(item.title || '')}</div><div class="lookupMeta">${escapeHtml(item.meta || '')}</div>${item.extract ? `<div class="lookupExtract">${escapeHtml(item.extract)}</div>` : ''}</div>`;
-  }).join('');
-}
-
-async function fetchWikipediaSummary(title) {
-  const params = new URLSearchParams({
-    action: 'query',
-    format: 'json',
-    prop: 'extracts|coordinates',
-    exintro: '1',
-    explaintext: '1',
-    redirects: '1',
-    titles: title,
-    origin: '*'
-  });
-  const data = await fetchJson(`https://en.wikipedia.org/w/api.php?${params.toString()}`);
-  const pages = data?.query?.pages || {};
-  const page = Object.values(pages)[0] || {};
-  const coord = Array.isArray(page.coordinates) ? page.coordinates[0] : null;
-  return {
-    title: page.title || title,
-    extract: page.extract || '',
-    lat: coord?.lat ?? null,
-    lon: coord?.lon ?? null,
-    meta: coord ? `Wikipedia article · ${coord.lat.toFixed(4)}, ${coord.lon.toFixed(4)}` : 'Wikipedia article'
-  };
-}
-
-async function runWikipediaSearch() {
-  const q = document.getElementById('wikiSearchInput').value.trim();
-  if (!q) { setStatus('Enter a lookup term first.'); return; }
-  try {
-    const params = new URLSearchParams({
-      action: 'query',
-      format: 'json',
-      list: 'search',
-      srsearch: q,
-      srlimit: '8',
-      origin: '*'
-    });
-    const data = await fetchJson(`https://en.wikipedia.org/w/api.php?${params.toString()}`);
-    const results = Array.isArray(data?.query?.search) ? data.query.search : [];
-    const summaries = [];
-    for (const item of results.slice(0, 6)) {
-      summaries.push(await fetchWikipediaSummary(item.title));
-    }
-    renderWikiResults(summaries);
-    setStatus(`Loaded ${summaries.length} Wikipedia results.`, 'success');
-  } catch (error) {
-    setStatus(`Wikipedia search failed: ${error.message}`, 'error');
-  }
-}
-
-async function runWikipediaNearby() {
-  try {
-    const center = ol.proj.toLonLat(map.getView().getCenter());
-    const [lon, lat] = center;
-    const params = new URLSearchParams({
-      action: 'query',
-      format: 'json',
-      list: 'geosearch',
-      gscoord: `${lat}|${lon}`,
-      gsradius: '10000',
-      gslimit: '8',
-      origin: '*'
-    });
-    const data = await fetchJson(`https://en.wikipedia.org/w/api.php?${params.toString()}`);
-    const results = Array.isArray(data?.query?.geosearch) ? data.query.geosearch : [];
-    renderWikiResults(results.map(item => ({
-      title: item.title,
-      extract: '',
-      lat: item.lat,
-      lon: item.lon,
-      meta: `${Math.round(item.dist || 0)} m away`
-    })));
-    setStatus(`Loaded ${results.length} nearby Wikipedia results.`, 'success');
-  } catch (error) {
-    setStatus(`Nearby Wikipedia lookup failed: ${error.message}`, 'error');
-  }
-}
-
 
 function setStatus(msg, level='info') {
   const box = document.getElementById('statusBox');
@@ -1372,35 +1050,6 @@ function renderDetails(feature) {
 }
 
 
-
-const OBJECT_TYPE_OPTIONS = [
-  ['find', 'Find'],
-  ['note', 'Note'],
-  ['track', 'Track'],
-  ['area', 'Area'],
-  ['anomaly', 'Anomaly'],
-  ['reference_point', 'Reference point']
-];
-
-function sanitizeObjectType(value) {
-  const allowed = new Set(OBJECT_TYPE_OPTIONS.map(([key]) => key));
-  return allowed.has(value) ? value : 'find';
-}
-
-function rebuildObjectTypeSelect(selectId, selectedValue='find') {
-  const select = document.getElementById(selectId);
-  if (!select) return;
-  const safeValue = sanitizeObjectType(selectedValue);
-  select.innerHTML = '';
-  OBJECT_TYPE_OPTIONS.forEach(([value, label]) => {
-    const option = document.createElement('option');
-    option.value = value;
-    option.textContent = label;
-    if (value === safeValue) option.selected = true;
-    select.appendChild(option);
-  });
-}
-
 const OBJECT_TYPE_SCHEMAS = {
   find: {
     label: 'Find',
@@ -1465,6 +1114,51 @@ const OBJECT_TYPE_SCHEMAS = {
     ]
   }
 };
+
+
+const OBJECT_TYPE_OPTIONS = [
+  ['find', 'Find'],
+  ['note', 'Note'],
+  ['track', 'Track'],
+  ['area', 'Area'],
+  ['anomaly', 'Anomaly'],
+  ['reference_point', 'Reference point']
+];
+
+function sanitizeObjectType(value) {
+  const allowed = OBJECT_TYPE_OPTIONS.map(([key]) => key);
+  return allowed.includes(value) ? value : 'find';
+}
+
+function rebuildObjectTypeSelect(selectId, selectedValue='find') {
+  const select = document.getElementById(selectId);
+  if (!select) return;
+  const safeValue = sanitizeObjectType(selectedValue || select.value || 'find');
+  select.innerHTML = '';
+  OBJECT_TYPE_OPTIONS.forEach(([value, label]) => {
+    const option = document.createElement('option');
+    option.value = value;
+    option.textContent = label;
+    select.appendChild(option);
+  });
+  select.value = safeValue;
+}
+
+function disableDoubleClickZoom() {
+  map.getInteractions().forEach(interaction => {
+    if (interaction instanceof ol.interaction.DoubleClickZoom) {
+      interaction.setActive(false);
+    }
+  });
+}
+
+function enableDoubleClickZoom() {
+  map.getInteractions().forEach(interaction => {
+    if (interaction instanceof ol.interaction.DoubleClickZoom) {
+      interaction.setActive(true);
+    }
+  });
+}
 
 function getTypeSchema(type) {
   return OBJECT_TYPE_SCHEMAS[type] || OBJECT_TYPE_SCHEMAS.find;
@@ -1697,6 +1391,7 @@ function clearDrawInteraction() {
     map.removeInteraction(drawInteraction);
     drawInteraction = null;
   }
+  enableDoubleClickZoom();
   currentMode = null;
   updateWorkspaceState();
 }
@@ -1710,8 +1405,10 @@ function armDraw(kind) {
   currentMode = kind;
   drawInteraction = new ol.interaction.Draw({
     source: new ol.source.Vector(),
-    type: kind
+    type: kind,
+    stopClick: true
   });
+  drawInteraction.on('drawstart', () => { disableDoubleClickZoom(); });
   drawInteraction.on('drawend', async evt => {
     try {
       const geometry = featureToGeoJSONGeometry(evt.feature);
@@ -1731,9 +1428,11 @@ function armDraw(kind) {
       });
       setStatus(`Created ${kind} object on survey ${activeSurveyId}.`, 'success');
       clearDrawInteraction();
+      enableDoubleClickZoom();
       dirtyGeometry = false;
       await loadSurvey(activeSurveyId, false);
     } catch (error) {
+      enableDoubleClickZoom();
       setStatus(`Create object failed: ${error.message}`, 'error');
     }
   });
@@ -1745,7 +1444,8 @@ function armDraw(kind) {
 function armCreateSurveyPolygon() {
   clearDrawInteraction();
   currentMode = 'createSurvey';
-  drawInteraction = new ol.interaction.Draw({source: new ol.source.Vector(), type: 'Polygon'});
+  drawInteraction = new ol.interaction.Draw({source: new ol.source.Vector(), type: 'Polygon', stopClick: true});
+  drawInteraction.on('drawstart', () => { disableDoubleClickZoom(); });
   drawInteraction.on('drawend', async evt => {
     try {
       const payload = {
@@ -1763,10 +1463,12 @@ function armCreateSurveyPolygon() {
       activeSurveyId = created.survey_id;
       setStatus(`Created survey ${created.survey_id}.`, 'success');
       clearDrawInteraction();
+      enableDoubleClickZoom();
       await refreshSurveyList();
       document.getElementById('surveySelect').value = String(activeSurveyId);
       await loadSurvey(activeSurveyId, true);
     } catch (error) {
+      enableDoubleClickZoom();
       setStatus(`Create survey failed: ${error.message}`, 'error');
     }
   });
@@ -2009,24 +1711,35 @@ function buildPrintableDocumentHtml(doc, mapImageDataUrl, includeDetails) {
     .advancedToggle { display: inline-flex; align-items: center; gap: 8px; font-size: 12px; color: #64748b; margin-top: 8px; }
 
 
-    .layerStack { display: grid; gap: 10px; }
-    .toggleList { display: grid; gap: 8px; margin-top: 8px; }
-    .toggleItem { display: grid; grid-template-columns: auto 1fr; align-items: start; gap: 10px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 12px; background: #fff; }
-    .toggleItem input { width: auto; margin: 2px 0 0; }
-    .toggleMeta { display: grid; gap: 2px; }
-    .toggleTitle { font-weight: 700; color: var(--text); font-size: 13px; }
-    .toggleSub { color: var(--muted); font-size: 12px; line-height: 1.35; }
-    .lookupActions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-    .lookupResults { margin-top: 10px; max-height: 260px; overflow: auto; border: 1px solid var(--border); border-radius: 14px; background: #fff; }
-    .lookupRow { padding: 12px 14px; border-bottom: 1px solid #e8eef6; cursor: pointer; }
-    .lookupRow:last-child { border-bottom: 0; }
-    .lookupRow:hover { background: #f8fbff; }
-    .lookupTitle { font-weight: 700; font-size: 13px; color: var(--text); }
-    .lookupMeta { font-size: 12px; color: var(--muted); margin-top: 3px; }
-    .lookupExtract { font-size: 12px; color: #334155; margin-top: 8px; line-height: 1.45; }
-    .mapAttributionBox { position: absolute; left: 18px; bottom: 18px; z-index: 3; background: rgba(255,255,255,0.9); border: 1px solid var(--border); border-radius: 12px; padding: 8px 10px; font-size: 11px; color: var(--muted); box-shadow: var(--shadow); max-width: min(45vw, 420px); line-height: 1.35; backdrop-filter: blur(10px); }
-    .mapAttributionBox a { color: #1d4ed8; text-decoration: none; }
-    .mapAttributionBox a:hover { text-decoration: underline; }
+    .servicePanel {
+      display: grid;
+      gap: 10px;
+    }
+    .serviceCard {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 10px;
+      align-items: center;
+      padding: 12px 14px;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      background: #fff;
+    }
+    .serviceName { font-weight: 800; color: var(--text); }
+    .serviceDetail { color: var(--muted); font-size: 12px; margin-top: 2px; }
+    .serviceState {
+      min-width: 54px;
+      text-align: center;
+      padding: 6px 10px;
+      border-radius: 999px;
+      color: #fff;
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: .04em;
+    }
+    .serviceState.on { background: #15803d; }
+    .serviceState.off { background: #dc2626; }
+    .serviceState.pending { background: #d97706; }
 
 </style></head><body><h1>Survey ${escapeHtml(survey.id)} — ${escapeHtml(survey.title || '')}</h1><p><strong>Status:</strong> ${escapeHtml(survey.status || '')}<br><strong>Layer key:</strong> ${escapeHtml(survey.layer_key || '')}<br><strong>Expedition:</strong> ${escapeHtml(survey.expedition_id || '')}</p><h2>Summary</h2><p><strong>Total objects:</strong> ${escapeHtml(doc.summary?.object_count || 0)}<br><strong>Active objects:</strong> ${escapeHtml(doc.summary?.active_count || 0)}<br><strong>Archived objects:</strong> ${escapeHtml(doc.summary?.archived_count || 0)}</p>${mapSection}<h2>Survey metadata</h2><pre>${escapeHtml(JSON.stringify(survey.metadata || {}, null, 2))}</pre><h2>Objects</h2><table><thead><tr><th>ID</th><th>Type</th><th>Title</th><th>Status</th><th>Details</th></tr></thead><tbody>${rows}</tbody></table></body></html>`;
 }
@@ -2049,6 +1762,52 @@ async function downloadDocumentExport() {
     setStatus(`Downloaded printable document for survey ${activeSurveyId}.`, 'success');
   } catch (error) {
     setStatus(`Document export failed: ${error.message}`, 'error');
+  }
+}
+
+
+function setServiceBadge(elId, detailId, service, pending=false) {
+  const badge = document.getElementById(elId);
+  const detail = document.getElementById(detailId);
+  if (!badge || !detail || !service) return;
+  if (pending) {
+    badge.textContent = service.state || 'WAIT';
+    badge.className = 'serviceState pending';
+  } else {
+    badge.textContent = service.running ? 'ON' : 'OFF';
+    badge.className = `serviceState ${service.running ? 'on' : 'off'}`;
+  }
+  detail.textContent = service.detail || '';
+}
+
+async function refreshServiceStatus() {
+  try {
+    const payload = await fetchJson('/api/admin/services/status');
+    setServiceBadge('dbServiceState', 'dbServiceDetail', payload.database || {});
+    setServiceBadge('webServiceState', 'webServiceDetail', payload.web_server || {});
+  } catch (error) {
+    setStatus(`Service status refresh failed: ${error.message}`, 'error');
+  }
+}
+
+async function runServiceAction(target, action) {
+  try {
+    const payload = await fetchJson(`/api/admin/services/${target}/${action}`, {method: 'POST'});
+    if (target === 'web' && action === 'restart') {
+      setServiceBadge('webServiceState', 'webServiceDetail', {state: 'RESTART', detail: payload.detail || 'Restarting web server…'}, true);
+      setStatus(payload.detail || 'Web server restart scheduled.', 'success');
+      window.setTimeout(() => { refreshServiceStatus().catch(() => {}); }, 2500);
+      return;
+    }
+    if (target === 'web' && action === 'stop') {
+      setServiceBadge('webServiceState', 'webServiceDetail', {state: 'STOP', detail: payload.detail || 'Stopping web server…'}, true);
+      setStatus(payload.detail || 'Web server stop requested.', 'success');
+      return;
+    }
+    setStatus(payload.detail || `${target} ${action} completed.`, payload.ok ? 'success' : 'error');
+    await refreshServiceStatus();
+  } catch (error) {
+    setStatus(`Service action failed: ${error.message}`, 'error');
   }
 }
 
@@ -2080,46 +1839,6 @@ function bindTabs() {
 
   setOpenTab('hierarchyTab', true);
 }
-
-document.getElementById('basemapSelect').onchange = (event) => setBasemap(event.target.value);
-
-document.getElementById('terrainHillshadeToggle').onchange = (event) => setTerrainOverlayEnabled('hillshade', event.target.checked);
-document.getElementById('terrainContoursToggle').onchange = (event) => setTerrainOverlayEnabled('contours', event.target.checked);
-document.getElementById('applyHistoricWmsBtn').onclick = applyHistoricWmsOverlay;
-document.getElementById('clearHistoricWmsBtn').onclick = () => { clearHistoricWmsOverlay(); setStatus('Historic overlay cleared.', 'success'); };
-
-document.getElementById('wikiSearchBtn').onclick = runWikipediaSearch;
-document.getElementById('wikiNearbyBtn').onclick = runWikipediaNearby;
-document.getElementById('wikiSearchInput').addEventListener('keydown', (event) => {
-  if (event.key === 'Enter') {
-    event.preventDefault();
-    runWikipediaSearch();
-  }
-});
-document.addEventListener('change', (event) => {
-  if (!event.target.matches('[data-context-layer]')) return;
-  setContextLayerEnabled(event.target.dataset.contextLayer, event.target.checked);
-});
-document.getElementById('wikiLookupResults').addEventListener('click', async (event) => {
-  const row = event.target.closest('.lookupRow');
-  if (!row) return;
-  const lat = row.dataset.lat;
-  const lon = row.dataset.lon;
-  if (lat && lon) {
-    map.getView().animate({center: ol.proj.fromLonLat([Number(lon), Number(lat)]), zoom: Math.max(map.getView().getZoom(), 12), duration: 400});
-  }
-  const title = row.querySelector('.lookupTitle')?.textContent;
-  if (title && !row.querySelector('.lookupExtract')?.textContent) {
-    try {
-      const enriched = await fetchWikipediaSummary(title);
-      row.dataset.lat = enriched.lat ?? row.dataset.lat;
-      row.dataset.lon = enriched.lon ?? row.dataset.lon;
-      row.innerHTML = `<div class="lookupTitle">${escapeHtml(enriched.title)}</div><div class="lookupMeta">${escapeHtml(enriched.meta || '')}</div>${enriched.extract ? `<div class="lookupExtract">${escapeHtml(enriched.extract)}</div>` : ''}`;
-    } catch (error) {
-      setStatus(`Wikipedia detail lookup failed: ${error.message}`, 'error');
-    }
-  }
-});
 
 document.getElementById('refreshSurveysBtn').onclick = async () => {
   try { await refreshSurveyList(); setStatus('Survey list refreshed.', 'success'); } catch (error) { setStatus(error.message, 'error'); }
@@ -2179,8 +1898,8 @@ renderTypedFields('object', sanitizeObjectType(document.getElementById('objectTy
 renderTypedFields('editor', sanitizeObjectType(document.getElementById('editorType').value), {});
 
 bindTabs();
-setBasemap('osm');
-refreshContextLayers().catch(error => setStatus(`Context layer load failed: ${error.message}`, 'error'));
+refreshServiceStatus().catch(error => setStatus(`Service status refresh failed: ${error.message}`, 'error'));
+window.setInterval(() => { refreshServiceStatus().catch(() => {}); }, 5000);
 refreshSurveyList().then(() => setStatus('Ready.', 'success')).catch(error => setStatus(error.message, 'error'));
 </script>
 </body>
