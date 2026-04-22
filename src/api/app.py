@@ -3,10 +3,8 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
-import os
+from collections import deque
 import shutil
-import subprocess
-import sys
 from pathlib import Path
 from typing import Any
 
@@ -27,7 +25,23 @@ MVT_BUFFER = 64
 TILE_CACHE_DIR = BASE_DIR / ".cache" / "mvt"
 TILE_CACHE_DIR.mkdir(parents=True, exist_ok=True)
 
+
 logger = logging.getLogger(__name__)
+
+API_LOG_BUFFER: deque[str] = deque(maxlen=200)
+
+class InMemoryLogHandler(logging.Handler):
+    def emit(self, record: logging.LogRecord) -> None:
+        try:
+            API_LOG_BUFFER.append(self.format(record))
+        except Exception:
+            pass
+
+_memory_log_handler = InMemoryLogHandler()
+_memory_log_handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(message)s"))
+if not any(isinstance(h, InMemoryLogHandler) for h in logger.handlers):
+    logger.addHandler(_memory_log_handler)
+logger.setLevel(logging.INFO)
 
 SPATIAL_INDEXES = [
     {"table": "surveys", "column": "geom", "index_name": "idx_surveys_geom_gist"},
@@ -182,6 +196,16 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.middleware("http")
+async def request_log_middleware(request: Request, call_next):
+    response = await call_next(request)
+    try:
+        logger.info("%s %s -> %s", request.method, request.url.path, response.status_code)
+    except Exception:
+        pass
+    return response
 
 
 @app.exception_handler(HTTPException)
@@ -409,9 +433,15 @@ def root() -> HTMLResponse:
     return HTMLResponse(APP_HTML.read_text(encoding="utf-8"))
 
 
+
 @app.get("/health")
 def health():
     return {"status": "healthy"}
+
+
+@app.get("/api/admin/logs")
+def get_logs(limit: int = Query(100, ge=1, le=500)):
+    return {"lines": list(API_LOG_BUFFER)[-limit:]}
 
 
 @app.get("/api")
@@ -764,25 +794,6 @@ def export_survey_document_data(
             "include_properties": include_properties,
         },
     }
-
-
-@app.post("/api/admin/services/web/restart")
-def restart_web_service():
-    helper = BASE_DIR / "scripts" / "restart_api_helper.py"
-    python_exe = BASE_DIR / ".surveyCatalyst_venv" / "Scripts" / "python.exe"
-    if not python_exe.exists():
-        python_exe = Path(sys.executable)
-
-    creationflags = getattr(subprocess, "DETACHED_PROCESS", 0) | getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
-    subprocess.Popen(
-        [str(python_exe), str(helper), str(os.getpid())],
-        cwd=str(BASE_DIR),
-        creationflags=creationflags,
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-    )
-    return {"ok": True, "detail": "restart scheduled"}
-
 
 
 @app.on_event("startup")

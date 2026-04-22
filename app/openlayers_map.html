@@ -509,55 +509,35 @@
     .mapAttributionBox a:hover { text-decoration: underline; }
 
 
-    #service-panel {
-      margin-bottom: 16px;
-      padding: 12px 14px;
+    #log-panel {
+      margin-top: 12px;
       border: 1px solid var(--border);
       border-radius: 14px;
-      background: linear-gradient(180deg, #0f172a 0%, #172554 100%);
-      color: #fff;
+      background: #0b1220;
+      color: #cbd5e1;
+      overflow: hidden;
       box-shadow: var(--shadow);
     }
-    .service-row {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      margin-bottom: 8px;
-      flex-wrap: wrap;
-    }
-    .service-row > span:first-child {
-      font-weight: 800;
-      min-width: 64px;
-    }
-    .service-row button {
-      width: auto;
-      margin-bottom: 0;
-      padding: 8px 12px;
-      background: rgba(255,255,255,0.95);
-      color: #0f172a;
-      box-shadow: none;
-    }
-    .service-row button[disabled] {
-      opacity: 0.55;
-    }
-    .status {
-      font-weight: 800;
-      padding: 4px 10px;
-      border-radius: 999px;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      min-width: 48px;
-      color: #fff;
-    }
-    .status.on { background: #15803d; }
-    .status.off { background: #b91c1c; }
-    .status.waiting { background: #b45309; }
-    #sys-detail {
-      color: rgba(255,255,255,0.9);
+    .panelHeader {
+      padding: 10px 12px;
       font-size: 12px;
-      line-height: 1.4;
-      min-height: 16px;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #e2e8f0;
+      background: rgba(255,255,255,0.04);
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+    }
+    #log-output {
+      margin: 0;
+      padding: 10px 12px;
+      font-size: 11px;
+      line-height: 1.45;
+      overflow-y: auto;
+      height: 180px;
+      white-space: pre-wrap;
+      word-break: break-word;
+      font-family: "SFMono-Regular", Consolas, monospace;
     }
 
 </style>
@@ -565,17 +545,6 @@
 <body>
 <div id="layout">
   <div id="leftPanel">
-
-    <div id="service-panel">
-      <div class="service-row">
-        <span>System</span>
-        <span id="sys-status" class="status off">OFF</span>
-        <button id="btn-start" type="button">Start</button>
-        <button id="btn-restart" type="button">Restart</button>
-      </div>
-      <div class="small" id="sys-detail">Checking service status…</div>
-    </div>
-
     <div class="section">
       <h2>Surveys</h2>
       <button id="refreshSurveysBtn">Refresh survey list</button>
@@ -601,12 +570,41 @@
         <option value="nasa_satellite">Satellite (NASA global)</option>
       </select>
       <div class="small">Street uses OpenStreetMap. Topographic + contours uses OpenTopoMap. Satellite uses NASA GIBS global imagery and is lower-detail than the map layers.</div>
-      <div class="layerStack">
-        <div>
-          <div class="subsectionTitle">Context layers</div>
-          <div class="small">These come from your own surveyCatalyst layer catalog. Restricted and other context layers can be toggled independently.</div>
-          <div class="toggleList" id="contextLayerList"><div class="small">Loading context layers…</div></div>
+
+      <div class="optionGroup">
+        <div class="optionGroupTitle">Terrain overlays</div>
+        <div class="optionGrid">
+          <label><input id="terrainHillshadeToggle" type="checkbox"> Hillshade</label>
+          <label><input id="terrainContoursToggle" type="checkbox"> Contours</label>
         </div>
+      </div>
+
+      <div class="optionGroup">
+        <div class="optionGroupTitle">Historic map overlay</div>
+        <label for="historicWmsUrl">WMS URL</label>
+        <input id="historicWmsUrl" type="text" placeholder="https://.../wms">
+        <label for="historicWmsLayers">WMS layers</label>
+        <input id="historicWmsLayers" type="text" placeholder="0 or layer_name">
+        <div class="row">
+          <button id="loadHistoricWmsBtn" type="button">Load historic overlay</button>
+          <button id="clearHistoricWmsBtn" type="button">Clear historic overlay</button>
+        </div>
+        <div class="small">Use this for old cadastral maps, military survey maps, village maps, or any compatible public WMS layer.</div>
+      </div>
+
+      <div class="optionGroup">
+        <div class="optionGroupTitle">Historical interest layers</div>
+        <div class="toggleList" id="historicalLayerList"><div class="small">Loading historical layers…</div></div>
+      </div>
+
+      <div class="optionGroup">
+        <div class="optionGroupTitle">Legal / permission layers</div>
+        <div class="toggleList" id="legalLayerList"><div class="small">Loading legal layers…</div></div>
+      </div>
+
+      <div class="optionGroup">
+        <div class="optionGroupTitle">Supplementary layers</div>
+        <div class="toggleList" id="supplementaryLayerList"><div class="small">Loading supplementary layers…</div></div>
       </div>
     </div>
 
@@ -809,6 +807,29 @@ const basemapLayers = {
   })
 };
 
+
+const hillshadeLayer = new ol.layer.Tile({
+  visible: false,
+  source: new ol.source.TileWMS({
+    url: 'https://ows.terrestris.de/osm/service',
+    params: {LAYERS: 'SRTM30-Hillshade', TILED: true},
+    crossOrigin: 'anonymous'
+  }),
+  opacity: 0.65
+});
+
+const contourLayer = new ol.layer.Tile({
+  visible: false,
+  source: new ol.source.TileWMS({
+    url: 'https://ows.terrestris.de/osm/service',
+    params: {LAYERS: 'SRTM30-Contour', TILED: true},
+    crossOrigin: 'anonymous'
+  }),
+  opacity: 0.8
+});
+
+let historicWmsLayer = null;
+
 const BASEMAP_ATTRIBUTIONS = {
   osm: 'Street: © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap contributors</a>.',
   opentopo: 'Topographic + contours: Kartendaten © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap-Mitwirkende</a>, SRTM | Kartendarstellung © <a href="https://opentopomap.org/about" target="_blank" rel="noopener">OpenTopoMap</a> (CC-BY-SA).',
@@ -817,7 +838,7 @@ const BASEMAP_ATTRIBUTIONS = {
 
 const map = new ol.Map({
   target: 'map',
-  layers: [basemapLayers.osm, basemapLayers.opentopo, basemapLayers.nasa_satellite],
+  layers: [basemapLayers.osm, basemapLayers.opentopo, basemapLayers.nasa_satellite, hillshadeLayer, contourLayer],
   view: new ol.View({
     center: ol.proj.fromLonLat([11.5, 48.8]),
     zoom: 8
@@ -1006,23 +1027,77 @@ function setContextLayerEnabled(layerKey, enabled) {
   }
 }
 
-function renderContextLayerList() {
-  const box = document.getElementById('contextLayerList');
-  if (!availableContextLayers.length) {
-    box.innerHTML = '<div class="small">No context layers available.</div>';
+
+function classifyContextLayer(layer) {
+  const key = `${(layer.layer_key || '')} ${(layer.layer_name || '')} ${(layer.layer_group || '')}`.toLowerCase();
+  if (/(roman|medieval|historic|archae|archaeo|excav|find spot|findspot|village|settlement|road|creek|channel|floodplain)/.test(key)) return 'historical';
+  if (/(restrict|legal|protect|buffer|parcel|field name|field_name|permission|access|ownership|rights? of way|cadastral)/.test(key)) return 'legal';
+  return 'supplementary';
+}
+
+function buildToggleMarkup(layer) {
+  const checked = activeContextLayers.has(layer.layer_key) ? 'checked' : '';
+  const title = escapeHtml(layer.layer_name || layer.layer_key);
+  const sub = escapeHtml([layer.layer_group, layer.geometry_type].filter(Boolean).join(' · '));
+  return `<label class="toggleItem"><input type="checkbox" data-context-layer="${escapeHtml(layer.layer_key)}" ${checked}><div class="toggleMeta"><div class="toggleTitle">${title}</div><div class="toggleSub">${sub}</div></div></label>`;
+}
+
+function renderGroupedLayerList(targetId, layers, emptyText) {
+  const box = document.getElementById(targetId);
+  if (!box) return;
+  if (!layers.length) {
+    box.innerHTML = `<div class="small">${escapeHtml(emptyText)}</div>`;
     return;
   }
-  box.innerHTML = availableContextLayers.map(layer => {
-    const checked = activeContextLayers.has(layer.layer_key) ? 'checked' : '';
-    const title = escapeHtml(layer.layer_name || layer.layer_key);
-    const sub = escapeHtml([layer.layer_group, layer.geometry_type].filter(Boolean).join(' · '));
-    return `<label class="toggleItem"><input type="checkbox" data-context-layer="${escapeHtml(layer.layer_key)}" ${checked}><div class="toggleMeta"><div class="toggleTitle">${title}</div><div class="toggleSub">${sub}</div></div></label>`;
-  }).join('');
+  box.innerHTML = layers.map(buildToggleMarkup).join('');
+}
+
+function renderContextLayerList() {
+  const historical = [];
+  const legal = [];
+  const supplementary = [];
+  availableContextLayers.forEach(layer => {
+    const bucket = classifyContextLayer(layer);
+    if (bucket === 'historical') historical.push(layer);
+    else if (bucket === 'legal') legal.push(layer);
+    else supplementary.push(layer);
+  });
+  renderGroupedLayerList('historicalLayerList', historical, 'No historical layers available.');
+  renderGroupedLayerList('legalLayerList', legal, 'No legal or permission layers available.');
+  renderGroupedLayerList('supplementaryLayerList', supplementary, 'No supplementary layers available.');
 }
 
 async function refreshContextLayers() {
   availableContextLayers = await fetchJson('/api/context-layers');
   renderContextLayerList();
+}
+
+function loadHistoricWmsOverlay() {
+  const url = document.getElementById('historicWmsUrl').value.trim();
+  const layers = document.getElementById('historicWmsLayers').value.trim();
+  if (!url || !layers) {
+    setStatus('Enter both historic WMS URL and WMS layers first.', 'error');
+    return;
+  }
+  if (historicWmsLayer) map.removeLayer(historicWmsLayer);
+  historicWmsLayer = new ol.layer.Tile({
+    source: new ol.source.TileWMS({
+      url,
+      params: {LAYERS: layers, TILED: true},
+      crossOrigin: 'anonymous'
+    }),
+    opacity: 0.6
+  });
+  map.addLayer(historicWmsLayer);
+  setStatus('Historic WMS overlay loaded.', 'success');
+}
+
+function clearHistoricWmsOverlay() {
+  if (historicWmsLayer) {
+    map.removeLayer(historicWmsLayer);
+    historicWmsLayer = null;
+  }
+  setStatus('Historic WMS overlay cleared.');
 }
 
 function renderWikiResults(items) {
@@ -1304,37 +1379,6 @@ function renderDetails(feature) {
     <div class="detailSectionTitle">Extra properties</div>
     <table class="dataTable keyValueTable"><tbody>${propertiesToRows(props.properties)}</tbody></table>
   `;
-}
-
-
-
-const OBJECT_TYPE_OPTIONS = [
-  ['find', 'Find'],
-  ['note', 'Note'],
-  ['track', 'Track'],
-  ['area', 'Area'],
-  ['anomaly', 'Anomaly'],
-  ['reference_point', 'Reference point']
-];
-
-function sanitizeObjectType(value) {
-  const safe = String(value || '').trim().toLowerCase();
-  const allowed = OBJECT_TYPE_OPTIONS.map(([key]) => key);
-  return allowed.includes(safe) ? safe : 'find';
-}
-
-function rebuildObjectTypeSelect(selectId, selectedValue='find') {
-  const select = document.getElementById(selectId);
-  if (!select) return;
-  const safeSelected = sanitizeObjectType(selectedValue);
-  select.innerHTML = '';
-  OBJECT_TYPE_OPTIONS.forEach(([key, label]) => {
-    const option = document.createElement('option');
-    option.value = key;
-    option.textContent = label;
-    if (key === safeSelected) option.selected = true;
-    select.appendChild(option);
-  });
 }
 
 
@@ -1965,58 +2009,6 @@ function buildPrintableDocumentHtml(doc, mapImageDataUrl, includeDetails) {
     .mapAttributionBox a { color: #1d4ed8; text-decoration: none; }
     .mapAttributionBox a:hover { text-decoration: underline; }
 
-
-    #service-panel {
-      margin-bottom: 16px;
-      padding: 12px 14px;
-      border: 1px solid var(--border);
-      border-radius: 14px;
-      background: linear-gradient(180deg, #0f172a 0%, #172554 100%);
-      color: #fff;
-      box-shadow: var(--shadow);
-    }
-    .service-row {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      margin-bottom: 8px;
-      flex-wrap: wrap;
-    }
-    .service-row > span:first-child {
-      font-weight: 800;
-      min-width: 64px;
-    }
-    .service-row button {
-      width: auto;
-      margin-bottom: 0;
-      padding: 8px 12px;
-      background: rgba(255,255,255,0.95);
-      color: #0f172a;
-      box-shadow: none;
-    }
-    .service-row button[disabled] {
-      opacity: 0.55;
-    }
-    .status {
-      font-weight: 800;
-      padding: 4px 10px;
-      border-radius: 999px;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      min-width: 48px;
-      color: #fff;
-    }
-    .status.on { background: #15803d; }
-    .status.off { background: #b91c1c; }
-    .status.waiting { background: #b45309; }
-    #sys-detail {
-      color: rgba(255,255,255,0.9);
-      font-size: 12px;
-      line-height: 1.4;
-      min-height: 16px;
-    }
-
 </style></head><body><h1>Survey ${escapeHtml(survey.id)} — ${escapeHtml(survey.title || '')}</h1><p><strong>Status:</strong> ${escapeHtml(survey.status || '')}<br><strong>Layer key:</strong> ${escapeHtml(survey.layer_key || '')}<br><strong>Expedition:</strong> ${escapeHtml(survey.expedition_id || '')}</p><h2>Summary</h2><p><strong>Total objects:</strong> ${escapeHtml(doc.summary?.object_count || 0)}<br><strong>Active objects:</strong> ${escapeHtml(doc.summary?.active_count || 0)}<br><strong>Archived objects:</strong> ${escapeHtml(doc.summary?.archived_count || 0)}</p>${mapSection}<h2>Survey metadata</h2><pre>${escapeHtml(JSON.stringify(survey.metadata || {}, null, 2))}</pre><h2>Objects</h2><table><thead><tr><th>ID</th><th>Type</th><th>Title</th><th>Status</th><th>Details</th></tr></thead><tbody>${rows}</tbody></table></body></html>`;
 }
 
@@ -2042,87 +2034,18 @@ async function downloadDocumentExport() {
 }
 
 
-let serviceRecoverTimer = null;
-let serviceRestartInProgress = false;
-
-function setServiceStatus(state, detailText) {
-  const badge = document.getElementById('sys-status');
-  const detail = document.getElementById('sys-detail');
-  const startBtn = document.getElementById('btn-start');
-  const restartBtn = document.getElementById('btn-restart');
-  if (!badge || !detail || !startBtn || !restartBtn) return;
-
-  if (state === 'on') {
-    badge.textContent = 'ON';
-    badge.className = 'status on';
-    startBtn.disabled = true;
-    restartBtn.disabled = false;
-  } else if (state === 'waiting') {
-    badge.textContent = 'WAIT';
-    badge.className = 'status waiting';
-    startBtn.disabled = true;
-    restartBtn.disabled = true;
-  } else {
-    badge.textContent = 'OFF';
-    badge.className = 'status off';
-    startBtn.disabled = false;
-    restartBtn.disabled = true;
-  }
-
-  detail.textContent = detailText || '';
-}
-
-async function checkHealth() {
+async function refreshLogs() {
   try {
-    const res = await fetch('/health', {cache: 'no-store'});
-    if (res.ok) {
-      setServiceStatus('on', '127.0.0.1:8000 healthy');
-      if (serviceRestartInProgress) {
-        serviceRestartInProgress = false;
-        if (serviceRecoverTimer) {
-          clearTimeout(serviceRecoverTimer);
-          serviceRecoverTimer = null;
-        }
-        setStatus('Web server restarted and UI recovered automatically.', 'success');
-      }
-      return true;
-    }
+    const res = await fetch('/api/admin/logs?limit=120', {cache: 'no-store'});
+    if (!res.ok) return;
+    const data = await res.json();
+    const el = document.getElementById('log-output');
+    if (!el) return;
+    el.textContent = (data.lines || []).join('\n');
+    el.scrollTop = el.scrollHeight;
   } catch (error) {
   }
-  setServiceStatus(serviceRestartInProgress ? 'waiting' : 'off', serviceRestartInProgress ? 'waiting for 127.0.0.1:8000 to return…' : '127.0.0.1:8000 unreachable');
-  return false;
 }
-
-function pollHealthUntilRecovered() {
-  const started = Date.now();
-  const attempt = async () => {
-    const healthy = await checkHealth();
-    if (healthy) return;
-    if (Date.now() - started > 45000) {
-      serviceRestartInProgress = false;
-      setServiceStatus('off', '127.0.0.1:8000 unreachable');
-      setStatus('Web server did not recover within 45 seconds.', 'error');
-      return;
-    }
-    serviceRecoverTimer = setTimeout(attempt, 1500);
-  };
-  attempt();
-}
-
-function restartSystem() {
-  if (serviceRestartInProgress) return;
-  serviceRestartInProgress = true;
-  setServiceStatus('waiting', 'restarting 127.0.0.1:8000…');
-  setStatus('Restarting web server…', 'info');
-  fetch('/api/admin/services/web/restart', {method: 'POST'}).catch(() => {});
-  if (serviceRecoverTimer) clearTimeout(serviceRecoverTimer);
-  serviceRecoverTimer = setTimeout(pollHealthUntilRecovered, 1200);
-}
-
-function startSystem() {
-  alert('Use start_surveyCatalyst.bat from the desktop or repo root.');
-}
-
 
 function bindTabs() {
   const dock = document.getElementById('rightDock');
@@ -2153,7 +2076,13 @@ function bindTabs() {
   setOpenTab('hierarchyTab', true);
 }
 
+
+document.getElementById('terrainHillshadeToggle').onchange = (event) => { hillshadeLayer.setVisible(event.target.checked); };
+document.getElementById('terrainContoursToggle').onchange = (event) => { contourLayer.setVisible(event.target.checked); };
+document.getElementById('loadHistoricWmsBtn').onclick = loadHistoricWmsOverlay;
+document.getElementById('clearHistoricWmsBtn').onclick = clearHistoricWmsOverlay;
 document.getElementById('basemapSelect').onchange = (event) => setBasemap(event.target.value);
+
 document.getElementById('wikiSearchBtn').onclick = runWikipediaSearch;
 document.getElementById('wikiNearbyBtn').onclick = runWikipediaNearby;
 document.getElementById('wikiSearchInput').addEventListener('keydown', (event) => {
@@ -2162,10 +2091,16 @@ document.getElementById('wikiSearchInput').addEventListener('keydown', (event) =
     runWikipediaSearch();
   }
 });
-document.getElementById('contextLayerList').addEventListener('change', (event) => {
-  if (!event.target.matches('[data-context-layer]')) return;
-  setContextLayerEnabled(event.target.dataset.contextLayer, event.target.checked);
+
+['historicalLayerList', 'legalLayerList', 'supplementaryLayerList'].forEach(id => {
+  const box = document.getElementById(id);
+  if (!box) return;
+  box.addEventListener('change', (event) => {
+    if (!event.target.matches('[data-context-layer]')) return;
+    setContextLayerEnabled(event.target.dataset.contextLayer, event.target.checked);
+  });
 });
+
 document.getElementById('wikiLookupResults').addEventListener('click', async (event) => {
   const row = event.target.closest('.lookupRow');
   if (!row) return;
@@ -2244,16 +2179,10 @@ rebuildObjectTypeSelect('editorType', 'find');
 renderTypedFields('object', sanitizeObjectType(document.getElementById('objectType').value), {});
 renderTypedFields('editor', sanitizeObjectType(document.getElementById('editorType').value), {});
 
-
-document.getElementById('btn-start').onclick = startSystem;
-document.getElementById('btn-restart').onclick = restartSystem;
-
 bindTabs();
 setBasemap('osm');
 refreshContextLayers().catch(error => setStatus(`Context layer load failed: ${error.message}`, 'error'));
 refreshSurveyList().then(() => setStatus('Ready.', 'success')).catch(error => setStatus(error.message, 'error'));
-checkHealth();
-setInterval(checkHealth, 5000);
 </script>
 </body>
 </html>
