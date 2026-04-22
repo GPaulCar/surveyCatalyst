@@ -1,23 +1,39 @@
 from __future__ import annotations
 
+import os
+import subprocess
 import sys
 import time
-
-from service_control import api_start, _clear_pid, _terminate_pid
+from pathlib import Path
 
 
 def main() -> None:
-    current_pid = int(sys.argv[1]) if len(sys.argv) > 1 else 0
-    delay_seconds = int(sys.argv[2]) if len(sys.argv) > 2 else 1
-    time.sleep(max(delay_seconds, 0))
-    if current_pid > 0:
-        try:
-            _terminate_pid(current_pid)
-        except Exception:
-            pass
-        _clear_pid()
-    time.sleep(1)
-    api_start()
+    if len(sys.argv) < 2:
+        raise SystemExit("usage: restart_api_helper.py <pid>")
+
+    pid = int(sys.argv[1])
+    root = Path(__file__).resolve().parents[1]
+    python_exe = root / ".surveyCatalyst_venv" / "Scripts" / "python.exe"
+    if not python_exe.exists():
+        python_exe = Path(sys.executable)
+
+    env = os.environ.copy()
+    src_path = str(root / "src")
+    env["PYTHONPATH"] = src_path + os.pathsep + env.get("PYTHONPATH", "")
+
+    time.sleep(1.5)
+    subprocess.run(["taskkill", "/PID", str(pid), "/F"], cwd=str(root), stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    time.sleep(1.0)
+
+    creationflags = getattr(subprocess, "DETACHED_PROCESS", 0) | getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
+    subprocess.Popen(
+        [str(python_exe), str(root / "scripts" / "run_api.py")],
+        cwd=str(root),
+        env=env,
+        creationflags=creationflags,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
 
 
 if __name__ == "__main__":

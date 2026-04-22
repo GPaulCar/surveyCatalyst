@@ -3,7 +3,9 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import os
 import shutil
+import subprocess
 import sys
 from pathlib import Path
 from typing import Any
@@ -19,20 +21,6 @@ from survey.edit_service import SurveyEditService
 from .schemas import SurveyCreate, SurveyObjectCreate, SurveyObjectUpdate, SurveyUpdate
 
 BASE_DIR = Path(__file__).resolve().parents[2]
-if str(BASE_DIR) not in sys.path:
-    sys.path.insert(0, str(BASE_DIR))
-
-from scripts.service_control import (
-    api_start,
-    api_status,
-    api_stop,
-    combined_status,
-    db_restart,
-    db_start,
-    db_status,
-    db_stop,
-    schedule_api_restart,
-)
 APP_HTML = BASE_DIR / "app" / "openlayers_map.html"
 MVT_EXTENT = 4096
 MVT_BUFFER = 64
@@ -423,56 +411,13 @@ def root() -> HTMLResponse:
 
 @app.get("/health")
 def health():
-    return {"status": "ok"}
+    return {"status": "healthy"}
 
 
 @app.get("/api")
 def api_root():
     return {"name": "surveyCatalyst API", "version": "0.5.0"}
 
-
-
-
-@app.get("/api/admin/services/status")
-def service_status():
-    return {"ok": True, **combined_status()}
-
-
-@app.post("/api/admin/services/database/start")
-def service_database_start():
-    result = db_start()
-    return {"ok": result.get("ok", False), "database": db_status(), "detail": result.get("detail", "")}
-
-
-@app.post("/api/admin/services/database/stop")
-def service_database_stop():
-    result = db_stop()
-    return {"ok": result.get("ok", False), "database": db_status(), "detail": result.get("detail", "")}
-
-
-@app.post("/api/admin/services/database/restart")
-def service_database_restart():
-    result = db_restart()
-    return {"ok": result.get("ok", False), "database": db_status(), "detail": result.get("detail", "")}
-
-
-@app.post("/api/admin/services/web/start")
-def service_web_start():
-    result = api_start()
-    return {"ok": result.get("ok", False), "web_server": api_status(), "detail": result.get("detail", "")}
-
-
-@app.post("/api/admin/services/web/stop")
-def service_web_stop():
-    result = api_stop()
-    return {"ok": result.get("ok", False), "detail": result.get("detail", "")}
-
-
-@app.post("/api/admin/services/web/restart")
-def service_web_restart(request: Request):
-    current_pid = api_status().get("pid")
-    result = schedule_api_restart(current_pid=current_pid, delay_seconds=1)
-    return {"ok": result.get("ok", False), "detail": result.get("detail", ""), "web_server": {"state": "RESTARTING"}}
 
 @app.get("/api/admin/index-status")
 def index_status():
@@ -819,6 +764,25 @@ def export_survey_document_data(
             "include_properties": include_properties,
         },
     }
+
+
+@app.post("/api/admin/services/web/restart")
+def restart_web_service():
+    helper = BASE_DIR / "scripts" / "restart_api_helper.py"
+    python_exe = BASE_DIR / ".surveyCatalyst_venv" / "Scripts" / "python.exe"
+    if not python_exe.exists():
+        python_exe = Path(sys.executable)
+
+    creationflags = getattr(subprocess, "DETACHED_PROCESS", 0) | getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
+    subprocess.Popen(
+        [str(python_exe), str(helper), str(os.getpid())],
+        cwd=str(BASE_DIR),
+        creationflags=creationflags,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    return {"ok": True, "detail": "restart scheduled"}
+
 
 
 @app.on_event("startup")

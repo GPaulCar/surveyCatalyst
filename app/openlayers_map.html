@@ -489,73 +489,58 @@
     .advancedToggle { display: inline-flex; align-items: center; gap: 8px; font-size: 12px; color: #64748b; margin-top: 8px; }
 
 
-    .servicePanel {
-      display: grid;
-      gap: 10px;
-    }
-    .serviceCard {
-      display: grid;
-      grid-template-columns: 1fr auto;
-      gap: 10px;
-      align-items: center;
-      padding: 12px 14px;
-      border: 1px solid var(--border);
-      border-radius: 14px;
-      background: #fff;
-    }
-    .serviceName { font-weight: 800; color: var(--text); }
-    .serviceDetail { color: var(--muted); font-size: 12px; margin-top: 2px; }
-    .serviceState {
-      min-width: 54px;
-      text-align: center;
-      padding: 6px 10px;
-      border-radius: 999px;
-      color: #fff;
-      font-size: 12px;
-      font-weight: 800;
-      letter-spacing: .04em;
-    }
-    .serviceState.on { background: #15803d; }
-    .serviceState.off { background: #dc2626; }
-    .serviceState.pending { background: #d97706; }
+#service-panel {
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: #0f172a;
+  color: #fff;
+}
+.service-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.service-label {
+  font-weight: 800;
+  min-width: 70px;
+}
+.service-status {
+  font-weight: 800;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  letter-spacing: 0.05em;
+}
+.service-status.on {
+  background: #166534;
+  color: #fff;
+}
+.service-status.off {
+  background: #991b1b;
+  color: #fff;
+}
+#service-panel .service-button-row {
+  display: flex;
+  gap: 10px;
+  margin-top: 10px;
+}
+#service-panel .service-button-row button {
+  margin-bottom: 0;
+}
+#sys-detail {
+  margin-top: 10px;
+  color: #cbd5e1;
+  font-size: 12px;
+  line-height: 1.4;
+}
 
 </style>
 </head>
 <body>
 <div id="layout">
   <div id="leftPanel">
-
-    <div class="section">
-      <h3>Service Control</h3>
-      <div class="servicePanel">
-        <div class="serviceCard">
-          <div>
-            <div class="serviceName">Database</div>
-            <div id="dbServiceDetail" class="serviceDetail">Checking status…</div>
-          </div>
-          <div id="dbServiceState" class="serviceState off">OFF</div>
-        </div>
-        <div class="row3">
-          <button id="dbStartBtn">Start DB</button>
-          <button id="dbStopBtn">Stop DB</button>
-          <button id="dbRestartBtn">Restart DB</button>
-        </div>
-        <div class="serviceCard">
-          <div>
-            <div class="serviceName">Web server</div>
-            <div id="webServiceDetail" class="serviceDetail">Checking status…</div>
-          </div>
-          <div id="webServiceState" class="serviceState off">OFF</div>
-        </div>
-        <div class="row3">
-          <button id="webStartBtn">Start Web</button>
-          <button id="webStopBtn">Stop Web</button>
-          <button id="webRestartBtn">Restart Web</button>
-        </div>
-        <div class="small">The database can be started, stopped, and restarted directly. Web restart is handled through a detached helper so the page can come back after a short interruption.</div>
-      </div>
-    </div>
-
     <div class="section">
       <h2>Surveys</h2>
       <button id="refreshSurveysBtn">Refresh survey list</button>
@@ -650,6 +635,22 @@
         <li>Selection stays in view mode until you explicitly switch tools.</li>
       </ul>
     </div>
+
+
+<div class="section">
+  <h3>Service Control</h3>
+  <div id="service-panel">
+    <div class="service-row">
+      <span class="service-label">System</span>
+      <span id="sys-status" class="service-status off">OFF</span>
+    </div>
+    <div class="service-button-row">
+      <button id="btn-start" type="button" onclick="startSystem()">Start</button>
+      <button id="btn-restart" type="button" onclick="restartSystem()">Restart</button>
+    </div>
+    <div class="small" id="sys-detail">Checking health…</div>
+  </div>
+</div>
 
     <div class="section">
       <h3>Status</h3>
@@ -856,6 +857,53 @@ function toggleModifyMode() {
   modifyInteraction.setActive(modifyEnabled);
   setStatus(modifyEnabled ? 'Vertex edit enabled for the selected feature.' : 'Vertex edit disabled.');
   updateWorkspaceState();
+}
+
+
+
+async function checkHealth() {
+  try {
+    const res = await fetch('/health', {cache: 'no-store'});
+    if (res.ok) {
+      setSystemHealthState(true, '127.0.0.1:8000 healthy');
+    } else {
+      setSystemHealthState(false, 'API not responding');
+    }
+  } catch {
+    setSystemHealthState(false, 'API unreachable');
+  }
+}
+
+function setSystemHealthState(on, text) {
+  const statusEl = document.getElementById('sys-status');
+  const detailEl = document.getElementById('sys-detail');
+  const startBtn = document.getElementById('btn-start');
+  const restartBtn = document.getElementById('btn-restart');
+
+  if (!statusEl || !detailEl || !startBtn || !restartBtn) return;
+
+  statusEl.textContent = on ? 'ON' : 'OFF';
+  statusEl.className = 'service-status ' + (on ? 'on' : 'off');
+  detailEl.textContent = text;
+
+  startBtn.disabled = on;
+  restartBtn.disabled = !on;
+}
+
+function startSystem() {
+  window.alert('Use start_surveyCatalyst.bat from the project root or desktop shortcut.');
+}
+
+async function restartSystem() {
+  const restartBtn = document.getElementById('btn-restart');
+  if (restartBtn) restartBtn.disabled = true;
+  setSystemHealthState(false, 'Restarting web server…');
+  try {
+    await fetch('/api/admin/services/web/restart', {method: 'POST'});
+  } catch {
+    // current process may terminate before the fetch resolves cleanly
+  }
+  window.setTimeout(checkHealth, 4500);
 }
 
 function setStatus(msg, level='info') {
@@ -1115,51 +1163,6 @@ const OBJECT_TYPE_SCHEMAS = {
   }
 };
 
-
-const OBJECT_TYPE_OPTIONS = [
-  ['find', 'Find'],
-  ['note', 'Note'],
-  ['track', 'Track'],
-  ['area', 'Area'],
-  ['anomaly', 'Anomaly'],
-  ['reference_point', 'Reference point']
-];
-
-function sanitizeObjectType(value) {
-  const allowed = OBJECT_TYPE_OPTIONS.map(([key]) => key);
-  return allowed.includes(value) ? value : 'find';
-}
-
-function rebuildObjectTypeSelect(selectId, selectedValue='find') {
-  const select = document.getElementById(selectId);
-  if (!select) return;
-  const safeValue = sanitizeObjectType(selectedValue || select.value || 'find');
-  select.innerHTML = '';
-  OBJECT_TYPE_OPTIONS.forEach(([value, label]) => {
-    const option = document.createElement('option');
-    option.value = value;
-    option.textContent = label;
-    select.appendChild(option);
-  });
-  select.value = safeValue;
-}
-
-function disableDoubleClickZoom() {
-  map.getInteractions().forEach(interaction => {
-    if (interaction instanceof ol.interaction.DoubleClickZoom) {
-      interaction.setActive(false);
-    }
-  });
-}
-
-function enableDoubleClickZoom() {
-  map.getInteractions().forEach(interaction => {
-    if (interaction instanceof ol.interaction.DoubleClickZoom) {
-      interaction.setActive(true);
-    }
-  });
-}
-
 function getTypeSchema(type) {
   return OBJECT_TYPE_SCHEMAS[type] || OBJECT_TYPE_SCHEMAS.find;
 }
@@ -1391,7 +1394,6 @@ function clearDrawInteraction() {
     map.removeInteraction(drawInteraction);
     drawInteraction = null;
   }
-  enableDoubleClickZoom();
   currentMode = null;
   updateWorkspaceState();
 }
@@ -1405,10 +1407,8 @@ function armDraw(kind) {
   currentMode = kind;
   drawInteraction = new ol.interaction.Draw({
     source: new ol.source.Vector(),
-    type: kind,
-    stopClick: true
+    type: kind
   });
-  drawInteraction.on('drawstart', () => { disableDoubleClickZoom(); });
   drawInteraction.on('drawend', async evt => {
     try {
       const geometry = featureToGeoJSONGeometry(evt.feature);
@@ -1428,11 +1428,9 @@ function armDraw(kind) {
       });
       setStatus(`Created ${kind} object on survey ${activeSurveyId}.`, 'success');
       clearDrawInteraction();
-      enableDoubleClickZoom();
       dirtyGeometry = false;
       await loadSurvey(activeSurveyId, false);
     } catch (error) {
-      enableDoubleClickZoom();
       setStatus(`Create object failed: ${error.message}`, 'error');
     }
   });
@@ -1444,8 +1442,7 @@ function armDraw(kind) {
 function armCreateSurveyPolygon() {
   clearDrawInteraction();
   currentMode = 'createSurvey';
-  drawInteraction = new ol.interaction.Draw({source: new ol.source.Vector(), type: 'Polygon', stopClick: true});
-  drawInteraction.on('drawstart', () => { disableDoubleClickZoom(); });
+  drawInteraction = new ol.interaction.Draw({source: new ol.source.Vector(), type: 'Polygon'});
   drawInteraction.on('drawend', async evt => {
     try {
       const payload = {
@@ -1463,12 +1460,10 @@ function armCreateSurveyPolygon() {
       activeSurveyId = created.survey_id;
       setStatus(`Created survey ${created.survey_id}.`, 'success');
       clearDrawInteraction();
-      enableDoubleClickZoom();
       await refreshSurveyList();
       document.getElementById('surveySelect').value = String(activeSurveyId);
       await loadSurvey(activeSurveyId, true);
     } catch (error) {
-      enableDoubleClickZoom();
       setStatus(`Create survey failed: ${error.message}`, 'error');
     }
   });
@@ -1711,35 +1706,52 @@ function buildPrintableDocumentHtml(doc, mapImageDataUrl, includeDetails) {
     .advancedToggle { display: inline-flex; align-items: center; gap: 8px; font-size: 12px; color: #64748b; margin-top: 8px; }
 
 
-    .servicePanel {
-      display: grid;
-      gap: 10px;
-    }
-    .serviceCard {
-      display: grid;
-      grid-template-columns: 1fr auto;
-      gap: 10px;
-      align-items: center;
-      padding: 12px 14px;
-      border: 1px solid var(--border);
-      border-radius: 14px;
-      background: #fff;
-    }
-    .serviceName { font-weight: 800; color: var(--text); }
-    .serviceDetail { color: var(--muted); font-size: 12px; margin-top: 2px; }
-    .serviceState {
-      min-width: 54px;
-      text-align: center;
-      padding: 6px 10px;
-      border-radius: 999px;
-      color: #fff;
-      font-size: 12px;
-      font-weight: 800;
-      letter-spacing: .04em;
-    }
-    .serviceState.on { background: #15803d; }
-    .serviceState.off { background: #dc2626; }
-    .serviceState.pending { background: #d97706; }
+#service-panel {
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: #0f172a;
+  color: #fff;
+}
+.service-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.service-label {
+  font-weight: 800;
+  min-width: 70px;
+}
+.service-status {
+  font-weight: 800;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  letter-spacing: 0.05em;
+}
+.service-status.on {
+  background: #166534;
+  color: #fff;
+}
+.service-status.off {
+  background: #991b1b;
+  color: #fff;
+}
+#service-panel .service-button-row {
+  display: flex;
+  gap: 10px;
+  margin-top: 10px;
+}
+#service-panel .service-button-row button {
+  margin-bottom: 0;
+}
+#sys-detail {
+  margin-top: 10px;
+  color: #cbd5e1;
+  font-size: 12px;
+  line-height: 1.4;
+}
 
 </style></head><body><h1>Survey ${escapeHtml(survey.id)} — ${escapeHtml(survey.title || '')}</h1><p><strong>Status:</strong> ${escapeHtml(survey.status || '')}<br><strong>Layer key:</strong> ${escapeHtml(survey.layer_key || '')}<br><strong>Expedition:</strong> ${escapeHtml(survey.expedition_id || '')}</p><h2>Summary</h2><p><strong>Total objects:</strong> ${escapeHtml(doc.summary?.object_count || 0)}<br><strong>Active objects:</strong> ${escapeHtml(doc.summary?.active_count || 0)}<br><strong>Archived objects:</strong> ${escapeHtml(doc.summary?.archived_count || 0)}</p>${mapSection}<h2>Survey metadata</h2><pre>${escapeHtml(JSON.stringify(survey.metadata || {}, null, 2))}</pre><h2>Objects</h2><table><thead><tr><th>ID</th><th>Type</th><th>Title</th><th>Status</th><th>Details</th></tr></thead><tbody>${rows}</tbody></table></body></html>`;
 }
@@ -1762,52 +1774,6 @@ async function downloadDocumentExport() {
     setStatus(`Downloaded printable document for survey ${activeSurveyId}.`, 'success');
   } catch (error) {
     setStatus(`Document export failed: ${error.message}`, 'error');
-  }
-}
-
-
-function setServiceBadge(elId, detailId, service, pending=false) {
-  const badge = document.getElementById(elId);
-  const detail = document.getElementById(detailId);
-  if (!badge || !detail || !service) return;
-  if (pending) {
-    badge.textContent = service.state || 'WAIT';
-    badge.className = 'serviceState pending';
-  } else {
-    badge.textContent = service.running ? 'ON' : 'OFF';
-    badge.className = `serviceState ${service.running ? 'on' : 'off'}`;
-  }
-  detail.textContent = service.detail || '';
-}
-
-async function refreshServiceStatus() {
-  try {
-    const payload = await fetchJson('/api/admin/services/status');
-    setServiceBadge('dbServiceState', 'dbServiceDetail', payload.database || {});
-    setServiceBadge('webServiceState', 'webServiceDetail', payload.web_server || {});
-  } catch (error) {
-    setStatus(`Service status refresh failed: ${error.message}`, 'error');
-  }
-}
-
-async function runServiceAction(target, action) {
-  try {
-    const payload = await fetchJson(`/api/admin/services/${target}/${action}`, {method: 'POST'});
-    if (target === 'web' && action === 'restart') {
-      setServiceBadge('webServiceState', 'webServiceDetail', {state: 'RESTART', detail: payload.detail || 'Restarting web server…'}, true);
-      setStatus(payload.detail || 'Web server restart scheduled.', 'success');
-      window.setTimeout(() => { refreshServiceStatus().catch(() => {}); }, 2500);
-      return;
-    }
-    if (target === 'web' && action === 'stop') {
-      setServiceBadge('webServiceState', 'webServiceDetail', {state: 'STOP', detail: payload.detail || 'Stopping web server…'}, true);
-      setStatus(payload.detail || 'Web server stop requested.', 'success');
-      return;
-    }
-    setStatus(payload.detail || `${target} ${action} completed.`, payload.ok ? 'success' : 'error');
-    await refreshServiceStatus();
-  } catch (error) {
-    setStatus(`Service action failed: ${error.message}`, 'error');
   }
 }
 
@@ -1898,8 +1864,6 @@ renderTypedFields('object', sanitizeObjectType(document.getElementById('objectTy
 renderTypedFields('editor', sanitizeObjectType(document.getElementById('editorType').value), {});
 
 bindTabs();
-refreshServiceStatus().catch(error => setStatus(`Service status refresh failed: ${error.message}`, 'error'));
-window.setInterval(() => { refreshServiceStatus().catch(() => {}); }, 5000);
 refreshSurveyList().then(() => setStatus('Ready.', 'success')).catch(error => setStatus(error.message, 'error'));
 </script>
 </body>
