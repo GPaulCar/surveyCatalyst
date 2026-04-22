@@ -534,15 +534,47 @@
       <label for="basemapSelect">Basemap</label>
       <select id="basemapSelect">
         <option value="osm">Street</option>
-        <option value="opentopo">Topographic + contours</option>
+        <option value="opentopo">Topographic</option>
         <option value="nasa_satellite">Satellite (NASA global)</option>
       </select>
-      <div class="small">Street uses OpenStreetMap. Topographic + contours uses OpenTopoMap. Satellite uses NASA GIBS global imagery and is lower-detail than the map layers.</div>
+      <div class="small">Basemaps show what the ground looks like now. Terrain and historic overlays sit on top.</div>
       <div class="layerStack">
+        <div class="optionGroup">
+          <div class="optionGroupTitle">Terrain overlays</div>
+          <div class="optionGrid">
+            <label><input id="terrainHillshadeToggle" type="checkbox"> Hillshade</label>
+            <label><input id="terrainContoursToggle" type="checkbox"> Contours</label>
+          </div>
+          <div class="small">Phase-1 terrain context overlays.</div>
+        </div>
+        <div class="optionGroup">
+          <div class="optionGroupTitle">Historic map overlay</div>
+          <label for="historicWmsUrl">WMS URL</label>
+          <input id="historicWmsUrl" type="text" placeholder="https://example.service/wms?">
+          <label for="historicWmsLayer">Layer name</label>
+          <input id="historicWmsLayer" type="text" placeholder="layer_name">
+          <label for="historicWmsOpacity">Opacity</label>
+          <input id="historicWmsOpacity" type="range" min="0.1" max="1" step="0.1" value="0.65">
+          <div class="row">
+            <button id="applyHistoricWmsBtn">Apply historic overlay</button>
+            <button id="clearHistoricWmsBtn">Clear historic overlay</button>
+          </div>
+          <div class="small">Use this for georeferenced cadastral, village, or military-survey WMS layers.</div>
+        </div>
         <div>
-          <div class="subsectionTitle">Context layers</div>
-          <div class="small">These come from your own surveyCatalyst layer catalog. Restricted and other context layers can be toggled independently.</div>
-          <div class="toggleList" id="contextLayerList"><div class="small">Loading context layers…</div></div>
+          <div class="subsectionTitle">Historical interest layers</div>
+          <div class="small">Roman roads, medieval roads, old villages, find spots, excavation records, floodplains and similar context from your catalogue.</div>
+          <div class="toggleList" id="historicalLayerList"><div class="small">Loading historical layers…</div></div>
+        </div>
+        <div>
+          <div class="subsectionTitle">Legal / permission layers</div>
+          <div class="small">Restricted areas, protection buffers, parcels, field names and permission-support layers.</div>
+          <div class="toggleList" id="legalLayerList"><div class="small">Loading legal layers…</div></div>
+        </div>
+        <div>
+          <div class="subsectionTitle">Supplementary layers</div>
+          <div class="small">Additional catalogued layers that do not yet fall into the historical or legal groups.</div>
+          <div class="toggleList" id="supplementaryLayerList"><div class="small">Loading supplementary layers…</div></div>
         </div>
       </div>
     </div>
@@ -802,6 +834,41 @@ let availableContextLayers = [];
 const activeContextLayers = new Map();
 const contextLayerColorCache = new Map();
 
+const terrainOverlays = {
+  hillshade: new ol.layer.Tile({
+    visible: false,
+    opacity: 0.6,
+    source: new ol.source.TileWMS({
+      url: 'https://ows.terrestris.de/osm/service?',
+      params: {LAYERS: 'SRTM30 Hillshade', FORMAT: 'image/png', TRANSPARENT: true},
+      crossOrigin: 'anonymous'
+    })
+  }),
+  contours: new ol.layer.Tile({
+    visible: false,
+    opacity: 0.7,
+    source: new ol.source.TileWMS({
+      url: 'https://ows.terrestris.de/osm/service?',
+      params: {LAYERS: 'SRTM30 Contour Lines', FORMAT: 'image/png', TRANSPARENT: true},
+      crossOrigin: 'anonymous'
+    })
+  })
+};
+map.addLayer(terrainOverlays.hillshade);
+map.addLayer(terrainOverlays.contours);
+
+let customHistoricWmsLayer = null;
+
+const HISTORICAL_LAYER_KEYWORDS = [
+  'roman', 'medieval', 'road', 'village', 'settlement', 'historic', 'history',
+  'find', 'excav', 'archae', 'monument', 'site', 'flood', 'creek', 'channel', 'watercourse'
+];
+const LEGAL_LAYER_KEYWORDS = [
+  'restrict', 'legal', 'protect', 'buffer', 'parcel', 'field_name', 'fieldname',
+  'owner', 'permission', 'access', 'right_of_way', 'rights_of_way', 'natura'
+];
+
+
 
 function describeCurrentMode() {
   if (currentMode === 'createSurvey') return 'Draw survey';
@@ -943,13 +1010,27 @@ function setContextLayerEnabled(layerKey, enabled) {
   }
 }
 
-function renderContextLayerList() {
-  const box = document.getElementById('contextLayerList');
-  if (!availableContextLayers.length) {
-    box.innerHTML = '<div class="small">No context layers available.</div>';
+
+function classifyContextLayer(layer) {
+  const haystack = [
+    layer.layer_key || '',
+    layer.layer_name || '',
+    layer.source_table || '',
+    layer.layer_group || ''
+  ].join(' ').toLowerCase();
+  if (LEGAL_LAYER_KEYWORDS.some(keyword => haystack.includes(keyword))) return 'legal';
+  if (HISTORICAL_LAYER_KEYWORDS.some(keyword => haystack.includes(keyword))) return 'historical';
+  return 'supplementary';
+}
+
+function renderContextLayerGroup(containerId, layers) {
+  const box = document.getElementById(containerId);
+  if (!box) return;
+  if (!layers.length) {
+    box.innerHTML = '<div class="small">No layers in this group yet.</div>';
     return;
   }
-  box.innerHTML = availableContextLayers.map(layer => {
+  box.innerHTML = layers.map(layer => {
     const checked = activeContextLayers.has(layer.layer_key) ? 'checked' : '';
     const title = escapeHtml(layer.layer_name || layer.layer_key);
     const sub = escapeHtml([layer.layer_group, layer.geometry_type].filter(Boolean).join(' · '));
@@ -957,9 +1038,56 @@ function renderContextLayerList() {
   }).join('');
 }
 
+function renderContextLayerList() {
+  const grouped = {historical: [], legal: [], supplementary: []};
+  availableContextLayers.forEach(layer => {
+    grouped[classifyContextLayer(layer)].push(layer);
+  });
+  renderContextLayerGroup('historicalLayerList', grouped.historical);
+  renderContextLayerGroup('legalLayerList', grouped.legal);
+  renderContextLayerGroup('supplementaryLayerList', grouped.supplementary);
+}
+
+
 async function refreshContextLayers() {
   availableContextLayers = await fetchJson('/api/context-layers');
   renderContextLayerList();
+}
+
+
+function setTerrainOverlayEnabled(name, enabled) {
+  const layer = terrainOverlays[name];
+  if (!layer) return;
+  layer.setVisible(Boolean(enabled));
+}
+
+function clearHistoricWmsOverlay() {
+  if (customHistoricWmsLayer) {
+    map.removeLayer(customHistoricWmsLayer);
+    customHistoricWmsLayer = null;
+  }
+}
+
+function applyHistoricWmsOverlay() {
+  const url = document.getElementById('historicWmsUrl').value.trim();
+  const layerName = document.getElementById('historicWmsLayer').value.trim();
+  const opacity = Number(document.getElementById('historicWmsOpacity').value || 0.65);
+  if (!url || !layerName) {
+    setStatus('Enter both a historic WMS URL and layer name.', 'error');
+    return;
+  }
+  clearHistoricWmsOverlay();
+  customHistoricWmsLayer = new ol.layer.Tile({
+    opacity,
+    source: new ol.source.TileWMS({
+      url,
+      params: {LAYERS: layerName, FORMAT: 'image/png', TRANSPARENT: true},
+      crossOrigin: 'anonymous'
+    })
+  });
+  customHistoricWmsLayer.set('customHistoricWms', true);
+  map.addLayer(customHistoricWmsLayer);
+  setStatus(`Applied historic overlay ${layerName}.`, 'success');
 }
 
 function renderWikiResults(items) {
@@ -1244,6 +1372,7 @@ function renderDetails(feature) {
 }
 
 
+
 const OBJECT_TYPE_OPTIONS = [
   ['find', 'Find'],
   ['note', 'Note'],
@@ -1254,22 +1383,22 @@ const OBJECT_TYPE_OPTIONS = [
 ];
 
 function sanitizeObjectType(value) {
-  const allowed = OBJECT_TYPE_OPTIONS.map(([key]) => key);
-  return allowed.includes(value) ? value : 'find';
+  const allowed = new Set(OBJECT_TYPE_OPTIONS.map(([key]) => key));
+  return allowed.has(value) ? value : 'find';
 }
 
 function rebuildObjectTypeSelect(selectId, selectedValue='find') {
   const select = document.getElementById(selectId);
   if (!select) return;
-  const safeValue = sanitizeObjectType(selectedValue || select.value);
+  const safeValue = sanitizeObjectType(selectedValue);
   select.innerHTML = '';
   OBJECT_TYPE_OPTIONS.forEach(([value, label]) => {
     const option = document.createElement('option');
     option.value = value;
     option.textContent = label;
+    if (value === safeValue) option.selected = true;
     select.appendChild(option);
   });
-  select.value = safeValue;
 }
 
 const OBJECT_TYPE_SCHEMAS = {
@@ -1953,6 +2082,12 @@ function bindTabs() {
 }
 
 document.getElementById('basemapSelect').onchange = (event) => setBasemap(event.target.value);
+
+document.getElementById('terrainHillshadeToggle').onchange = (event) => setTerrainOverlayEnabled('hillshade', event.target.checked);
+document.getElementById('terrainContoursToggle').onchange = (event) => setTerrainOverlayEnabled('contours', event.target.checked);
+document.getElementById('applyHistoricWmsBtn').onclick = applyHistoricWmsOverlay;
+document.getElementById('clearHistoricWmsBtn').onclick = () => { clearHistoricWmsOverlay(); setStatus('Historic overlay cleared.', 'success'); };
+
 document.getElementById('wikiSearchBtn').onclick = runWikipediaSearch;
 document.getElementById('wikiNearbyBtn').onclick = runWikipediaNearby;
 document.getElementById('wikiSearchInput').addEventListener('keydown', (event) => {
@@ -1961,7 +2096,7 @@ document.getElementById('wikiSearchInput').addEventListener('keydown', (event) =
     runWikipediaSearch();
   }
 });
-document.getElementById('contextLayerList').addEventListener('change', (event) => {
+document.addEventListener('change', (event) => {
   if (!event.target.matches('[data-context-layer]')) return;
   setContextLayerEnabled(event.target.dataset.contextLayer, event.target.checked);
 });
