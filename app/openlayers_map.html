@@ -2106,7 +2106,35 @@ function buildPrintableDocumentHtml(doc, mapImageDataUrl, includeDetails) {
       min-height: 16px;
     }
 
-</style></head><body><h1>Survey ${escapeHtml(survey.id)} — ${escapeHtml(survey.title || '')}</h1><p><strong>Status:</strong> ${escapeHtml(survey.status || '')}<br><strong>Layer key:</strong> ${escapeHtml(survey.layer_key || '')}<br><strong>Expedition:</strong> ${escapeHtml(survey.expedition_id || '')}</p><h2>Summary</h2><p><strong>Total objects:</strong> ${escapeHtml(doc.summary?.object_count || 0)}<br><strong>Active objects:</strong> ${escapeHtml(doc.summary?.active_count || 0)}<br><strong>Archived objects:</strong> ${escapeHtml(doc.summary?.archived_count || 0)}</p>${mapSection}<h2>Survey metadata</h2><pre>${escapeHtml(JSON.stringify(survey.metadata || {}, null, 2))}</pre><h2>Objects</h2><table><thead><tr><th>ID</th><th>Type</th><th>Title</th><th>Status</th><th>Details</th></tr></thead><tbody>${rows}</tbody></table></body></html>`;
+</style></head><body><h1>Survey ${escapeHtml(survey.id)} — ${escapeHtml(survey.title || '')}</h1><p><strong>Status:</strong> ${escapeHtml(survey.status || '')}<br><strong>Layer key:</strong> ${escapeHtml(survey.layer_key || '')}<br><strong>Expedition:</strong> ${escapeHtml(survey.expedition_id || '')}</p><h2>Summary</h2><p><strong>Total objects:</strong> ${escapeHtml(doc.summary?.object_count || 0)}<br><strong>Active objects:</strong> ${escapeHtml(doc.summary?.active_count || 0)}<br><strong>Archived objects:</strong> ${escapeHtml(doc.summary?.archived_count || 0)}</p>${mapSection}<h2>Survey metadata</h2><pre>${escapeHtml(JSON.stringify(survey.metadata || {}, null, 2))}</pre><h2>Objects</h2><table><thead><tr><th>ID</th><th>Type</th><th>Title</th><th>Status</th><th>Details</th></tr></thead><tbody>${rows}</tbody></table>
+<button id="exportSelectedParcelBtn" style="position:absolute;bottom:20px;right:20px;z-index:999;">
+Export parcel
+</button>
+
+<script>
+document.getElementById("exportSelectedParcelBtn").onclick = async function() {
+    const f = selectInteraction.getFeatures().item(0);
+    if (!f) { alert("Select parcel first"); return; }
+
+    const sourceId = f.get("source_id");
+    if (!sourceId) { alert("No source_id"); return; }
+
+    const res = await fetch("/api/permissions/export", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({
+            layer: "parcel_boundaries",
+            source_id: sourceId,
+            description: "ui export"
+        })
+    });
+
+    const j = await res.json();
+    alert(j.ok ? "Export created" : "Failed");
+};
+</script>
+</body>
+</html>`;
 }
 
 async function downloadDocumentExport() {
@@ -2346,5 +2374,33 @@ refreshSurveyList().then(() => setStatus('Ready.', 'success')).catch(error => se
 checkHealth();
 setInterval(checkHealth, 5000);
 </script>
+
+<button id="exportSelectedParcelBtn" style="position:absolute;bottom:20px;right:20px;z-index:999;">
+Export parcel
+</button>
+
+<script>
+document.getElementById("exportSelectedParcelBtn").onclick = async function() {
+    const f = selectInteraction.getFeatures().item(0);
+    if (!f) { alert("Select parcel first"); return; }
+
+    const sourceId = f.get("source_id");
+    if (!sourceId) { alert("No source_id"); return; }
+
+    const res = await fetch("/api/permissions/export", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({
+            layer: "parcel_boundaries",
+            source_id: sourceId,
+            description: "ui export"
+        })
+    });
+
+    const j = await res.json();
+    alert(j.ok ? "Export created" : "Failed");
+};
+</script>
 </body>
+
 </html>

@@ -58,6 +58,7 @@ downloads/
 
 #data
 data_workspace/
+workspace/
 
 #mapping
 .cache/
