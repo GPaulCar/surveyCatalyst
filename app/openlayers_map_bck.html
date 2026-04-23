@@ -1,0 +1,2287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>surveyCatalyst OpenLayers Client</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@v9.2.4/ol.css">
+  <style>
+    :root {
+      --bg: #f3f6fb;
+      --panel: #ffffff;
+      --panel-soft: #f8fafc;
+      --border: #d8e1ee;
+      --border-strong: #c5d2e3;
+      --text: #18212f;
+      --muted: #607086;
+      --primary: #2563eb;
+      --primary-soft: #e8f0ff;
+      --accent: #0f766e;
+      --danger: #dc2626;
+      --warning: #d97706;
+      --shadow: 0 10px 28px rgba(15, 23, 42, 0.08);
+      --radius: 16px;
+    }
+    html, body {
+      margin: 0;
+      height: 100%;
+      font-family: Inter, "Segoe UI", Roboto, Arial, sans-serif;
+      background: linear-gradient(180deg, #edf3fb 0%, #f7f9fc 100%);
+      color: var(--text);
+    }
+    #layout {
+      display: grid;
+      grid-template-columns: 360px 1fr;
+      height: 100%;
+      gap: 14px;
+      padding: 14px;
+      box-sizing: border-box;
+      position: relative;
+    }
+    #leftPanel {
+      overflow: auto;
+      padding: 18px;
+      box-sizing: border-box;
+      background: rgba(255, 255, 255, 0.92);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(10px);
+      z-index: 3;
+    }
+    #mapWrap {
+      position: relative;
+      min-width: 0;
+      min-height: 0;
+    }
+    #map {
+      width: 100%;
+      height: 100%;
+      border-radius: 22px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow);
+      background: #dfe8f3;
+    }
+    h2, h3 {
+      margin: 0 0 10px;
+      color: #0f172a;
+      letter-spacing: 0.01em;
+    }
+    h2 { font-size: 1.18rem; }
+    h3 { font-size: 0.98rem; }
+    .section {
+      margin-bottom: 16px;
+      padding: 16px;
+      background: var(--panel-soft);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+    }
+    label {
+      display: block;
+      margin: 10px 0 6px;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--muted);
+      font-weight: 700;
+    }
+    input, select, textarea, button {
+      width: 100%;
+      box-sizing: border-box;
+      margin-bottom: 8px;
+      padding: 10px 12px;
+      border-radius: 12px;
+      border: 1px solid var(--border-strong);
+      font-size: 14px;
+      color: var(--text);
+    }
+    input, select, textarea {
+      background: #fff;
+      box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.03);
+    }
+    input:focus, select:focus, textarea:focus {
+      outline: none;
+      border-color: rgba(37, 99, 235, 0.6);
+      box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.12);
+    }
+    button {
+      border: 1px solid rgba(37, 99, 235, 0.18);
+      background: linear-gradient(180deg, #ffffff 0%, #eef4ff 100%);
+      color: #0f2c6f;
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform .12s ease, box-shadow .12s ease, border-color .12s ease;
+      box-shadow: 0 6px 14px rgba(37, 99, 235, 0.08);
+    }
+    button:hover {
+      transform: translateY(-1px);
+      border-color: rgba(37, 99, 235, 0.35);
+      box-shadow: 0 10px 18px rgba(37, 99, 235, 0.12);
+    }
+    button:active { transform: translateY(0); }
+    textarea { min-height: 86px; resize: vertical; }
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .row3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+    .small { font-size: 12px; color: var(--muted); line-height: 1.45; }
+    #rightDock {
+      position: absolute;
+      top: 14px;
+      right: 14px;
+      bottom: 14px;
+      display: flex;
+      align-items: stretch;
+      justify-content: flex-end;
+      z-index: 4;
+      pointer-events: none;
+    }
+    #rightDock > * { pointer-events: auto; }
+    .dockRail {
+      width: 64px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      align-items: stretch;
+      justify-content: flex-start;
+      padding: 10px;
+      margin-left: 12px;
+      background: rgba(255,255,255,0.9);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(10px);
+    }
+    .tabs {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .tabButton {
+      width: 100%;
+      min-height: 92px;
+      writing-mode: vertical-rl;
+      transform: rotate(180deg);
+      padding: 14px 10px;
+      border-radius: 14px;
+      border: 1px solid var(--border);
+      background: #fff;
+      color: var(--muted);
+      cursor: pointer;
+      font-weight: 800;
+      letter-spacing: 0.05em;
+      box-shadow: none;
+    }
+    .tabButton.active {
+      background: linear-gradient(180deg, #eff5ff 0%, #dbe9ff 100%);
+      color: #0f2c6f;
+      border-color: rgba(37, 99, 235, 0.25);
+    }
+    .tabDrawer {
+      width: 0;
+      opacity: 0;
+      overflow: hidden;
+      transition: width .18s ease, opacity .18s ease;
+      margin-left: 0;
+    }
+    #rightDock.open .tabDrawer {
+      opacity: 1;
+      margin-left: 12px;
+    }
+    #rightDock[data-open-tab='hierarchyTab'].open .tabDrawer { width: min(46vw, 680px); }
+    #rightDock[data-open-tab='detailsTab'].open .tabDrawer { width: min(38vw, 560px); }
+    #rightDock[data-open-tab='editorTab'].open .tabDrawer { width: min(42vw, 620px); }
+    #rightDock[data-open-tab='exportTab'].open .tabDrawer { width: min(34vw, 480px); }
+    #rightPanel {
+      height: 100%;
+      overflow: auto;
+      padding: 18px;
+      box-sizing: border-box;
+      background: rgba(255, 255, 255, 0.96);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(10px);
+    }
+    .tabPanel { display: none; min-height: calc(100% - 16px); }
+    .tabPanel.active { display: block; }
+    .drawerHint {
+      font-size: 11px;
+      color: var(--muted);
+      text-align: center;
+      padding: 2px 4px;
+      line-height: 1.3;
+    }
+    .tableCard, .detailCard {
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 8px 20px rgba(15, 23, 42, 0.05);
+    }
+    .tableScroll {
+      max-height: calc(100vh - 180px);
+      overflow: auto;
+    }
+    .dataTable {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+      background: #fff;
+    }
+    .dataTable th, .dataTable td {
+      padding: 10px 12px;
+      border-bottom: 1px solid #e8eef6;
+      vertical-align: top;
+      text-align: left;
+    }
+    .dataTable th {
+      position: sticky;
+      top: 0;
+      background: #f8fbff;
+      color: #40536d;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      font-size: 11px;
+      z-index: 1;
+    }
+    .dataTable tbody tr:hover { background: #f8fbff; }
+    .dataTable tbody tr.selected { background: #eaf2ff; }
+    .dataTable tbody tr.surveyRow { background: #f6f9fe; font-weight: 700; }
+    .tableAction { cursor: pointer; }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 700;
+      background: #edf3ff;
+      color: #284b8f;
+      border: 1px solid #d7e4ff;
+      white-space: nowrap;
+    }
+    .badge.object { background: #fff4e8; color: #9a4b00; border-color: #ffe2c0; }
+    .badge.archived { background: #fff1f2; color: #b42318; border-color: #ffd0d5; }
+    .summaryPill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: var(--primary-soft);
+      color: #17408b;
+      font-size: 12px;
+      font-weight: 700;
+      border: 1px solid #d7e4ff;
+    }
+    #statusBox {
+      min-height: 44px;
+      padding: 12px 14px;
+      background: #f8fbff;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      color: #23406f;
+      line-height: 1.45;
+    }
+    #statusBox.error {
+      background: #fff3f2;
+      border-color: #fecaca;
+      color: #b42318;
+    }
+    #statusBox.success {
+      background: #ecfdf3;
+      border-color: #bbf7d0;
+      color: #166534;
+    }
+    #detailsBox {
+      min-height: 300px;
+      padding: 0;
+      overflow: hidden;
+    }
+    .detailSectionTitle {
+      margin: 0;
+      padding: 14px 16px 0;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--muted);
+    }
+    .detailMeta {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      padding: 16px;
+      border-bottom: 1px solid #e8eef6;
+      background: #fbfdff;
+    }
+    .detailHero {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 16px;
+      border-bottom: 1px solid #e8eef6;
+    }
+    .detailHero h3 { margin: 0; font-size: 18px; }
+    .detailSubtle { color: var(--muted); font-size: 13px; }
+    .mutedEmpty {
+      padding: 24px 18px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+    .keyValueTable td:first-child {
+      width: 34%;
+      color: var(--muted);
+      font-weight: 700;
+      background: #fbfdff;
+    }
+    .mono { font-family: "SFMono-Regular", Consolas, monospace; }
+    .chipRow {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      padding: 0 16px 16px;
+    }
+    .sectionHeaderRow {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 10px;
+    }
+    .listCount { color: var(--muted); font-size: 12px; font-weight: 700; }
+    @media (max-width: 1400px) {
+      #layout { grid-template-columns: 320px 1fr; }
+      #rightDock[data-open-tab="hierarchyTab"].open .tabDrawer { width: min(54vw, 620px); }
+      #rightDock[data-open-tab="detailsTab"].open .tabDrawer { width: min(46vw, 520px); }
+      #rightDock[data-open-tab="editorTab"].open .tabDrawer { width: min(50vw, 580px); }
+      #rightDock[data-open-tab="exportTab"].open .tabDrawer { width: min(40vw, 440px); }
+    }
+    @media (max-width: 1024px) {
+      #layout { grid-template-columns: 1fr; }
+      #leftPanel { display: none; }
+      #rightDock { left: 14px; right: 14px; }
+      .dockRail { width: 56px; }
+      #rightDock[data-open-tab='hierarchyTab'].open .tabDrawer,
+      #rightDock[data-open-tab='detailsTab'].open .tabDrawer,
+      #rightDock[data-open-tab='editorTab'].open .tabDrawer,
+      #rightDock[data-open-tab='exportTab'].open .tabDrawer { width: calc(100vw - 120px); max-width: none; }
+    }
+
+    .optionGroup {
+      margin: 10px 0 14px;
+      padding: 12px 14px;
+      background: rgba(255,255,255,0.6);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+    }
+    .optionGroupTitle {
+      margin: 0 0 10px;
+      font-size: 0.78rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    .optionGrid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 8px;
+    }
+    .optionGrid label {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 0;
+      font-size: 0.95rem;
+    }
+    .optionGrid input[type="checkbox"] {
+      margin: 0;
+    }
+    .buttonGridCompact {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 12px;
+    }
+    .buttonGridCompact .fullWidth {
+      grid-column: 1 / -1;
+    }
+
+
+    .modePanel {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 12px;
+    }
+    .modeCard {
+      padding: 12px;
+      border-radius: 14px;
+      background: #fff;
+      border: 1px solid var(--border);
+    }
+    .modeCardTitle {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      font-weight: 800;
+      margin-bottom: 8px;
+    }
+    .modeValue {
+      font-weight: 800;
+      color: #0f172a;
+      font-size: 14px;
+    }
+    .modeValue.muted { color: var(--muted); }
+    .toolbarRow {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 10px;
+    }
+    .toolbarRow .dangerSoft {
+      background: linear-gradient(180deg, #fff5f5 0%, #feecec 100%);
+      color: #8b1e1e;
+      border-color: rgba(220, 38, 38, 0.18);
+      box-shadow: 0 6px 14px rgba(220, 38, 38, 0.08);
+    }
+    .toggleActive {
+      background: linear-gradient(180deg, #ecfdf5 0%, #d1fae5 100%);
+      color: #065f46;
+      border-color: rgba(16, 185, 129, 0.22);
+    }
+    .dirtyFlag {
+      display: inline-block;
+      margin-top: 8px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 800;
+      color: #92400e;
+      background: #fff7ed;
+      border: 1px solid #fed7aa;
+    }
+    .hintList {
+      margin: 10px 0 0;
+      padding-left: 18px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.45;
+    }
+    button[disabled] {
+      cursor: not-allowed;
+      opacity: 0.55;
+      transform: none;
+      box-shadow: none;
+    }
+
+  
+    .formHint { color: #6b7280; font-size: 12px; margin-top: 6px; }
+    .subsectionTitle { margin: 14px 0 8px; font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: #64748b; font-weight: 700; }
+    .typedFieldGrid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 10px 12px; margin: 8px 0 12px; }
+    .typedFieldGrid .fieldBlock { display: flex; flex-direction: column; gap: 6px; }
+    .typedFieldGrid .fieldBlock.full { grid-column: 1 / -1; }
+    .typedFieldGrid input, .typedFieldGrid select, .typedFieldGrid textarea { width: 100%; }
+    .editorSplit { display: grid; grid-template-columns: 1fr; gap: 14px; }
+    .advancedToggle { display: inline-flex; align-items: center; gap: 8px; font-size: 12px; color: #64748b; margin-top: 8px; }
+
+
+    .layerStack { display: grid; gap: 10px; }
+    .toggleList { display: grid; gap: 8px; margin-top: 8px; }
+    .toggleItem { display: grid; grid-template-columns: auto 1fr; align-items: start; gap: 10px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 12px; background: #fff; }
+    .toggleItem input { width: auto; margin: 2px 0 0; }
+    .toggleMeta { display: grid; gap: 2px; }
+    .toggleTitle { font-weight: 700; color: var(--text); font-size: 13px; }
+    .toggleSub { color: var(--muted); font-size: 12px; line-height: 1.35; }
+    .lookupActions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .lookupResults { margin-top: 10px; max-height: 260px; overflow: auto; border: 1px solid var(--border); border-radius: 14px; background: #fff; }
+    .lookupRow { padding: 12px 14px; border-bottom: 1px solid #e8eef6; cursor: pointer; }
+    .lookupRow:last-child { border-bottom: 0; }
+    .lookupRow:hover { background: #f8fbff; }
+    .lookupTitle { font-weight: 700; font-size: 13px; color: var(--text); }
+    .lookupMeta { font-size: 12px; color: var(--muted); margin-top: 3px; }
+    .lookupExtract { font-size: 12px; color: #334155; margin-top: 8px; line-height: 1.45; }
+    .mapAttributionBox { position: absolute; left: 18px; bottom: 18px; z-index: 3; background: rgba(255,255,255,0.9); border: 1px solid var(--border); border-radius: 12px; padding: 8px 10px; font-size: 11px; color: var(--muted); box-shadow: var(--shadow); max-width: min(45vw, 420px); line-height: 1.35; backdrop-filter: blur(10px); }
+    .mapAttributionBox a { color: #1d4ed8; text-decoration: none; }
+    .mapAttributionBox a:hover { text-decoration: underline; }
+
+
+    #service-panel {
+      margin-bottom: 16px;
+      padding: 12px 14px;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      background: linear-gradient(180deg, #0f172a 0%, #172554 100%);
+      color: #fff;
+      box-shadow: var(--shadow);
+    }
+    .service-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 8px;
+      flex-wrap: wrap;
+    }
+    .service-row > span:first-child {
+      font-weight: 800;
+      min-width: 64px;
+    }
+    .service-row button {
+      width: auto;
+      margin-bottom: 0;
+      padding: 8px 12px;
+      background: rgba(255,255,255,0.95);
+      color: #0f172a;
+      box-shadow: none;
+    }
+    .service-row button[disabled] { opacity: 0.55; }
+    .status {
+      font-weight: 800;
+      padding: 4px 10px;
+      border-radius: 999px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 48px;
+      color: #fff;
+    }
+    .status.on { background: #15803d; }
+    .status.off { background: #b91c1c; }
+    .status.waiting { background: #b45309; }
+    #sys-detail {
+      color: rgba(255,255,255,0.9);
+      font-size: 12px;
+      line-height: 1.4;
+      min-height: 16px;
+    }
+
+
+\n</style>
+</head>
+<body>
+<div id="layout">
+  <div id="leftPanel">
+
+    <div id="service-panel">
+      <div class="service-row">
+        <span>System</span>
+        <span id="sys-status" class="status off">OFF</span>
+        <button id="btn-start" type="button">Start</button>
+        <button id="btn-restart" type="button">Restart</button>
+      </div>
+      <div class="small" id="sys-detail">Checking service status…</div>
+    </div>
+
+    <div class="section">
+      <h2>Surveys</h2>
+      <button id="refreshSurveysBtn">Refresh survey list</button>
+      <label for="surveySelect">Focused survey</label>
+      <select id="surveySelect"></select>
+      <div class="row">
+        <button id="loadSurveyBtn">Load survey</button>
+        <button id="showActiveOnlyBtn">Show active only</button>
+      </div>
+      <div class="row">
+        <button id="zoomActiveBtn">Zoom active</button>
+        <button id="reloadHierarchyBtn">Refresh hierarchy</button>
+      </div>
+      <div class="summaryPill" id="activeSurveySummary">No active survey</div>
+    </div>
+
+    <div class="section">
+      <h3>Map Layers</h3>
+      <label for="basemapSelect">Basemap</label>
+      <select id="basemapSelect">
+        <option value="osm">Street</option>
+        <option value="opentopo">Topographic + contours</option>
+        <option value="nasa_satellite">Satellite (NASA global)</option>
+      </select>
+      <div class="small">Street uses OpenStreetMap. Topographic + contours uses OpenTopoMap. Satellite uses NASA GIBS global imagery and is lower-detail than the map layers.</div>
+      <div class="layerStack">
+        <div>
+          <div class="subsectionTitle">Context layers</div>
+          <div class="small">These come from your own surveyCatalyst layer catalog. Restricted and other context layers can be toggled independently.</div>
+          <div class="toggleList" id="contextLayerList"><div class="small">Loading context layers…</div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <h3>Lookup</h3>
+      <label for="wikiSearchInput">Wikipedia search</label>
+      <input id="wikiSearchInput" type="text" placeholder="Place, region, monument, object…">
+      <div class="lookupActions">
+        <button id="wikiSearchBtn">Search</button>
+        <button id="wikiNearbyBtn">Nearby current view</button>
+      </div>
+      <div class="small">Searches Wikipedia directly or finds nearby pages around the current map centre.</div>
+      <div id="wikiLookupResults" class="lookupResults"><div class="lookupRow"><div class="lookupMeta">No lookup results yet.</div></div></div>
+    </div>
+
+    <div class="section">
+      <h3>Create Survey</h3>
+      <label for="createSurveyExpeditionId">Expedition ID</label>
+      <input id="createSurveyExpeditionId" type="number" value="1">
+      <label for="createSurveyTitle">Title</label>
+      <input id="createSurveyTitle" type="text">
+      <label for="createSurveyStatus">Status</label>
+      <input id="createSurveyStatus" type="text" value="planned">
+      <label for="createSurveyMetadata">Metadata (JSON)</label>
+      <textarea id="createSurveyMetadata">{}</textarea>
+      <button id="armCreateSurveyBtn">Arm create survey polygon</button>
+    </div>
+
+    <div class="section">
+      <h3>Create Object</h3>
+      <label for="objectType">Object type</label>
+      <select id="objectType">
+        <option value="find">Find</option>
+        <option value="note">Note</option>
+        <option value="track">Track</option>
+        <option value="area">Area</option>
+        <option value="anomaly">Anomaly</option>
+        <option value="reference_point">Reference point</option>
+      </select>
+      <div id="objectTypeHint" class="formHint">Structured fields update with the selected object type.</div>
+      <label for="objectExpeditionId">Expedition ID</label>
+      <input id="objectExpeditionId" type="number" value="1">
+      <label for="objectTitle">Title</label>
+      <input id="objectTitle" type="text">
+      <label for="objectAnnotation">Annotation</label>
+      <textarea id="objectAnnotation"></textarea>
+      <label for="objectDetails">Details</label>
+      <textarea id="objectDetails"></textarea>
+      <div class="subsectionTitle">Typed fields</div>
+      <div id="objectTypedFields" class="typedFieldGrid"></div>
+      <label class="advancedToggle"><input id="objectPropertiesToggle" type="checkbox"> Show advanced JSON properties</label>
+      <div id="objectPropertiesWrap" style="display:none;">
+        <label for="objectProperties">Advanced properties (JSON)</label>
+        <textarea id="objectProperties">{}</textarea>
+      </div>
+      <div class="row3">
+        <button id="armPointBtn">Add point</button>
+        <button id="armLineBtn">Add line</button>
+        <button id="armPolygonBtn">Add polygon</button>
+      </div>
+    </div>
+
+    <div class="section">
+      <h3>Edit Workspace</h3>
+      <div class="modePanel">
+        <div class="modeCard">
+          <div class="modeCardTitle">Mode</div>
+          <div id="modeIndicator" class="modeValue muted">View</div>
+          <div id="dirtyIndicator" class="dirtyFlag" style="display:none;">Unsaved changes</div>
+        </div>
+        <div class="modeCard">
+          <div class="modeCardTitle">Selection</div>
+          <div id="selectionIndicator" class="modeValue muted">Nothing selected</div>
+        </div>
+      </div>
+      <div class="toolbarRow">
+        <button id="toggleModifyBtn">Enable vertex edit</button>
+        <button id="cancelToolBtn" class="dangerSoft">Cancel current tool</button>
+      </div>
+      <div class="toolbarRow">
+        <button id="saveSelectedGeometryBtn">Save selected geometry</button>
+        <button id="saveSelectedDetailsBtn">Save selected details</button>
+      </div>
+      <div class="row">
+        <button id="deleteSelectedBtn">Delete selected object</button>
+        <button id="deleteActiveSurveyBtn">Delete active survey</button>
+      </div>
+      <ul class="hintList">
+        <li>Geometry edits are only active when vertex edit is enabled.</li>
+        <li>Use cancel current tool to exit drawing safely.</li>
+        <li>Selection stays in view mode until you explicitly switch tools.</li>
+      </ul>
+    </div>
+
+    <div class="section">
+      <h3>Status</h3>
+      <div id="statusBox"></div>
+    </div>
+  </div>
+
+  <div id="mapWrap"><div id="map"></div><div id="mapAttributionBox" class="mapAttributionBox"></div>
+
+  <div id="rightDock" class="open" data-open-tab="hierarchyTab">
+    <div class="tabDrawer"><div id="rightPanel">
+    <div id="hierarchyTab" class="tabPanel active">
+      <div class="tableCard tableScroll"><table class="dataTable hierarchyTable"><thead><tr><th>Kind</th><th>ID</th><th>Title</th><th>Type / Status</th><th>Notes</th></tr></thead><tbody id="hierarchyList"></tbody></table></div>
+    </div>
+
+    <div id="detailsTab" class="tabPanel">
+      <div id="detailsBox" class="detailCard"><div class="mutedEmpty">Nothing selected</div></div>
+    </div>
+
+    <div id="editorTab" class="tabPanel">
+      <div class="editorSplit">
+        <div>
+          <label for="editorTitle">Title</label>
+          <input id="editorTitle" type="text">
+          <label for="editorType">Type</label>
+          <select id="editorType"></select>
+          <label for="editorStatus">Status</label>
+          <input id="editorStatus" type="text">
+          <label for="editorAnnotation">Annotation</label>
+          <textarea id="editorAnnotation"></textarea>
+          <label for="editorDetails">Details</label>
+          <textarea id="editorDetails"></textarea>
+        </div>
+        <div>
+          <div class="subsectionTitle">Typed fields</div>
+          <div id="editorTypeHint" class="formHint">Structured fields update with the selected object type.</div>
+          <div id="editorTypedFields" class="typedFieldGrid"></div>
+          <label class="advancedToggle"><input id="editorPropertiesToggle" type="checkbox"> Show advanced JSON properties</label>
+          <div id="editorPropertiesWrap" style="display:none;">
+            <label for="editorProperties">Advanced properties (JSON)</label>
+            <textarea id="editorProperties">{}</textarea>
+          </div>
+        </div>
+      </div>
+      <div class="small">Edit fields here, then use the action buttons on the left to save geometry or details.</div>
+    </div>
+
+    <div id="exportTab" class="tabPanel">
+      <div class="optionGroup">
+        <div class="optionGroupTitle">Data</div>
+        <div class="optionGrid">
+          <label><input id="exportIncludeGeometry" type="checkbox" checked> Geometry</label>
+          <label><input id="exportIncludeProperties" type="checkbox" checked> Object properties</label>
+          <label><input id="exportIncludeArchived" type="checkbox"> Archived objects</label>
+        </div>
+      </div>
+      <div class="optionGroup">
+        <div class="optionGroupTitle">Document</div>
+        <div class="optionGrid">
+          <label><input id="exportIncludeBoundary" type="checkbox" checked> Boundary</label>
+          <label><input id="exportIncludeObjects" type="checkbox" checked> Objects</label>
+          <label><input id="exportDocumentIncludeDetails" type="checkbox" checked> Object details</label>
+          <label><input id="exportDocumentIncludeMap" type="checkbox" checked> Map image</label>
+        </div>
+      </div>
+      <div class="buttonGridCompact">
+        <button id="downloadLayerExportBtn">GeoJSON</button>
+        <button id="downloadDataExportBtn">Data JSON</button>
+        <button id="downloadDocumentExportBtn" class="fullWidth">Document</button>
+      </div>
+      <div class="small">Exports use the active survey. The document export is a printable HTML file and can embed the current map image.</div>
+    </div>
+  </div></div>
+    <div class="dockRail">
+      <div class="tabs">
+        <button class="tabButton active" data-tab="hierarchyTab">Hierarchy</button>
+        <button class="tabButton" data-tab="detailsTab">Details</button>
+        <button class="tabButton" data-tab="editorTab">Editor</button>
+        <button class="tabButton" data-tab="exportTab">Export</button>
+      </div>
+      <div class="drawerHint">Click an active tab to hide it.</div>
+    </div>
+  </div></div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/ol@v9.2.4/dist/ol.js"></script>
+<script>
+const basemapLayers = {
+  osm: new ol.layer.Tile({
+    visible: true,
+    source: new ol.source.OSM({crossOrigin: 'anonymous'})
+  }),
+  opentopo: new ol.layer.Tile({
+    visible: false,
+    source: new ol.source.XYZ({
+      crossOrigin: 'anonymous',
+      url: 'https://{a-c}.tile.opentopomap.org/{z}/{x}/{y}.png'
+    })
+  }),
+  nasa_satellite: new ol.layer.Tile({
+    visible: false,
+    source: new ol.source.XYZ({
+      crossOrigin: 'anonymous',
+      maxZoom: 9,
+      url: 'https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/MODIS_Terra_CorrectedReflectance_TrueColor/default/GoogleMapsCompatible_Level9/{z}/{y}/{x}.jpg'
+    })
+  })
+};
+
+const BASEMAP_ATTRIBUTIONS = {
+  osm: 'Street: © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap contributors</a>.',
+  opentopo: 'Topographic + contours: Kartendaten © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap-Mitwirkende</a>, SRTM | Kartendarstellung © <a href="https://opentopomap.org/about" target="_blank" rel="noopener">OpenTopoMap</a> (CC-BY-SA).',
+  nasa_satellite: 'Satellite: imagery from <a href="https://www.earthdata.nasa.gov/engage/open-data-services-software/earthdata-developer-portal/gibs-api" target="_blank" rel="noopener">NASA GIBS</a> MODIS Terra Corrected Reflectance True Color.'
+};
+
+const map = new ol.Map({
+  target: 'map',
+  layers: [basemapLayers.osm, basemapLayers.opentopo, basemapLayers.nasa_satellite],
+  view: new ol.View({
+    center: ol.proj.fromLonLat([11.5, 48.8]),
+    zoom: 8
+  })
+});
+
+const boundaryStyle = new ol.style.Style({
+  stroke: new ol.style.Stroke({color: '#005bbb', width: 3}),
+  fill: new ol.style.Fill({color: 'rgba(0,91,187,0.12)'})
+});
+const boundaryActiveStyle = new ol.style.Style({
+  stroke: new ol.style.Stroke({color: '#d81b60', width: 4}),
+  fill: new ol.style.Fill({color: 'rgba(216,27,96,0.16)'})
+});
+const objectStyle = new ol.style.Style({
+  image: new ol.style.Circle({radius: 6, fill: new ol.style.Fill({color: '#ff9800'}), stroke: new ol.style.Stroke({color: '#333', width: 1})}),
+  stroke: new ol.style.Stroke({color: '#ff9800', width: 3}),
+  fill: new ol.style.Fill({color: 'rgba(255,152,0,0.18)'})
+});
+const selectedStyle = new ol.style.Style({
+  image: new ol.style.Circle({radius: 8, fill: new ol.style.Fill({color: '#00c853'}), stroke: new ol.style.Stroke({color: '#111', width: 2})}),
+  stroke: new ol.style.Stroke({color: '#00c853', width: 4}),
+  fill: new ol.style.Fill({color: 'rgba(0,200,83,0.18)'})
+});
+
+const selectInteraction = new ol.interaction.Select({
+  style: selectedStyle,
+  layers: layer => !!layer.get('surveyLayerKind')
+});
+map.addInteraction(selectInteraction);
+const modifyInteraction = new ol.interaction.Modify({features: selectInteraction.getFeatures()});
+modifyInteraction.setActive(false);
+map.addInteraction(modifyInteraction);
+
+let drawInteraction = null;
+let currentMode = null;
+let activeSurveyId = null;
+let loadedSurveys = {};
+let selectedDescriptor = null;
+let modifyEnabled = false;
+let dirtyGeometry = false;
+let dirtyDetails = false;
+let activeBasemapKey = 'osm';
+
+
+function disableDoubleClickZoom() {
+  map.getInteractions().forEach(interaction => {
+    if (interaction instanceof ol.interaction.DoubleClickZoom) {
+      interaction.setActive(false);
+    }
+  });
+}
+
+function enableDoubleClickZoom() {
+  map.getInteractions().forEach(interaction => {
+    if (interaction instanceof ol.interaction.DoubleClickZoom) {
+      interaction.setActive(true);
+    }
+  });
+}
+
+let availableContextLayers = [];
+const activeContextLayers = new Map();
+const contextLayerColorCache = new Map();
+
+
+function describeCurrentMode() {
+  if (currentMode === 'createSurvey') return 'Draw survey';
+  if (currentMode === 'Point') return 'Draw point';
+  if (currentMode === 'LineString') return 'Draw line';
+  if (currentMode === 'Polygon') return 'Draw polygon';
+  if (modifyEnabled) return 'Vertex edit';
+  return 'View';
+}
+
+function describeSelection() {
+  if (!selectedDescriptor) return 'Nothing selected';
+  if (selectedDescriptor.kind === 'survey') return `Survey ${selectedDescriptor.surveyId}`;
+  return `Object ${selectedDescriptor.objectId}`;
+}
+
+function setDirtyState(kind, value=true) {
+  if (kind === 'geometry') dirtyGeometry = value;
+  if (kind === 'details') dirtyDetails = value;
+  updateWorkspaceState();
+}
+
+function updateWorkspaceState() {
+  const modeEl = document.getElementById('modeIndicator');
+  const selEl = document.getElementById('selectionIndicator');
+  const dirtyEl = document.getElementById('dirtyIndicator');
+  const toggleBtn = document.getElementById('toggleModifyBtn');
+  const cancelBtn = document.getElementById('cancelToolBtn');
+  const saveGeomBtn = document.getElementById('saveSelectedGeometryBtn');
+  const saveDetailsBtn = document.getElementById('saveSelectedDetailsBtn');
+  const deleteObjBtn = document.getElementById('deleteSelectedBtn');
+  const deleteSurveyBtn = document.getElementById('deleteActiveSurveyBtn');
+
+  modeEl.textContent = describeCurrentMode();
+  modeEl.classList.toggle('muted', describeCurrentMode() === 'View');
+  selEl.textContent = describeSelection();
+  selEl.classList.toggle('muted', !selectedDescriptor);
+
+  const dirty = dirtyGeometry || dirtyDetails;
+  dirtyEl.style.display = dirty ? 'inline-block' : 'none';
+  dirtyEl.textContent = dirtyGeometry && dirtyDetails ? 'Unsaved geometry and details' : dirtyGeometry ? 'Unsaved geometry' : 'Unsaved details';
+
+  toggleBtn.textContent = modifyEnabled ? 'Disable vertex edit' : 'Enable vertex edit';
+  toggleBtn.classList.toggle('toggleActive', modifyEnabled);
+  cancelBtn.disabled = !currentMode && !modifyEnabled;
+  saveGeomBtn.disabled = !selectedDescriptor;
+  saveDetailsBtn.disabled = !selectedDescriptor;
+  deleteObjBtn.disabled = !(selectedDescriptor && selectedDescriptor.kind === 'object');
+  deleteSurveyBtn.disabled = !activeSurveyId;
+}
+
+function cancelCurrentTool() {
+  clearDrawInteraction();
+  modifyEnabled = false;
+  modifyInteraction.setActive(false);
+  setStatus('Returned to view mode.');
+  updateWorkspaceState();
+}
+
+function toggleModifyMode() {
+  if (!selectedDescriptor) {
+    setStatus('Select a survey or object first.', 'error');
+    return;
+  }
+  if (currentMode) clearDrawInteraction();
+  modifyEnabled = !modifyEnabled;
+  modifyInteraction.setActive(modifyEnabled);
+  setStatus(modifyEnabled ? 'Vertex edit enabled for the selected feature.' : 'Vertex edit disabled.');
+  updateWorkspaceState();
+}
+
+function updateBasemapAttribution() {
+  const el = document.getElementById('mapAttributionBox');
+  if (!el) return;
+  el.innerHTML = BASEMAP_ATTRIBUTIONS[activeBasemapKey] || '';
+}
+
+function setBasemap(key) {
+  const next = basemapLayers[key] ? key : 'osm';
+  Object.entries(basemapLayers).forEach(([name, layer]) => layer.setVisible(name === next));
+  activeBasemapKey = next;
+  document.getElementById('basemapSelect').value = next;
+  updateBasemapAttribution();
+}
+
+function colorForLayer(layerKey) {
+  if (!contextLayerColorCache.has(layerKey)) {
+    const palette = ['#dc2626', '#2563eb', '#0f766e', '#9333ea', '#d97706', '#0891b2'];
+    let sum = 0;
+    for (let i = 0; i < layerKey.length; i++) sum += layerKey.charCodeAt(i);
+    contextLayerColorCache.set(layerKey, palette[sum % palette.length]);
+  }
+  return contextLayerColorCache.get(layerKey);
+}
+
+function buildContextLayerStyle(layerKey) {
+  const color = colorForLayer(layerKey);
+  return function(feature) {
+    const geomType = feature.getGeometry() ? feature.getGeometry().getType() : '';
+    if (geomType.includes('Point')) {
+      return new ol.style.Style({
+        image: new ol.style.Circle({radius: 5, fill: new ol.style.Fill({color}), stroke: new ol.style.Stroke({color: '#ffffff', width: 1.5})})
+      });
+    }
+    if (geomType.includes('Line')) {
+      return new ol.style.Style({ stroke: new ol.style.Stroke({color, width: 3}) });
+    }
+    return new ol.style.Style({
+      stroke: new ol.style.Stroke({color, width: 2.2}),
+      fill: new ol.style.Fill({color: color + '33'})
+    });
+  };
+}
+
+function buildContextLayer(layer) {
+  return new ol.layer.VectorTile({
+    declutter: true,
+    source: new ol.source.VectorTile({
+      format: new ol.format.MVT(),
+      url: `/api/layers/${encodeURIComponent(layer.layer_key)}/tiles/{z}/{x}/{y}.mvt`
+    }),
+    style: buildContextLayerStyle(layer.layer_key)
+  });
+}
+
+function setContextLayerEnabled(layerKey, enabled) {
+  const existing = activeContextLayers.get(layerKey);
+  if (enabled && !existing) {
+    const def = availableContextLayers.find(layer => layer.layer_key === layerKey);
+    if (!def) return;
+    const layer = buildContextLayer(def);
+    layer.set('contextLayerKey', layerKey);
+    map.addLayer(layer);
+    activeContextLayers.set(layerKey, layer);
+  }
+  if (!enabled && existing) {
+    map.removeLayer(existing);
+    activeContextLayers.delete(layerKey);
+  }
+}
+
+function renderContextLayerList() {
+  const box = document.getElementById('contextLayerList');
+  if (!availableContextLayers.length) {
+    box.innerHTML = '<div class="small">No context layers available.</div>';
+    return;
+  }
+  box.innerHTML = availableContextLayers.map(layer => {
+    const checked = activeContextLayers.has(layer.layer_key) ? 'checked' : '';
+    const title = escapeHtml(layer.layer_name || layer.layer_key);
+    const sub = escapeHtml([layer.layer_group, layer.geometry_type].filter(Boolean).join(' · '));
+    return `<label class="toggleItem"><input type="checkbox" data-context-layer="${escapeHtml(layer.layer_key)}" ${checked}><div class="toggleMeta"><div class="toggleTitle">${title}</div><div class="toggleSub">${sub}</div></div></label>`;
+  }).join('');
+}
+
+async function refreshContextLayers() {
+  availableContextLayers = await fetchJson('/api/context-layers');
+  renderContextLayerList();
+}
+
+function renderWikiResults(items) {
+  const box = document.getElementById('wikiLookupResults');
+  if (!items || !items.length) {
+    box.innerHTML = '<div class="lookupRow"><div class="lookupMeta">No lookup results.</div></div>';
+    return;
+  }
+  box.innerHTML = items.map(item => {
+    const coords = item.lat != null && item.lon != null ? ` data-lat="${item.lat}" data-lon="${item.lon}"` : '';
+    return `<div class="lookupRow"${coords}><div class="lookupTitle">${escapeHtml(item.title || '')}</div><div class="lookupMeta">${escapeHtml(item.meta || '')}</div>${item.extract ? `<div class="lookupExtract">${escapeHtml(item.extract)}</div>` : ''}</div>`;
+  }).join('');
+}
+
+async function fetchWikipediaSummary(title) {
+  const params = new URLSearchParams({
+    action: 'query',
+    format: 'json',
+    prop: 'extracts|coordinates',
+    exintro: '1',
+    explaintext: '1',
+    redirects: '1',
+    titles: title,
+    origin: '*'
+  });
+  const data = await fetchJson(`https://en.wikipedia.org/w/api.php?${params.toString()}`);
+  const pages = data?.query?.pages || {};
+  const page = Object.values(pages)[0] || {};
+  const coord = Array.isArray(page.coordinates) ? page.coordinates[0] : null;
+  return {
+    title: page.title || title,
+    extract: page.extract || '',
+    lat: coord?.lat ?? null,
+    lon: coord?.lon ?? null,
+    meta: coord ? `Wikipedia article · ${coord.lat.toFixed(4)}, ${coord.lon.toFixed(4)}` : 'Wikipedia article'
+  };
+}
+
+async function runWikipediaSearch() {
+  const q = document.getElementById('wikiSearchInput').value.trim();
+  if (!q) { setStatus('Enter a lookup term first.'); return; }
+  try {
+    const params = new URLSearchParams({
+      action: 'query',
+      format: 'json',
+      list: 'search',
+      srsearch: q,
+      srlimit: '8',
+      origin: '*'
+    });
+    const data = await fetchJson(`https://en.wikipedia.org/w/api.php?${params.toString()}`);
+    const results = Array.isArray(data?.query?.search) ? data.query.search : [];
+    const summaries = [];
+    for (const item of results.slice(0, 6)) {
+      summaries.push(await fetchWikipediaSummary(item.title));
+    }
+    renderWikiResults(summaries);
+    setStatus(`Loaded ${summaries.length} Wikipedia results.`, 'success');
+  } catch (error) {
+    setStatus(`Wikipedia search failed: ${error.message}`, 'error');
+  }
+}
+
+async function runWikipediaNearby() {
+  try {
+    const center = ol.proj.toLonLat(map.getView().getCenter());
+    const [lon, lat] = center;
+    const params = new URLSearchParams({
+      action: 'query',
+      format: 'json',
+      list: 'geosearch',
+      gscoord: `${lat}|${lon}`,
+      gsradius: '10000',
+      gslimit: '8',
+      origin: '*'
+    });
+    const data = await fetchJson(`https://en.wikipedia.org/w/api.php?${params.toString()}`);
+    const results = Array.isArray(data?.query?.geosearch) ? data.query.geosearch : [];
+    renderWikiResults(results.map(item => ({
+      title: item.title,
+      extract: '',
+      lat: item.lat,
+      lon: item.lon,
+      meta: `${Math.round(item.dist || 0)} m away`
+    })));
+    setStatus(`Loaded ${results.length} nearby Wikipedia results.`, 'success');
+  } catch (error) {
+    setStatus(`Nearby Wikipedia lookup failed: ${error.message}`, 'error');
+  }
+}
+
+
+function setStatus(msg, level='info') {
+  const box = document.getElementById('statusBox');
+  box.className = '';
+  if (level === 'error') box.classList.add('error');
+  if (level === 'success') box.classList.add('success');
+  box.textContent = msg;
+}
+
+function setActiveSurveySummary() {
+  const text = activeSurveyId ? `Active survey: ${activeSurveyId}` : 'No active survey';
+  document.getElementById('activeSurveySummary').textContent = text;
+}
+
+function safeJsonParse(text, fallback={}) {
+  try {
+    const parsed = JSON.parse(text || '{}');
+    return parsed && typeof parsed === 'object' ? parsed : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function formatCellValue(value) {
+  if (value === null || value === undefined || value === '') return '<span class="detailSubtle">—</span>';
+  if (typeof value === 'object') return `<span class="mono">${escapeHtml(JSON.stringify(value))}</span>`;
+  if (typeof value === 'boolean') return value ? 'Yes' : 'No';
+  return escapeHtml(String(value));
+}
+
+function buildKeyValueRows(record, orderedKeys=null) {
+  const keys = orderedKeys || Object.keys(record || {});
+  return keys
+    .filter(key => record && Object.prototype.hasOwnProperty.call(record, key))
+    .map(key => `<tr><td>${escapeHtml(key)}</td><td>${formatCellValue(record[key])}</td></tr>`)
+    .join('');
+}
+
+function propertiesToRows(properties) {
+  const props = properties && typeof properties === 'object' ? properties : {};
+  const keys = Object.keys(props);
+  if (!keys.length) {
+    return '<tr><td>properties</td><td><span class="detailSubtle">No extra properties</span></td></tr>';
+  }
+  return keys.map(key => `<tr><td>${escapeHtml(key)}</td><td>${formatCellValue(props[key])}</td></tr>`).join('');
+}
+
+async function fetchJson(url, options) {
+  const response = await fetch(url, options);
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(text || response.statusText);
+  }
+  return await response.json();
+}
+
+async function refreshSurveyList() {
+  const surveys = await fetchJson('/api/surveys');
+  const select = document.getElementById('surveySelect');
+  const previous = select.value;
+  select.innerHTML = '<option value="">Select survey</option>';
+  surveys.forEach(survey => {
+    const option = document.createElement('option');
+    option.value = String(survey.id);
+    option.textContent = `${survey.id} — ${survey.title} (${survey.object_count})`;
+    select.appendChild(option);
+  });
+  if (activeSurveyId && surveys.some(s => s.id === activeSurveyId)) {
+    select.value = String(activeSurveyId);
+  } else if (previous && surveys.some(s => String(s.id) === previous)) {
+    select.value = previous;
+  }
+}
+
+function getCurrentBbox4326() {
+  const extent = map.getView().calculateExtent(map.getSize());
+  return ol.proj.transformExtent(extent, 'EPSG:3857', 'EPSG:4326');
+}
+
+function featureToGeoJSONGeometry(feature) {
+  return new ol.format.GeoJSON().writeGeometryObject(feature.getGeometry(), {
+    dataProjection: 'EPSG:4326',
+    featureProjection: 'EPSG:3857'
+  });
+}
+
+function surveyBoundaryLayerStyle(feature) {
+  return feature.get('survey_id') === activeSurveyId ? boundaryActiveStyle : boundaryStyle;
+}
+
+function objectLayerStyle() {
+  return objectStyle;
+}
+
+function clearSurveyLayers(exceptSurveyId = null) {
+  Object.keys(loadedSurveys).forEach(key => {
+    const sid = Number(key);
+    if (exceptSurveyId !== null && sid === exceptSurveyId) return;
+    map.removeLayer(loadedSurveys[sid].boundaryLayer);
+    map.removeLayer(loadedSurveys[sid].objectLayer);
+    delete loadedSurveys[sid];
+  });
+}
+
+function setSelectionFromFeature(feature) {
+  if (!feature) {
+    selectedDescriptor = null;
+    renderDetails(null);
+    renderEditor(null);
+    highlightHierarchySelection();
+    updateWorkspaceState();
+    return;
+  }
+  const role = feature.get('feature_role');
+  if (role === 'survey_boundary') {
+    selectedDescriptor = {kind: 'survey', surveyId: Number(feature.get('survey_id'))};
+    activeSurveyId = Number(feature.get('survey_id'));
+  } else {
+    selectedDescriptor = {kind: 'object', surveyId: Number(feature.get('survey_id')), objectId: Number(feature.get('id'))};
+    activeSurveyId = Number(feature.get('survey_id'));
+  }
+  document.getElementById('surveySelect').value = String(activeSurveyId);
+  setActiveSurveySummary();
+  renderDetails(feature);
+  renderEditor(feature);
+  highlightHierarchySelection();
+  updateWorkspaceState();
+}
+
+
+selectInteraction.on('select', evt => {
+  const feature = evt.selected[0] || null;
+  setSelectionFromFeature(feature);
+});
+
+function renderDetails(feature) {
+  const box = document.getElementById('detailsBox');
+  if (!feature) {
+    box.innerHTML = '<div class="mutedEmpty">Nothing selected</div>';
+    return;
+  }
+  const props = feature.getProperties();
+  const role = props.feature_role || 'feature';
+  const title = props.title || (role === 'survey_boundary' ? `Survey ${props.survey_id}` : `Object ${props.id}`);
+  const subtitle = role === 'survey_boundary'
+    ? `Survey boundary for layer ${props.layer_key || ''}`
+    : `${props.type || 'object'} on survey ${props.survey_id}`;
+
+  const primaryRows = role === 'survey_boundary'
+    ? buildKeyValueRows({
+        survey_id: props.survey_id,
+        expedition_id: props.expedition_id,
+        title: props.title,
+        status: props.status,
+        layer_key: props.layer_key,
+        object_count: props.object_count,
+        feature_role: props.feature_role
+      })
+    : buildKeyValueRows({
+        id: props.id,
+        survey_id: props.survey_id,
+        expedition_id: props.expedition_id,
+        title: props.title,
+        type: props.type,
+        annotation: props.annotation,
+        details: props.details,
+        is_active: props.is_active,
+        layer_key: props.layer_key,
+        feature_role: props.feature_role
+      });
+
+  const metaBadges = [
+    `<span class="badge ${role === 'survey_boundary' ? '' : 'object'}">${escapeHtml(role.replace('_', ' '))}</span>`
+  ];
+  if (props.status) metaBadges.push(`<span class="badge">${escapeHtml(String(props.status))}</span>`);
+  if (props.is_active === false) metaBadges.push('<span class="badge archived">archived</span>');
+
+  box.innerHTML = `
+    <div class="detailHero">
+      <div>
+        <h3>${escapeHtml(title)}</h3>
+        <div class="detailSubtle">${escapeHtml(subtitle)}</div>
+      </div>
+      <div class="chipRow">${metaBadges.join('')}</div>
+    </div>
+    <div class="detailSectionTitle">Core details</div>
+    <table class="dataTable keyValueTable"><tbody>${primaryRows}</tbody></table>
+    <div class="detailSectionTitle">Extra properties</div>
+    <table class="dataTable keyValueTable"><tbody>${propertiesToRows(props.properties)}</tbody></table>
+  `;
+}
+
+
+
+const OBJECT_TYPE_OPTIONS = [
+  ['find', 'Find'],
+  ['note', 'Note'],
+  ['track', 'Track'],
+  ['area', 'Area'],
+  ['anomaly', 'Anomaly'],
+  ['reference_point', 'Reference point']
+];
+
+function sanitizeObjectType(value) {
+  const safe = String(value || '').trim().toLowerCase();
+  const allowed = OBJECT_TYPE_OPTIONS.map(([key]) => key);
+  return allowed.includes(safe) ? safe : 'find';
+}
+
+function rebuildObjectTypeSelect(selectId, selectedValue='find') {
+  const select = document.getElementById(selectId);
+  if (!select) return;
+  const safeSelected = sanitizeObjectType(selectedValue);
+  select.innerHTML = '';
+  OBJECT_TYPE_OPTIONS.forEach(([key, label]) => {
+    const option = document.createElement('option');
+    option.value = key;
+    option.textContent = label;
+    if (key === safeSelected) option.selected = true;
+    select.appendChild(option);
+  });
+}
+
+
+const OBJECT_TYPE_SCHEMAS = {
+  find: {
+    label: 'Find',
+    hint: 'For recorded finds or probable finds.',
+    fields: [
+      {key: 'material', label: 'Material'},
+      {key: 'period', label: 'Period'},
+      {key: 'depth_cm', label: 'Depth (cm)', type: 'number'},
+      {key: 'confidence', label: 'Confidence', type: 'select', options: ['low','medium','high']},
+      {key: 'find_ref', label: 'Find reference'},
+      {key: 'condition', label: 'Condition'}
+    ]
+  },
+  note: {
+    label: 'Note',
+    hint: 'For observations, comments, and interpretation notes.',
+    fields: [
+      {key: 'category', label: 'Category'},
+      {key: 'priority', label: 'Priority', type: 'select', options: ['low','normal','high']},
+      {key: 'observer', label: 'Observer'},
+      {key: 'note_text', label: 'Note text', type: 'textarea', full: true}
+    ]
+  },
+  track: {
+    label: 'Track',
+    hint: 'For route traces, paths, and movement records.',
+    fields: [
+      {key: 'interpretation', label: 'Interpretation'},
+      {key: 'surface', label: 'Surface'},
+      {key: 'condition', label: 'Condition'},
+      {key: 'confidence', label: 'Confidence', type: 'select', options: ['low','medium','high']}
+    ]
+  },
+  area: {
+    label: 'Area',
+    hint: 'For zones, extents, and polygons of interest.',
+    fields: [
+      {key: 'area_type', label: 'Area type'},
+      {key: 'interpretation', label: 'Interpretation'},
+      {key: 'priority', label: 'Priority', type: 'select', options: ['low','normal','high']},
+      {key: 'notes', label: 'Area notes', type: 'textarea', full: true}
+    ]
+  },
+  anomaly: {
+    label: 'Anomaly',
+    hint: 'For anomalous signals or observations requiring follow-up.',
+    fields: [
+      {key: 'signal_type', label: 'Signal type'},
+      {key: 'strength', label: 'Strength'},
+      {key: 'interpretation', label: 'Interpretation'},
+      {key: 'confidence', label: 'Confidence', type: 'select', options: ['low','medium','high']}
+    ]
+  },
+  reference_point: {
+    label: 'Reference point',
+    hint: 'For fixed control points, markers, or anchors.',
+    fields: [
+      {key: 'reference_code', label: 'Reference code'},
+      {key: 'marker_type', label: 'Marker type'},
+      {key: 'accuracy_m', label: 'Accuracy (m)', type: 'number'},
+      {key: 'notes', label: 'Reference notes', type: 'textarea', full: true}
+    ]
+  }
+};
+
+function getTypeSchema(type) {
+  return OBJECT_TYPE_SCHEMAS[type] || OBJECT_TYPE_SCHEMAS.find;
+}
+
+function renderTypedFields(prefix, type, values={}) {
+  const schema = getTypeSchema(type);
+  const container = document.getElementById(`${prefix}TypedFields`);
+  if (!container) return;
+  container.innerHTML = '';
+  schema.fields.forEach(field => {
+    const wrap = document.createElement('div');
+    wrap.className = `fieldBlock${field.full ? ' full' : ''}`;
+    const label = document.createElement('label');
+    label.textContent = field.label;
+    label.htmlFor = `${prefix}Typed_${field.key}`;
+    wrap.appendChild(label);
+    let input;
+    if (field.type === 'textarea') {
+      input = document.createElement('textarea');
+    } else if (field.type === 'select') {
+      input = document.createElement('select');
+      (field.options || []).forEach(opt => {
+        const option = document.createElement('option');
+        option.value = opt;
+        option.textContent = opt.charAt(0).toUpperCase() + opt.slice(1);
+        input.appendChild(option);
+      });
+      const blank = document.createElement('option');
+      blank.value = '';
+      blank.textContent = '—';
+      input.insertBefore(blank, input.firstChild);
+    } else {
+      input = document.createElement('input');
+      input.type = field.type === 'number' ? 'number' : 'text';
+    }
+    input.id = `${prefix}Typed_${field.key}`;
+    input.dataset.typedKey = field.key;
+    input.dataset.typedPrefix = prefix;
+    input.value = values[field.key] ?? '';
+    wrap.appendChild(input);
+    container.appendChild(wrap);
+  });
+  const hintEl = document.getElementById(`${prefix}TypeHint`);
+  if (hintEl) hintEl.textContent = schema.hint;
+}
+
+function collectTypedProperties(prefix) {
+  const properties = {};
+  document.querySelectorAll(`[data-typed-prefix="${prefix}"]`).forEach(el => {
+    const key = el.dataset.typedKey;
+    let value = el.value;
+    if (value === '') return;
+    if (el.type === 'number') {
+      const n = Number(value);
+      value = Number.isFinite(n) ? n : value;
+    }
+    properties[key] = value;
+  });
+  return properties;
+}
+
+function renderEditor(feature) {
+  const props = feature ? feature.getProperties() : {};
+  document.getElementById('editorTitle').value = props.title || '';
+  document.getElementById('editorType').value = sanitizeObjectType(props.type);
+  document.getElementById('editorStatus').value = props.status || '';
+  document.getElementById('editorAnnotation').value = props.annotation || '';
+  document.getElementById('editorDetails').value = props.details || '';
+  const editorProps = {...props};
+  delete editorProps.geometry;
+  const typedValues = editorProps.properties || {};
+  document.getElementById('editorProperties').value = JSON.stringify(editorProps.properties || {}, null, 2);
+  renderTypedFields('editor', sanitizeObjectType(document.getElementById('editorType').value), typedValues);
+}
+
+function buildFeatureFromGeoJSON(geojson) {
+  const feature = new ol.format.GeoJSON().readFeature(geojson, {dataProjection: 'EPSG:4326', featureProjection: 'EPSG:3857'});
+  Object.entries(geojson.properties || {}).forEach(([key, value]) => feature.set(key, value));
+  return feature;
+}
+
+async function loadSurvey(surveyId, zoomTo=false) {
+  const bbox = getCurrentBbox4326().join(',');
+  const [featuresGeojson, hierarchy] = await Promise.all([
+    fetchJson(`/api/surveys/${surveyId}/features?bbox=${bbox}&limit=5000`),
+    fetchJson(`/api/surveys/${surveyId}/hierarchy`)
+  ]);
+
+  const boundaryFeatures = [];
+  const objectFeatures = [];
+  (featuresGeojson.features || []).forEach(raw => {
+    const feature = buildFeatureFromGeoJSON(raw);
+    if (feature.get('feature_role') === 'survey_boundary') {
+      boundaryFeatures.push(feature);
+    } else {
+      objectFeatures.push(feature);
+    }
+  });
+
+  if (loadedSurveys[surveyId]) {
+    map.removeLayer(loadedSurveys[surveyId].boundaryLayer);
+    map.removeLayer(loadedSurveys[surveyId].objectLayer);
+  }
+
+  const boundaryLayer = new ol.layer.Vector({
+    source: new ol.source.Vector({features: boundaryFeatures}),
+    style: surveyBoundaryLayerStyle
+  });
+  boundaryLayer.set('surveyLayerKind', 'boundary');
+  boundaryLayer.set('surveyId', surveyId);
+
+  const objectLayer = new ol.layer.Vector({
+    source: new ol.source.Vector({features: objectFeatures}),
+    style: objectLayerStyle
+  });
+  objectLayer.set('surveyLayerKind', 'objects');
+  objectLayer.set('surveyId', surveyId);
+
+  map.addLayer(boundaryLayer);
+  map.addLayer(objectLayer);
+
+  const extent = ol.extent.createEmpty();
+  boundaryFeatures.forEach(f => ol.extent.extend(extent, f.getGeometry().getExtent()));
+  objectFeatures.forEach(f => ol.extent.extend(extent, f.getGeometry().getExtent()));
+
+  loadedSurveys[surveyId] = {
+    hierarchy,
+    boundaryLayer,
+    objectLayer,
+    extent,
+    featuresGeojson
+  };
+
+  activeSurveyId = surveyId;
+  setActiveSurveySummary();
+  renderHierarchy();
+
+  if (zoomTo && !ol.extent.isEmpty(extent)) {
+    map.getView().fit(extent, {padding: [40, 40, 40, 40], maxZoom: 17});
+  }
+}
+
+function findFeatureByDescriptor(descriptor) {
+  if (!descriptor || !loadedSurveys[descriptor.surveyId]) return null;
+  const state = loadedSurveys[descriptor.surveyId];
+  if (descriptor.kind === 'survey') {
+    return state.boundaryLayer.getSource().getFeatures()[0] || null;
+  }
+  return state.objectLayer.getSource().getFeatures().find(f => Number(f.get('id')) === Number(descriptor.objectId)) || null;
+}
+
+function highlightHierarchySelection() {
+  document.querySelectorAll('#hierarchyList tr[data-key]').forEach(row => row.classList.remove('selected'));
+  if (!selectedDescriptor) return;
+  const key = selectedDescriptor.kind === 'survey'
+    ? `survey:${selectedDescriptor.surveyId}`
+    : `object:${selectedDescriptor.objectId}`;
+  const row = document.querySelector(`#hierarchyList tr[data-key="${key}"]`);
+  if (row) row.classList.add('selected');
+}
+
+function renderHierarchy() {
+  const list = document.getElementById('hierarchyList');
+  list.innerHTML = '';
+  Object.values(loadedSurveys).sort((a,b)=>a.hierarchy.survey.id-b.hierarchy.survey.id).forEach(state => {
+    const survey = state.hierarchy.survey;
+    const surveyRow = document.createElement('tr');
+    surveyRow.className = 'tableAction surveyRow';
+    surveyRow.dataset.key = `survey:${survey.id}`;
+    surveyRow.innerHTML = `
+      <td><span class="badge">survey</span></td>
+      <td>${escapeHtml(survey.id)}</td>
+      <td>${escapeHtml(survey.title || `Survey ${survey.id}`)}</td>
+      <td>${escapeHtml(survey.status || '')}</td>
+      <td>${escapeHtml(String(state.hierarchy.objects.length))} objects</td>
+    `;
+    surveyRow.onclick = () => {
+      activeSurveyId = survey.id;
+      document.getElementById('surveySelect').value = String(survey.id);
+      const feature = findFeatureByDescriptor({kind: 'survey', surveyId: survey.id});
+      selectInteraction.getFeatures().clear();
+      if (feature) selectInteraction.getFeatures().push(feature);
+      setSelectionFromFeature(feature);
+    };
+    list.appendChild(surveyRow);
+
+    state.hierarchy.objects.forEach(obj => {
+      const row = document.createElement('tr');
+      row.className = 'tableAction';
+      row.dataset.key = `object:${obj.id}`;
+      row.innerHTML = `
+        <td><span class="badge object">object</span></td>
+        <td>${escapeHtml(obj.id)}</td>
+        <td>${escapeHtml(obj.title || obj.type || '')}</td>
+        <td>${escapeHtml(obj.type || '')}</td>
+        <td>${obj.is_active === false ? '<span class="badge archived">archived</span>' : escapeHtml(obj.annotation || obj.details || '')}</td>
+      `;
+      row.onclick = () => {
+        activeSurveyId = obj.survey_id;
+        document.getElementById('surveySelect').value = String(obj.survey_id);
+        const feature = findFeatureByDescriptor({kind: 'object', surveyId: obj.survey_id, objectId: obj.id});
+        selectInteraction.getFeatures().clear();
+        if (feature) selectInteraction.getFeatures().push(feature);
+        setSelectionFromFeature(feature);
+      };
+      list.appendChild(row);
+    });
+  });
+  if (!list.children.length) {
+    list.innerHTML = '<tr><td colspan="5" class="mutedEmpty">No loaded survey hierarchy yet.</td></tr>';
+  }
+  highlightHierarchySelection();
+  updateWorkspaceState();
+}
+
+
+async function refreshHierarchy() {
+  if (!activeSurveyId) return;
+  if (!loadedSurveys[activeSurveyId]) {
+    await loadSurvey(activeSurveyId, false);
+    return;
+  }
+  loadedSurveys[activeSurveyId].hierarchy = await fetchJson(`/api/surveys/${activeSurveyId}/hierarchy`);
+  renderHierarchy();
+}
+
+function clearDrawInteraction() {
+  if (drawInteraction) {
+    map.removeInteraction(drawInteraction);
+    drawInteraction = null;
+  }
+  enableDoubleClickZoom();
+  currentMode = null;
+  updateWorkspaceState();
+}
+
+function armDraw(kind) {
+  if (!activeSurveyId) {
+    setStatus('Select or load a survey first.');
+    return;
+  }
+  clearDrawInteraction();
+  currentMode = kind;
+  drawInteraction = new ol.interaction.Draw({
+    source: new ol.source.Vector(),
+    type: kind,
+    stopClick: true
+  });
+  drawInteraction.on('drawstart', () => {
+    disableDoubleClickZoom();
+  });
+  drawInteraction.on('drawend', async evt => {
+    enableDoubleClickZoom();
+    try {
+      const geometry = featureToGeoJSONGeometry(evt.feature);
+      const payload = {
+        expedition_id: Number(document.getElementById('objectExpeditionId').value || 1),
+        type: sanitizeObjectType(document.getElementById('objectType').value),
+        geometry,
+        title: document.getElementById('objectTitle').value || null,
+        annotation: document.getElementById('objectAnnotation').value || null,
+        details: document.getElementById('objectDetails').value || null,
+        properties: { ...safeJsonParse(document.getElementById('objectProperties').value, {}), ...collectTypedProperties('object') }
+      };
+      await fetchJson(`/api/surveys/${activeSurveyId}/objects`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(payload)
+      });
+      setStatus(`Created ${kind} object on survey ${activeSurveyId}.`, 'success');
+      clearDrawInteraction();
+      dirtyGeometry = false;
+      await loadSurvey(activeSurveyId, false);
+    } catch (error) {
+      setStatus(`Create object failed: ${error.message}`, 'error');
+    }
+  });
+  map.addInteraction(drawInteraction);
+  setStatus(`Draw ${kind} on the map for survey ${activeSurveyId}.`);
+  updateWorkspaceState();
+}
+
+function armCreateSurveyPolygon() {
+  clearDrawInteraction();
+  currentMode = 'createSurvey';
+  drawInteraction = new ol.interaction.Draw({
+    source: new ol.source.Vector(),
+    type: 'Polygon',
+    stopClick: true
+  });
+  drawInteraction.on('drawstart', () => {
+    disableDoubleClickZoom();
+  });
+  drawInteraction.on('drawend', async evt => {
+    enableDoubleClickZoom();
+    try {
+      const payload = {
+        expedition_id: Number(document.getElementById('createSurveyExpeditionId').value || 1),
+        title: document.getElementById('createSurveyTitle').value || 'New survey',
+        status: document.getElementById('createSurveyStatus').value || 'planned',
+        geometry: featureToGeoJSONGeometry(evt.feature),
+        metadata: safeJsonParse(document.getElementById('createSurveyMetadata').value, {})
+      };
+      const created = await fetchJson('/api/surveys', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(payload)
+      });
+      activeSurveyId = created.survey_id;
+      setStatus(`Created survey ${created.survey_id}.`, 'success');
+      clearDrawInteraction();
+      await refreshSurveyList();
+      document.getElementById('surveySelect').value = String(activeSurveyId);
+      await loadSurvey(activeSurveyId, true);
+    } catch (error) {
+      setStatus(`Create survey failed: ${error.message}`, 'error');
+    }
+  });
+  map.addInteraction(drawInteraction);
+  setStatus('Draw a polygon to create a survey.');
+  updateWorkspaceState();
+}
+
+async function saveSelectedGeometry() {
+  const feature = selectInteraction.getFeatures().item(0);
+  if (!feature) {
+    setStatus('Select a feature first.');
+    return;
+  }
+  try {
+    if (feature.get('feature_role') === 'survey_boundary') {
+      await fetchJson(`/api/surveys/${feature.get('survey_id')}`, {
+        method: 'PATCH',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({geometry: featureToGeoJSONGeometry(feature)})
+      });
+      setStatus(`Saved boundary geometry for survey ${feature.get('survey_id')}.`, 'success');
+      dirtyGeometry = false;
+      dirtyGeometry = false;
+      await loadSurvey(Number(feature.get('survey_id')), false);
+    } else {
+      await fetchJson(`/api/survey-objects/${feature.get('id')}`, {
+        method: 'PATCH',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({geometry: featureToGeoJSONGeometry(feature)})
+      });
+      setStatus(`Saved geometry for object ${feature.get('id')}.`, 'success');
+      dirtyGeometry = false;
+      await loadSurvey(Number(feature.get('survey_id')), false);
+    }
+  } catch (error) {
+    setStatus(`Save geometry failed: ${error.message}`, 'error');
+  }
+}
+
+async function saveSelectedDetails() {
+  if (!selectedDescriptor) {
+    setStatus('Select a survey or object first.');
+    return;
+  }
+  const title = document.getElementById('editorTitle').value || null;
+  const annotation = document.getElementById('editorAnnotation').value || null;
+  const details = document.getElementById('editorDetails').value || null;
+  const type = sanitizeObjectType(document.getElementById('editorType').value);
+  const status = document.getElementById('editorStatus').value || null;
+  const properties = { ...safeJsonParse(document.getElementById('editorProperties').value, {}), ...collectTypedProperties('editor') };
+  try {
+    if (selectedDescriptor.kind === 'survey') {
+      const metadata = {...properties};
+      if (annotation !== null) metadata.annotation = annotation;
+      if (details !== null) metadata.details = details;
+      await fetchJson(`/api/surveys/${selectedDescriptor.surveyId}`, {
+        method: 'PATCH',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({title, status, metadata})
+      });
+      setStatus(`Saved survey ${selectedDescriptor.surveyId}.`, 'success');
+      await refreshSurveyList();
+      dirtyDetails = false;
+      dirtyDetails = false;
+      await loadSurvey(selectedDescriptor.surveyId, false);
+    } else {
+      await fetchJson(`/api/survey-objects/${selectedDescriptor.objectId}`, {
+        method: 'PATCH',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({title, annotation, details, type, properties})
+      });
+      setStatus(`Saved object ${selectedDescriptor.objectId}.`, 'success');
+      dirtyDetails = false;
+      await loadSurvey(selectedDescriptor.surveyId, false);
+    }
+  } catch (error) {
+    setStatus(`Save details failed: ${error.message}`, 'error');
+  }
+}
+
+async function deleteSelectedObject() {
+  if (!selectedDescriptor || selectedDescriptor.kind !== 'object') {
+    setStatus('Select an object first.');
+    return;
+  }
+  if (!window.confirm(`Delete object ${selectedDescriptor.objectId}?`)) return;
+  try {
+    await fetchJson(`/api/survey-objects/${selectedDescriptor.objectId}`, {method: 'DELETE'});
+    setStatus(`Deleted object ${selectedDescriptor.objectId}.`, 'success');
+    selectInteraction.getFeatures().clear();
+    selectedDescriptor = null;
+    await loadSurvey(selectedDescriptor?.surveyId || activeSurveyId, false);
+  } catch (error) {
+    setStatus(`Delete object failed: ${error.message}`, 'error');
+  }
+}
+
+async function deleteActiveSurvey() {
+  if (!activeSurveyId) {
+    setStatus('No active survey selected.');
+    return;
+  }
+  if (!window.confirm(`Delete survey ${activeSurveyId} and its objects?`)) return;
+  try {
+    await fetchJson(`/api/surveys/${activeSurveyId}`, {method: 'DELETE'});
+    clearSurveyLayers(activeSurveyId);
+    selectInteraction.getFeatures().clear();
+    selectedDescriptor = null;
+    const old = activeSurveyId;
+    activeSurveyId = null;
+    setActiveSurveySummary();
+    renderHierarchy();
+    renderDetails(null);
+    renderEditor(null);
+    await refreshSurveyList();
+    setStatus(`Deleted survey ${old}.`, 'success');
+  } catch (error) {
+    setStatus(`Delete survey failed: ${error.message}`, 'error');
+  }
+}
+
+function showActiveOnly() {
+  if (!activeSurveyId) return;
+  clearSurveyLayers(activeSurveyId);
+  renderHierarchy();
+}
+
+function zoomActiveSurvey() {
+  if (!activeSurveyId || !loadedSurveys[activeSurveyId]) return;
+  const extent = loadedSurveys[activeSurveyId].extent;
+  if (extent && !ol.extent.isEmpty(extent)) {
+    map.getView().fit(extent, {padding: [40,40,40,40], maxZoom: 17});
+  }
+}
+
+
+function getExportOptions() {
+  return {
+    include_boundary: document.getElementById('exportIncludeBoundary').checked,
+    include_objects: document.getElementById('exportIncludeObjects').checked,
+    include_archived: document.getElementById('exportIncludeArchived').checked,
+    include_geometry: document.getElementById('exportIncludeGeometry').checked,
+    include_properties: document.getElementById('exportIncludeProperties').checked,
+    include_document_details: document.getElementById('exportDocumentIncludeDetails').checked,
+    include_document_map: document.getElementById('exportDocumentIncludeMap').checked
+  };
+}
+
+function buildQuery(params) {
+  const search = new URLSearchParams();
+  Object.entries(params).forEach(([key, value]) => search.set(key, String(value)));
+  return search.toString();
+}
+
+function downloadText(filename, content, mimeType='application/json') {
+  const blob = new Blob([content], {type: mimeType});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function getCurrentMapImageDataUrl() {
+  try {
+    const canvas = map.getViewport().querySelector('canvas');
+    if (!canvas) return null;
+    return canvas.toDataURL('image/png');
+  } catch {
+    return null;
+  }
+}
+
+async function downloadLayerExport() {
+  if (!activeSurveyId) { setStatus('Select an active survey first.'); return; }
+  try {
+    const opts = getExportOptions();
+    const query = buildQuery({
+      include_boundary: opts.include_boundary,
+      include_objects: opts.include_objects,
+      include_archived: opts.include_archived
+    });
+    const payload = await fetchJson(`/api/surveys/${activeSurveyId}/export/layer.geojson?${query}`);
+    downloadText(`survey_${activeSurveyId}_layer.geojson`, JSON.stringify(payload, null, 2), 'application/geo+json');
+    setStatus(`Downloaded layer export for survey ${activeSurveyId}.`, 'success');
+  } catch (error) {
+    setStatus(`Layer export failed: ${error.message}`, 'error');
+  }
+}
+
+async function downloadDataExport() {
+  if (!activeSurveyId) { setStatus('Select an active survey first.'); return; }
+  try {
+    const opts = getExportOptions();
+    const query = buildQuery({
+      include_boundary: opts.include_boundary,
+      include_objects: opts.include_objects,
+      include_archived: opts.include_archived,
+      include_geometry: opts.include_geometry,
+      include_properties: opts.include_properties
+    });
+    const payload = await fetchJson(`/api/surveys/${activeSurveyId}/export/data.json?${query}`);
+    downloadText(`survey_${activeSurveyId}_data.json`, JSON.stringify(payload, null, 2), 'application/json');
+    setStatus(`Downloaded data export for survey ${activeSurveyId}.`, 'success');
+  } catch (error) {
+    setStatus(`Data export failed: ${error.message}`, 'error');
+  }
+}
+
+function buildPrintableDocumentHtml(doc, mapImageDataUrl, includeDetails) {
+  const survey = doc.survey || {};
+  const objects = Array.isArray(doc.objects) ? doc.objects : [];
+  const rows = objects.map(obj => {
+    const properties = obj.properties ? `<pre>${escapeHtml(JSON.stringify(obj.properties, null, 2))}</pre>` : '';
+    const detailCell = includeDetails ? `<div><strong>Details:</strong> ${escapeHtml(obj.details || '')}</div><div><strong>Annotation:</strong> ${escapeHtml(obj.annotation || '')}</div>${properties}` : '';
+    return `<tr><td>${escapeHtml(obj.id)}</td><td>${escapeHtml(obj.type || '')}</td><td>${escapeHtml(obj.title || '')}</td><td>${escapeHtml(obj.is_active ? 'active' : 'archived')}</td><td>${detailCell}</td></tr>`;
+  }).join('');
+  const mapSection = mapImageDataUrl ? `<h2>Map snapshot</h2><img src="${mapImageDataUrl}" style="max-width:100%; border:1px solid #ccc;">` : '';
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Survey ${escapeHtml(survey.id)} export</title><style>body{font-family:Arial,sans-serif;margin:24px;line-height:1.4;} table{width:100%;border-collapse:collapse;} th,td{border:1px solid #ccc;padding:8px;vertical-align:top;} h1,h2{margin:16px 0 8px;} pre{white-space:pre-wrap;word-break:break-word;}
+    .formHint { color: #6b7280; font-size: 12px; margin-top: 6px; }
+    .subsectionTitle { margin: 14px 0 8px; font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: #64748b; font-weight: 700; }
+    .typedFieldGrid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 10px 12px; margin: 8px 0 12px; }
+    .typedFieldGrid .fieldBlock { display: flex; flex-direction: column; gap: 6px; }
+    .typedFieldGrid .fieldBlock.full { grid-column: 1 / -1; }
+    .typedFieldGrid input, .typedFieldGrid select, .typedFieldGrid textarea { width: 100%; }
+    .editorSplit { display: grid; grid-template-columns: 1fr; gap: 14px; }
+    .advancedToggle { display: inline-flex; align-items: center; gap: 8px; font-size: 12px; color: #64748b; margin-top: 8px; }
+
+
+    .layerStack { display: grid; gap: 10px; }
+    .toggleList { display: grid; gap: 8px; margin-top: 8px; }
+    .toggleItem { display: grid; grid-template-columns: auto 1fr; align-items: start; gap: 10px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 12px; background: #fff; }
+    .toggleItem input { width: auto; margin: 2px 0 0; }
+    .toggleMeta { display: grid; gap: 2px; }
+    .toggleTitle { font-weight: 700; color: var(--text); font-size: 13px; }
+    .toggleSub { color: var(--muted); font-size: 12px; line-height: 1.35; }
+    .lookupActions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .lookupResults { margin-top: 10px; max-height: 260px; overflow: auto; border: 1px solid var(--border); border-radius: 14px; background: #fff; }
+    .lookupRow { padding: 12px 14px; border-bottom: 1px solid #e8eef6; cursor: pointer; }
+    .lookupRow:last-child { border-bottom: 0; }
+    .lookupRow:hover { background: #f8fbff; }
+    .lookupTitle { font-weight: 700; font-size: 13px; color: var(--text); }
+    .lookupMeta { font-size: 12px; color: var(--muted); margin-top: 3px; }
+    .lookupExtract { font-size: 12px; color: #334155; margin-top: 8px; line-height: 1.45; }
+    .mapAttributionBox { position: absolute; left: 18px; bottom: 18px; z-index: 3; background: rgba(255,255,255,0.9); border: 1px solid var(--border); border-radius: 12px; padding: 8px 10px; font-size: 11px; color: var(--muted); box-shadow: var(--shadow); max-width: min(45vw, 420px); line-height: 1.35; backdrop-filter: blur(10px); }
+    .mapAttributionBox a { color: #1d4ed8; text-decoration: none; }
+    .mapAttributionBox a:hover { text-decoration: underline; }
+
+
+    #service-panel {
+      margin-bottom: 16px;
+      padding: 12px 14px;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      background: linear-gradient(180deg, #0f172a 0%, #172554 100%);
+      color: #fff;
+      box-shadow: var(--shadow);
+    }
+    .service-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 8px;
+      flex-wrap: wrap;
+    }
+    .service-row > span:first-child {
+      font-weight: 800;
+      min-width: 64px;
+    }
+    .service-row button {
+      width: auto;
+      margin-bottom: 0;
+      padding: 8px 12px;
+      background: rgba(255,255,255,0.95);
+      color: #0f172a;
+      box-shadow: none;
+    }
+    .service-row button[disabled] { opacity: 0.55; }
+    .status {
+      font-weight: 800;
+      padding: 4px 10px;
+      border-radius: 999px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 48px;
+      color: #fff;
+    }
+    .status.on { background: #15803d; }
+    .status.off { background: #b91c1c; }
+    .status.waiting { background: #b45309; }
+    #sys-detail {
+      color: rgba(255,255,255,0.9);
+      font-size: 12px;
+      line-height: 1.4;
+      min-height: 16px;
+    }
+
+</style></head><body><h1>Survey ${escapeHtml(survey.id)} — ${escapeHtml(survey.title || '')}</h1><p><strong>Status:</strong> ${escapeHtml(survey.status || '')}<br><strong>Layer key:</strong> ${escapeHtml(survey.layer_key || '')}<br><strong>Expedition:</strong> ${escapeHtml(survey.expedition_id || '')}</p><h2>Summary</h2><p><strong>Total objects:</strong> ${escapeHtml(doc.summary?.object_count || 0)}<br><strong>Active objects:</strong> ${escapeHtml(doc.summary?.active_count || 0)}<br><strong>Archived objects:</strong> ${escapeHtml(doc.summary?.archived_count || 0)}</p>${mapSection}<h2>Survey metadata</h2><pre>${escapeHtml(JSON.stringify(survey.metadata || {}, null, 2))}</pre><h2>Objects</h2><table><thead><tr><th>ID</th><th>Type</th><th>Title</th><th>Status</th><th>Details</th></tr></thead><tbody>${rows}</tbody></table></body></html>`;
+}
+
+async function downloadDocumentExport() {
+  if (!activeSurveyId) { setStatus('Select an active survey first.'); return; }
+  try {
+    const opts = getExportOptions();
+    const query = buildQuery({
+      include_boundary: opts.include_boundary,
+      include_objects: opts.include_objects,
+      include_archived: opts.include_archived,
+      include_geometry: false,
+      include_properties: opts.include_properties
+    });
+    const payload = await fetchJson(`/api/surveys/${activeSurveyId}/export/document.json?${query}`);
+    const mapImage = opts.include_document_map ? getCurrentMapImageDataUrl() : null;
+    const html = buildPrintableDocumentHtml(payload, mapImage, opts.include_document_details);
+    downloadText(`survey_${activeSurveyId}_document.html`, html, 'text/html');
+    setStatus(`Downloaded printable document for survey ${activeSurveyId}.`, 'success');
+  } catch (error) {
+    setStatus(`Document export failed: ${error.message}`, 'error');
+  }
+}
+
+
+let serviceRecoverTimer = null;
+let serviceRestartInProgress = false;
+
+function setServiceStatus(state, detailText) {
+  const badge = document.getElementById('sys-status');
+  const detail = document.getElementById('sys-detail');
+  const startBtn = document.getElementById('btn-start');
+  const restartBtn = document.getElementById('btn-restart');
+  if (!badge || !detail || !startBtn || !restartBtn) return;
+
+  if (state === 'on') {
+    badge.textContent = 'ON';
+    badge.className = 'status on';
+    startBtn.disabled = true;
+    restartBtn.disabled = false;
+  } else if (state === 'waiting') {
+    badge.textContent = 'WAIT';
+    badge.className = 'status waiting';
+    startBtn.disabled = true;
+    restartBtn.disabled = true;
+  } else {
+    badge.textContent = 'OFF';
+    badge.className = 'status off';
+    startBtn.disabled = false;
+    restartBtn.disabled = true;
+  }
+
+  detail.textContent = detailText || '';
+}
+
+async function checkHealth() {
+  try {
+    const res = await fetch('/health', {cache: 'no-store'});
+    if (res.ok) {
+      setServiceStatus('on', '127.0.0.1:8000 healthy');
+      if (serviceRestartInProgress) {
+        serviceRestartInProgress = false;
+        if (serviceRecoverTimer) {
+          clearTimeout(serviceRecoverTimer);
+          serviceRecoverTimer = null;
+        }
+        setStatus('Web server restarted and UI recovered automatically.', 'success');
+      }
+      return true;
+    }
+  } catch (error) {
+  }
+  setServiceStatus(serviceRestartInProgress ? 'waiting' : 'off', serviceRestartInProgress ? 'waiting for 127.0.0.1:8000 to return…' : '127.0.0.1:8000 unreachable');
+  return false;
+}
+
+function pollHealthUntilRecovered() {
+  const started = Date.now();
+  const attempt = async () => {
+    const healthy = await checkHealth();
+    if (healthy) return;
+    if (Date.now() - started > 45000) {
+      serviceRestartInProgress = false;
+      setServiceStatus('off', '127.0.0.1:8000 unreachable');
+      setStatus('Web server did not recover within 45 seconds.', 'error');
+      return;
+    }
+    serviceRecoverTimer = setTimeout(attempt, 1500);
+  };
+  attempt();
+}
+
+function restartSystem() {
+  if (serviceRestartInProgress) return;
+  serviceRestartInProgress = true;
+  setServiceStatus('waiting', 'restarting 127.0.0.1:8000…');
+  setStatus('Restarting web server…', 'info');
+  fetch('/api/admin/services/web/restart', {method: 'POST'}).catch(() => {});
+  if (serviceRecoverTimer) clearTimeout(serviceRecoverTimer);
+  serviceRecoverTimer = setTimeout(pollHealthUntilRecovered, 1200);
+}
+
+function startSystem() {
+  alert('Use start_surveyCatalyst.bat from the desktop or repo root.');
+}
+
+
+function bindTabs() {
+  const dock = document.getElementById('rightDock');
+  const setOpenTab = (tabId, open = true) => {
+    dock.dataset.openTab = tabId;
+    dock.classList.toggle('open', open);
+    document.querySelectorAll('.tabButton').forEach(x => x.classList.toggle('active', open && x.dataset.tab === tabId));
+    document.querySelectorAll('.tabPanel').forEach(x => x.classList.toggle('active', open && x.id === tabId));
+    if (open) {
+      window.setTimeout(() => map.updateSize(), 220);
+    } else {
+      window.setTimeout(() => map.updateSize(), 220);
+    }
+  };
+
+  document.querySelectorAll('.tabButton').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const isSame = dock.dataset.openTab === btn.dataset.tab;
+      const isOpen = dock.classList.contains('open');
+      if (isSame && isOpen) {
+        setOpenTab(btn.dataset.tab, false);
+      } else {
+        setOpenTab(btn.dataset.tab, true);
+      }
+    });
+  });
+
+  setOpenTab('hierarchyTab', true);
+}
+
+document.getElementById('basemapSelect').onchange = (event) => setBasemap(event.target.value);
+document.getElementById('wikiSearchBtn').onclick = runWikipediaSearch;
+document.getElementById('wikiNearbyBtn').onclick = runWikipediaNearby;
+document.getElementById('wikiSearchInput').addEventListener('keydown', (event) => {
+  if (event.key === 'Enter') {
+    event.preventDefault();
+    runWikipediaSearch();
+  }
+});
+document.getElementById('contextLayerList').addEventListener('change', (event) => {
+  if (!event.target.matches('[data-context-layer]')) return;
+  setContextLayerEnabled(event.target.dataset.contextLayer, event.target.checked);
+});
+document.getElementById('wikiLookupResults').addEventListener('click', async (event) => {
+  const row = event.target.closest('.lookupRow');
+  if (!row) return;
+  const lat = row.dataset.lat;
+  const lon = row.dataset.lon;
+  if (lat && lon) {
+    map.getView().animate({center: ol.proj.fromLonLat([Number(lon), Number(lat)]), zoom: Math.max(map.getView().getZoom(), 12), duration: 400});
+  }
+  const title = row.querySelector('.lookupTitle')?.textContent;
+  if (title && !row.querySelector('.lookupExtract')?.textContent) {
+    try {
+      const enriched = await fetchWikipediaSummary(title);
+      row.dataset.lat = enriched.lat ?? row.dataset.lat;
+      row.dataset.lon = enriched.lon ?? row.dataset.lon;
+      row.innerHTML = `<div class="lookupTitle">${escapeHtml(enriched.title)}</div><div class="lookupMeta">${escapeHtml(enriched.meta || '')}</div>${enriched.extract ? `<div class="lookupExtract">${escapeHtml(enriched.extract)}</div>` : ''}`;
+    } catch (error) {
+      setStatus(`Wikipedia detail lookup failed: ${error.message}`, 'error');
+    }
+  }
+});
+
+document.getElementById('refreshSurveysBtn').onclick = async () => {
+  try { await refreshSurveyList(); setStatus('Survey list refreshed.', 'success'); } catch (error) { setStatus(error.message, 'error'); }
+};
+document.getElementById('loadSurveyBtn').onclick = async () => {
+  const surveyId = Number(document.getElementById('surveySelect').value);
+  if (!surveyId) return;
+  try { await loadSurvey(surveyId, true); setStatus(`Loaded survey ${surveyId}.`, 'success'); } catch (error) { setStatus(error.message, 'error'); }
+};
+document.getElementById('showActiveOnlyBtn').onclick = showActiveOnly;
+document.getElementById('zoomActiveBtn').onclick = zoomActiveSurvey;
+
+modifyInteraction.on('modifystart', () => {
+  if (modifyEnabled) setStatus('Editing geometry. Save geometry when finished.');
+});
+modifyInteraction.on('modifyend', () => {
+  if (modifyEnabled) setDirtyState('geometry', true);
+});
+['editorTitle','editorType','editorStatus','editorAnnotation','editorDetails','editorProperties'].forEach(id => {
+  document.getElementById(id).addEventListener('input', () => {
+    if (selectedDescriptor) setDirtyState('details', true);
+  });
+});
+
+document.getElementById('objectType').onchange = () => { const safeType = sanitizeObjectType(document.getElementById('objectType').value); document.getElementById('objectType').value = safeType; renderTypedFields('object', safeType, {}); };
+document.getElementById('editorType').onchange = () => { const safeType = sanitizeObjectType(document.getElementById('editorType').value); document.getElementById('editorType').value = safeType; renderTypedFields('editor', safeType, safeJsonParse(document.getElementById('editorProperties').value, {})); if (selectedDescriptor) setDirtyState('details', true); };
+document.getElementById('objectPropertiesToggle').onchange = (e) => { document.getElementById('objectPropertiesWrap').style.display = e.target.checked ? 'block' : 'none'; };
+document.getElementById('editorPropertiesToggle').onchange = (e) => { document.getElementById('editorPropertiesWrap').style.display = e.target.checked ? 'block' : 'none'; if (selectedDescriptor) setDirtyState('details', true); };
+document.getElementById('reloadHierarchyBtn').onclick = refreshHierarchy;
+document.getElementById('armPointBtn').onclick = () => armDraw('Point');
+document.getElementById('armLineBtn').onclick = () => armDraw('LineString');
+document.getElementById('armPolygonBtn').onclick = () => armDraw('Polygon');
+document.getElementById('armCreateSurveyBtn').onclick = armCreateSurveyPolygon;
+document.getElementById('saveSelectedGeometryBtn').onclick = saveSelectedGeometry;
+document.getElementById('saveSelectedDetailsBtn').onclick = saveSelectedDetails;
+document.getElementById('deleteSelectedBtn').onclick = deleteSelectedObject;
+document.getElementById('deleteActiveSurveyBtn').onclick = deleteActiveSurvey;
+document.getElementById('downloadLayerExportBtn').onclick = downloadLayerExport;
+document.getElementById('downloadDataExportBtn').onclick = downloadDataExport;
+document.getElementById('downloadDocumentExportBtn').onclick = downloadDocumentExport;
+document.getElementById('toggleModifyBtn').onclick = toggleModifyMode;
+document.getElementById('cancelToolBtn').onclick = cancelCurrentTool;
+document.getElementById('surveySelect').onchange = () => {
+  const surveyId = Number(document.getElementById('surveySelect').value);
+  activeSurveyId = surveyId || null;
+  setActiveSurveySummary();
+};
+
+document.addEventListener('input', (event) => {
+  if (event.target.matches('[data-typed-prefix="object"]')) return;
+  if (event.target.matches('[data-typed-prefix="editor"]') && selectedDescriptor) setDirtyState('details', true);
+});
+
+rebuildObjectTypeSelect('objectType', 'find');
+rebuildObjectTypeSelect('editorType', 'find');
+renderTypedFields('object', sanitizeObjectType(document.getElementById('objectType').value), {});
+renderTypedFields('editor', sanitizeObjectType(document.getElementById('editorType').value), {});
+
+document.getElementById('btn-start').onclick = startSystem;
+document.getElementById('btn-restart').onclick = restartSystem;
+
+\nbindTabs();
+setBasemap('osm');
+refreshContextLayers().catch(error => setStatus(`Context layer load failed: ${error.message}`, 'error'));
+refreshSurveyList().then(() => setStatus('Ready.', 'success')).catch(error => setStatus(error.message, 'error'));
+checkHealth();
+setInterval(checkHealth, 5000);
+</script>
+</body>
+</html>

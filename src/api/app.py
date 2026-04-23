@@ -12,6 +12,7 @@ from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse, Response
+from fastapi.staticfiles import StaticFiles
 
 from core.db import build_backend
 from map.live_db_map_service import LiveDBMapService
@@ -19,7 +20,7 @@ from survey.edit_service import SurveyEditService
 from .schemas import SurveyCreate, SurveyObjectCreate, SurveyObjectUpdate, SurveyUpdate
 
 BASE_DIR = Path(__file__).resolve().parents[2]
-APP_HTML = BASE_DIR / "app" / "openlayers_map.html"
+APP_HTML = BASE_DIR / "app" / "openlayers_map_shell.html"
 MVT_EXTENT = 4096
 MVT_BUFFER = 64
 TILE_CACHE_DIR = BASE_DIR / ".cache" / "mvt"
@@ -189,6 +190,7 @@ def _ensure_spatial_indexes() -> list[dict[str, Any]]:
     return _get_spatial_index_status()
 
 app = FastAPI(title="surveyCatalyst API", version="0.5.0")
+app.mount("/static", StaticFiles(directory=BASE_DIR / "app" / "static"), name="static")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -868,7 +870,7 @@ def sc_save_export(payload: dict):
         "path": str(target),
         "filename": filename,
     }
-\n
+
 # === surveyCatalyst UI parcel permission export ===
 @app.post("/api/permissions/export")
 def export_permission(payload: dict):
@@ -928,4 +930,77 @@ def export_permission(payload: dict):
     out.write_text(json.dumps(payload_out, indent=2), encoding="utf-8")
 
     return {"ok": True, "folder": str(folder)}
-\n
+# === ui2 scratch notes and selection support ===
+from pydantic import BaseModel
+
+class ScratchNotePayload(BaseModel):
+    note: str
+    survey_id: int | None = None
+    scope: str = "global"
+
+def _ensure_scratch_notes_layer():
+    backend = build_backend()
+    conn = backend.connect()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO layers_registry (
+                    layer_key, layer_name, layer_group, source_table, geometry_type,
+                    is_user_selectable, is_visible, opacity, sort_order, metadata
+                )
+                VALUES (
+                    'scratch_notes', 'Scratch / Notes', 'context', 'external_features', 'POINT',
+                    TRUE, FALSE, 1.0, 330,
+                    %s::jsonb
+                )
+                ON CONFLICT (layer_key) DO UPDATE
+                SET layer_name = EXCLUDED.layer_name,
+                    metadata = EXCLUDED.metadata,
+                    updated_at = NOW()
+                """,
+                (json.dumps({
+                    "subgroup": "scratch_notes",
+                    "phase": "ui_2",
+                    "description": "General notes and annotations across surveys and layers"
+                }),),
+            )
+        conn.commit()
+    finally:
+        conn.close()
+
+@app.post("/api/notes/create")
+def create_scratch_note(payload: ScratchNotePayload):
+    import time
+    _ensure_scratch_notes_layer()
+    backend = build_backend()
+    conn = backend.connect()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO external_features (layer, geom, properties, source_table, source_id)
+                VALUES (
+                    'scratch_notes',
+                    ST_SetSRID(ST_MakePoint(11.0, 48.0), 4326),
+                    %s::jsonb,
+                    'scratch_notes',
+                    %s
+                )
+                RETURNING id
+                """,
+                (
+                    json.dumps({
+                        "note": payload.note,
+                        "survey_id": payload.survey_id,
+                        "scope": payload.scope,
+                        "layer_type": "survey" if payload.survey_id else "global"
+                    }),
+                    f"scratch_{int(time.time()*1000)}"
+                ),
+            )
+            row = cur.fetchone()
+        conn.commit()
+    finally:
+        conn.close()
+    return {"ok": True, "id": row[0]}

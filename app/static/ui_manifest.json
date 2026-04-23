@@ -1,0 +1,13 @@
+{
+  "left_tabs": [
+    {"id":"manage","title":"Manage"},
+    {"id":"create","title":"Create"},
+    {"id":"edit","title":"Edit"},
+    {"id":"export","title":"Export"}
+  ],
+  "right_tabs": [
+    {"id":"layers","title":"Layers"},
+    {"id":"hierarchy","title":"Hierarchy"},
+    {"id":"details","title":"Details"}
+  ]
+}

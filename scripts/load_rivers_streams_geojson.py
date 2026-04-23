@@ -11,8 +11,8 @@ if str(SRC) not in sys.path:
 
 from core.db import build_backend
 
-LAYER_KEY = "protection_buffers"
-SOURCE_TABLE = "protection_buffers_import"
+LAYER_KEY = "rivers_streams"
+SOURCE_TABLE = "rivers_streams_import"
 
 def iter_features(doc: dict):
     if doc.get("type") == "FeatureCollection":

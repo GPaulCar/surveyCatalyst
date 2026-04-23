@@ -13,7 +13,6 @@ from core.db import build_backend
 
 LAYER_KEY = "field_names"
 SOURCE_TABLE = "field_names_import"
-SOURCE_ID_FIELDS = ["parcel_id", "parcel_ref", "ref", "id", "identifier", "name"]
 
 def iter_features(doc: dict):
     if doc.get("type") == "FeatureCollection":
@@ -24,13 +23,13 @@ def iter_features(doc: dict):
     else:
         raise ValueError("Input must be GeoJSON Feature or FeatureCollection")
 
-def first_source_id(props: dict) -> str:
+def pick_source_id(props: dict, fallback: int) -> str:
     props = props or {}
-    for key in SOURCE_ID_FIELDS:
+    for key in ("id", "identifier", "source_id", "name", "ref"):
         value = props.get(key)
         if value not in (None, ""):
             return str(value)
-    return ""
+    return str(fallback)
 
 def main(argv: list[str]) -> int:
     if len(argv) != 2:
@@ -49,7 +48,7 @@ def main(argv: list[str]) -> int:
     try:
         with conn.cursor() as cur:
             cur.execute("DELETE FROM external_features WHERE layer = %s", (LAYER_KEY,))
-            for feat in iter_features(doc):
+            for idx, feat in enumerate(iter_features(doc), start=1):
                 geom = feat.get("geometry")
                 props = feat.get("properties") or {}
                 if not geom:
@@ -70,7 +69,7 @@ def main(argv: list[str]) -> int:
                         json.dumps(geom),
                         json.dumps(props),
                         SOURCE_TABLE,
-                        first_source_id(props),
+                        pick_source_id(props, idx),
                     ),
                 )
                 inserted += 1
