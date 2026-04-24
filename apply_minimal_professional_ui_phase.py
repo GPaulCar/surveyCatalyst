@@ -1,4 +1,56 @@
+from __future__ import annotations
 
+import subprocess
+import sys
+from pathlib import Path
+
+ROOT = Path.cwd()
+BOOT = ROOT / "app" / "static" / "ui_boot.js"
+SHELL = ROOT / "app" / "openlayers_map_shell.html"
+MANIFEST = ROOT / "app" / "static" / "ui_manifest.json"
+
+SHELL_HTML = """<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>SurveyCatalyst</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@latest/ol.css">
+</head>
+<body>
+  <div id="map"></div>
+  <div id="ui-root">
+    <div id="topbar"></div>
+    <div id="left-tabs"></div>
+    <div id="right-tabs"></div>
+    <div id="left-panel"></div>
+    <div id="right-panel"></div>
+    <div id="toast"></div>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/ol@latest/dist/ol.js"></script>
+  <script src="/static/ui_boot.js"></script>
+</body>
+</html>
+"""
+
+MANIFEST_JSON = """{
+  "left": [
+    {"id": "manage", "title": "Manage"},
+    {"id": "plan", "title": "Plan"},
+    {"id": "create", "title": "Create"},
+    {"id": "edit", "title": "Edit"},
+    {"id": "export", "title": "Export"}
+  ],
+  "right": [
+    {"id": "layers", "title": "Layers"},
+    {"id": "details", "title": "Details"},
+    {"id": "region", "title": "Region"},
+    {"id": "notes", "title": "Notes"}
+  ]
+}
+"""
+
+UI_BOOT = r"""
 const state = {
   manifest: null,
   surveys: [],
@@ -904,3 +956,39 @@ start().catch(e => {
   console.error(e);
   alert(e.message || e);
 });
+"""
+
+def run(cmd: list[str], required: bool = True) -> None:
+    print("[RUN] " + " ".join(str(x) for x in cmd))
+    result = subprocess.run(cmd, cwd=ROOT)
+    if required and result.returncode != 0:
+        raise SystemExit(result.returncode)
+
+def main() -> None:
+    print("[1/5] write minimal professional UI")
+    SHELL.parent.mkdir(parents=True, exist_ok=True)
+    BOOT.parent.mkdir(parents=True, exist_ok=True)
+    SHELL.write_text(SHELL_HTML, encoding="utf-8")
+    MANIFEST.write_text(MANIFEST_JSON, encoding="utf-8")
+    BOOT.write_text(UI_BOOT, encoding="utf-8")
+
+    print("[2/5] restart")
+    run([sys.executable, "scripts/system_control.py", "restart"])
+
+    print("[3/5] verify UI files")
+    if "large" in BOOT.read_text(encoding="utf-8").lower():
+        print("[WARN] UI file contains word 'large', check manually if needed")
+    print("[OK] UI files written")
+
+    print("[4/5] checkpoint")
+    if (ROOT / "apply_checkpoint_bundle.py").exists():
+        run([sys.executable, "apply_checkpoint_bundle.py", "minimal-professional-ui-stage1", "--no-push"], required=False)
+    else:
+        print("[WARN] checkpoint skipped")
+
+    print("[5/5] complete")
+    print("[PHASE COMPLETE]")
+    print("minimal professional UI applied")
+
+if __name__ == "__main__":
+    main()

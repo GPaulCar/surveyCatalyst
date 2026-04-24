@@ -17,7 +17,7 @@ if str(SRC) not in sys.path:
 
 from core.db import build_backend
 
-OVERPASS_URL = "https://overpass.kumi.systems/api/interpreter"
+OVERPASS_URL = "https://overpass-api.de/api/interpreter"
 RAW_DIR = ROOT / "workspace" / "downloads" / "raw" / "osm" / "bavaria_repair"
 RAW_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -173,17 +173,17 @@ def fetch(query: str, layer_key: str, part: int | None = None) -> dict:
 
     last_error = None
     for attempt in range(1, 6):
-    try:
-        with urllib.request.urlopen(req, timeout=600) as resp:
-            payload = json.loads(resp.read().decode("utf-8"))
-        time.sleep(2)  # <-- throttle between successful calls
-        return payload
+        try:
+            with urllib.request.urlopen(req, timeout=600) as resp:
+                payload = json.loads(resp.read().decode("utf-8"))
+            time.sleep(30)  # <-- throttle between successful calls
+            return payload
 
-    except Exception as exc:
-        last_error = exc
-        wait = 10 * attempt  # exponential backoff
-        print(f"[WARN] {layer_key} attempt {attempt} failed: {exc} -> waiting {wait}s")
-        time.sleep(3)
+        except Exception as exc:
+            last_error = exc
+            wait = 10 * attempt  # exponential backoff
+            print(f"[WARN] {layer_key} attempt {attempt} failed: {exc} -> waiting {wait}s")
+            time.sleep(wait)
 
     raise last_error
 
