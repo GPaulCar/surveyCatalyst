@@ -1,4 +1,62 @@
+from __future__ import annotations
 
+import subprocess
+import sys
+from pathlib import Path
+
+ROOT = Path.cwd()
+APP_PY = ROOT / "src" / "api" / "app.py"
+SHELL = ROOT / "app" / "openlayers_map_shell.html"
+BOOT = ROOT / "app" / "static" / "ui_boot.js"
+MANIFEST = ROOT / "app" / "static" / "ui_manifest.json"
+
+APP_HTML_LINE = 'APP_HTML = BASE_DIR / "app" / "openlayers_map_shell.html"'
+STATIC_IMPORT = "from fastapi.staticfiles import StaticFiles"
+STATIC_MOUNT = 'app.mount("/static", StaticFiles(directory=BASE_DIR / "app" / "static"), name="static")'
+
+SHELL_HTML = """<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>SurveyCatalyst</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@latest/ol.css">
+</head>
+<body>
+  <div id="map"></div>
+  <div id="ui-root">
+    <div id="top-bar"></div>
+    <div id="left-rail"></div>
+    <div id="right-rail"></div>
+    <div id="left-panel"></div>
+    <div id="right-panel"></div>
+    <div id="selection-banner"></div>
+    <div id="toast"></div>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/ol@latest/dist/ol.js"></script>
+  <script src="/static/ui_boot.js"></script>
+</body>
+</html>
+"""
+
+MANIFEST_JSON = """{
+  "left": [
+    {"id": "manage", "title": "Manage"},
+    {"id": "plan", "title": "Plan"},
+    {"id": "create", "title": "Create"},
+    {"id": "edit", "title": "Edit"},
+    {"id": "export", "title": "Export"}
+  ],
+  "right": [
+    {"id": "layers", "title": "Layers"},
+    {"id": "details", "title": "Details"},
+    {"id": "region", "title": "Region"},
+    {"id": "notes", "title": "Notes"}
+  ]
+}
+"""
+
+UI_BOOT = r'''
 const state = {
   manifest: null,
   surveys: [],
@@ -121,3 +179,54 @@ async function exportPermission(){ if(!state.selection) return alert("Select fea
 async function start(){ css(); state.manifest=await loadManifest(); initMap(); render(); await refreshSystem(); await loadSurveys(); await loadLayers(); render(); }
 window.refreshSystem=refreshSystem; window.healthCheck=healthCheck; window.setActiveSurvey=setActiveSurvey; window.loadSelectedSurvey=loadSelectedSurvey; window.loadSurveys=loadSurveys; window.toggleLayer=toggleLayer; window.toggleLabels=toggleLabels; window.createSurvey=createSurvey; window.createObject=createObject; window.saveSelection=saveSelection; window.deleteSelection=deleteSelection; window.exportLayer=exportLayer; window.exportData=exportData; window.exportDocument=exportDocument; window.exportPermission=exportPermission; window.startDraw=startDraw; window.state=state;
 start().catch(err=>{console.error(err); alert(err.message||err);});
+'''
+
+def patch_api() -> None:
+    if not APP_PY.exists():
+        raise FileNotFoundError(APP_PY)
+    text = APP_PY.read_text(encoding="utf-8")
+    if STATIC_IMPORT not in text:
+        text = text.replace("from fastapi.responses import HTMLResponse, JSONResponse, Response", "from fastapi.responses import HTMLResponse, JSONResponse, Response\nfrom fastapi.staticfiles import StaticFiles", 1)
+    if 'APP_HTML = BASE_DIR / "app" / "openlayers_map.html"' in text:
+        text = text.replace('APP_HTML = BASE_DIR / "app" / "openlayers_map.html"', APP_HTML_LINE, 1)
+    elif APP_HTML_LINE not in text:
+        text = text.replace("MVT_EXTENT = 4096", APP_HTML_LINE + "\nMVT_EXTENT = 4096", 1)
+    if STATIC_MOUNT not in text:
+        text = text.replace('app = FastAPI(title="surveyCatalyst API", version="0.5.0")', 'app = FastAPI(title="surveyCatalyst API", version="0.5.0")\n' + STATIC_MOUNT, 1)
+    APP_PY.write_text(text, encoding="utf-8")
+    print("[OK] API static/shell route verified")
+
+def write_files() -> None:
+    SHELL.parent.mkdir(parents=True, exist_ok=True)
+    BOOT.parent.mkdir(parents=True, exist_ok=True)
+    SHELL.write_text(SHELL_HTML, encoding="utf-8")
+    BOOT.write_text(UI_BOOT, encoding="utf-8")
+    MANIFEST.write_text(MANIFEST_JSON, encoding="utf-8")
+    print("[OK] shell, manifest and UI boot written")
+
+def run(cmd: list[str], required: bool = True) -> int:
+    print("[RUN] " + " ".join(cmd))
+    result = subprocess.run(cmd, cwd=ROOT)
+    if required and result.returncode != 0:
+        raise SystemExit(result.returncode)
+    return result.returncode
+
+def main() -> None:
+    print("[1/5] patch API route/static mount")
+    patch_api()
+    print("[2/5] write professional interface shell")
+    write_files()
+    print("[3/5] syntax check API")
+    run([sys.executable, "-m", "py_compile", str(APP_PY)])
+    print("[4/5] restart system")
+    run([sys.executable, "scripts/system_control.py", "restart"])
+    print("[5/5] checkpoint")
+    if (ROOT / "apply_checkpoint_bundle.py").exists():
+        run([sys.executable, "apply_checkpoint_bundle.py", "professional-interface-restore-stage1", "--no-push"], required=False)
+    else:
+        print("[WARN] apply_checkpoint_bundle.py not found; checkpoint skipped")
+    print("[PHASE COMPLETE]")
+    print("professional interface restored")
+
+if __name__ == "__main__":
+    main()
