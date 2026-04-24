@@ -33,7 +33,7 @@ def pick_source_id(props: dict, fallback: int) -> str:
 
 def main(argv: list[str]) -> int:
     if len(argv) != 2:
-        print(f"Usage: python scripts/{Path(__file__).name} <path-to-geojson>")
+        print("Usage: python scripts/load_protection_buffers_geojson.py <full-path-to-geojson>")
         return 1
 
     path = Path(argv[1]).resolve()
@@ -58,7 +58,7 @@ def main(argv: list[str]) -> int:
                     INSERT INTO external_features (layer, geom, properties, source_table, source_id)
                     VALUES (
                         %s,
-                        ST_Force2D(ST_SetSRID(ST_GeomFromGeoJSON(%s), 4326)),
+                        ST_Multi(ST_Force2D(ST_SetSRID(ST_GeomFromGeoJSON(%s), 4326))),
                         %s::jsonb,
                         %s,
                         %s
