@@ -11,6 +11,22 @@ let surveySource, surveyLayer;
 let selectionSource, selectionLayer;
 let contextTileLayers = {};
 
+const TEXT_LABEL_STYLE = function(feature, color){
+  const name = feature.get("name") || feature.get("title") || feature.get("place") || "";
+  if (!name) return null;
+
+  return new ol.style.Style({
+    text: new ol.style.Text({
+      text: name,
+      font: "12px sans-serif",
+      fill: new ol.style.Fill({color: color || "#111"}),
+      stroke: new ol.style.Stroke({color:"#ffffff", width:3}),
+      offsetY: -12
+    })
+  });
+};
+
+
 function banner(text, ms = 1800) {
   const el = document.getElementById("selection-banner");
   if (!el) return;
@@ -183,7 +199,11 @@ function syncContextTileLayers() {
         }),
         style: feature => {
           const gt = (feature.getGeometry()?.getType?.() || "").toUpperCase();
-          if (gt.includes("POINT")) {
+          
+if (gt.includes("POINT")) {
+  const label = TEXT_LABEL_STYLE(feature, "#111");
+  if (label) return label;
+
             return new ol.style.Style({
               image: new ol.style.Circle({
                 radius: 4,
