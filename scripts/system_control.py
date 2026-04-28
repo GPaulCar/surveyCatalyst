@@ -9,6 +9,7 @@ import urllib.request
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+
 PG_CTL = ROOT / "postgres" / "bin" / "pg_ctl.exe"
 PG_DATA = ROOT / "postgres" / "data"
 API_SCRIPT = ROOT / "scripts" / "run_api.py"
@@ -39,18 +40,18 @@ def creation_flags() -> int:
 
 
 def port_open(port: int) -> bool:
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        s.settimeout(0.5)
-        return s.connect_ex(("127.0.0.1", port)) == 0
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        sock.settimeout(0.5)
+        return sock.connect_ex(("127.0.0.1", port)) == 0
 
 
-def wait_for_port(port: int, timeout_seconds: float = 30.0) -> bool:
-    started = time.time()
-    while time.time() - started < timeout_seconds:
+def wait_for_port(port: int, timeout_seconds: float = 60.0) -> bool:
+    deadline = time.time() + timeout_seconds
+    while time.time() < deadline:
         if port_open(port):
             return True
         time.sleep(0.5)
-    return False
+    return port_open(port)
 
 
 def read_pid(path: Path) -> int | None:
@@ -70,15 +71,45 @@ def delete_pid(path: Path) -> None:
     path.unlink(missing_ok=True)
 
 
+def tail_file(path: Path, lines: int = 80) -> str:
+    if not path.exists():
+        return "[missing] " + str(path)
+    try:
+        data = path.read_text(encoding="utf-8", errors="replace").splitlines()
+        return "\n".join(data[-lines:]) if data else "[empty]"
+    except Exception as exc:
+        return "[unreadable] " + str(path) + ": " + str(exc)
+
+
+def print_api_logs() -> None:
+    print("")
+    print("[API STDERR - tail]")
+    print(tail_file(API_STDERR_LOG))
+    print("")
+    print("[API STDOUT - tail]")
+    print(tail_file(API_STDOUT_LOG))
+    print("")
+
+
+def print_db_logs() -> None:
+    print("")
+    print("[POSTGRES STDERR - tail]")
+    print(tail_file(DB_STDERR_LOG))
+    print("")
+    print("[POSTGRES STDOUT - tail]")
+    print(tail_file(DB_STDOUT_LOG))
+    print("")
+
+
 def remove_postgres_lock() -> None:
     for name in ("postmaster.pid", "postmaster.opts"):
         path = PG_DATA / name
         if path.exists():
             try:
                 path.unlink()
-                print(f"[OK] removed {path.name}")
+                print("[OK] removed " + path.name)
             except Exception as exc:
-                print(f"[WARN] could not remove {path.name}: {exc}")
+                print("[WARN] could not remove " + path.name + ": " + str(exc))
 
 
 def find_listener_pid(port: int) -> int | None:
@@ -90,7 +121,7 @@ def find_listener_pid(port: int) -> int | None:
     )
     for line in (result.stdout or "").splitlines():
         line = line.strip()
-        if f":{port}" in line and "LISTENING" in line:
+        if ":" + str(port) in line and "LISTENING" in line:
             parts = line.split()
             try:
                 return int(parts[-1])
@@ -116,25 +147,67 @@ def api_status() -> bool:
     return port_open(API_PORT)
 
 
+def venv_python() -> Path:
+    candidate = ROOT / ".surveyCatalyst_venv" / "Scripts" / "python.exe"
+    if candidate.exists():
+        return candidate
+    return Path(sys.executable)
+
+
+def api_health_ready() -> bool:
+    try:
+        url = "http://127.0.0.1:" + str(API_PORT) + "/health"
+        request = urllib.request.Request(url, headers={"Cache-Control": "no-cache"})
+        with urllib.request.urlopen(request, timeout=2) as response:
+            return 200 <= int(getattr(response, "status", 0)) < 500
+    except Exception:
+        return False
+
+
+def wait_for_api(proc: subprocess.Popen | None, timeout_seconds: float = 75.0) -> bool:
+    deadline = time.time() + timeout_seconds
+    while time.time() < deadline:
+        if proc is not None and proc.poll() is not None:
+            print("[ERROR] api process exited early with code " + str(proc.returncode))
+            return False
+
+        if port_open(API_PORT):
+            return True
+
+        if api_health_ready():
+            return True
+
+        time.sleep(0.5)
+
+    return port_open(API_PORT) or api_health_ready()
+
+
 def start_db() -> None:
     if db_status():
         print("[DB] already running")
         return
+
+    if not PG_CTL.exists():
+        raise RuntimeError("pg_ctl not found: " + str(PG_CTL))
+    if not PG_DATA.exists():
+        raise RuntimeError("Postgres data directory not found: " + str(PG_DATA))
 
     remove_postgres_lock()
     print("[INFO] starting database")
 
     with DB_STDOUT_LOG.open("a", encoding="utf-8") as out, DB_STDERR_LOG.open("a", encoding="utf-8") as err:
         proc = subprocess.Popen(
-            [str(PG_CTL), "-D", str(PG_DATA), "-o", f"-p {DB_PORT}", "start"],
+            [str(PG_CTL), "-D", str(PG_DATA), "-o", "-p " + str(DB_PORT), "start"],
             cwd=ROOT,
             stdout=out,
             stderr=err,
             creationflags=creation_flags(),
         )
+
     write_pid(DB_PID_FILE, proc.pid)
 
-    if not wait_for_port(DB_PORT, 30):
+    if not wait_for_port(DB_PORT, 45):
+        print_db_logs()
         raise RuntimeError("database did not become ready")
 
     print("[DB] started")
@@ -143,13 +216,14 @@ def start_db() -> None:
 def stop_db() -> None:
     print("[INFO] stopping database")
 
-    subprocess.Popen(
-        [str(PG_CTL), "-D", str(PG_DATA), "stop", "-m", "immediate"],
-        cwd=ROOT,
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-        creationflags=creation_flags(),
-    )
+    if PG_CTL.exists() and PG_DATA.exists():
+        subprocess.Popen(
+            [str(PG_CTL), "-D", str(PG_DATA), "stop", "-m", "immediate"],
+            cwd=ROOT,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            creationflags=creation_flags(),
+        )
 
     deadline = time.time() + 15
     while time.time() < deadline:
@@ -171,29 +245,40 @@ def start_api() -> None:
         print("[API] already running")
         return
 
+    if not API_SCRIPT.exists():
+        raise RuntimeError("API script not found: " + str(API_SCRIPT))
+
+    stale_listener = find_listener_pid(API_PORT)
+    if stale_listener:
+        print("[WARN] removing stale API listener on port " + str(API_PORT) + ": pid " + str(stale_listener))
+        kill_pid(stale_listener)
+        time.sleep(1.0)
+
     print("[INFO] starting api")
 
     env = os.environ.copy()
     src_path = str(ROOT / "src")
     existing = env.get("PYTHONPATH", "")
     env["PYTHONPATH"] = src_path if not existing else src_path + os.pathsep + existing
-
-    pythonw = Path(sys.executable).with_name("pythonw.exe")
-    python_exe = str(pythonw if pythonw.exists() else Path(sys.executable))
+    env["SURVEYCATALYST_ROOT"] = str(ROOT)
+    env["PYTHONUNBUFFERED"] = "1"
 
     with API_STDOUT_LOG.open("a", encoding="utf-8") as out, API_STDERR_LOG.open("a", encoding="utf-8") as err:
         proc = subprocess.Popen(
-            [python_exe, str(API_SCRIPT)],
+            [str(venv_python()), str(API_SCRIPT)],
             cwd=ROOT,
             env=env,
             stdout=out,
             stderr=err,
+            stdin=subprocess.DEVNULL,
             creationflags=creation_flags(),
         )
+
     write_pid(API_PID_FILE, proc.pid)
 
-    if not wait_for_port(API_PORT, 30):
-        raise RuntimeError("api did not become ready")
+    if not wait_for_api(proc, 75):
+        print_api_logs()
+        raise RuntimeError("api did not become ready; see runtime/logs/api.err.log")
 
     print("[API] started")
 
@@ -219,17 +304,24 @@ def stop_api() -> None:
 
 
 def status() -> None:
-    print(f"[DB] {'ON' if db_status() else 'OFF'}")
-    print(f"[API] {'ON' if api_status() else 'OFF'}")
+    print("[DB] " + ("ON" if db_status() else "OFF"))
+    print("[API] " + ("ON" if api_status() else "OFF"))
 
 
 def health() -> None:
     try:
-        with urllib.request.urlopen(f"http://127.0.0.1:{API_PORT}/health", timeout=3) as resp:
-            print(resp.read().decode("utf-8", errors="replace"))
+        url = "http://127.0.0.1:" + str(API_PORT) + "/health"
+        with urllib.request.urlopen(url, timeout=3) as response:
+            print(response.read().decode("utf-8", errors="replace"))
     except Exception as exc:
-        print(f"[HEALTH] failed: {exc}")
+        print("[HEALTH] failed: " + str(exc))
+        print_api_logs()
         raise SystemExit(1)
+
+
+def logs() -> None:
+    print_db_logs()
+    print_api_logs()
 
 
 def start_all() -> None:
@@ -258,13 +350,13 @@ def cleanup() -> None:
     ]:
         if path.exists():
             path.unlink()
-            print(f"[OK] removed {path}")
+            print("[OK] removed " + str(path))
     print("[DONE] cleanup complete")
 
 
 def main(argv: list[str]) -> int:
     if len(argv) < 2:
-        print("Usage: python scripts/system_control.py start|stop|restart|status|health|cleanup")
+        print("Usage: python scripts/system_control.py start|stop|restart|status|health|logs|cleanup")
         return 1
 
     command = argv[1].strip().lower()
@@ -279,10 +371,12 @@ def main(argv: list[str]) -> int:
         status()
     elif command == "health":
         health()
+    elif command == "logs":
+        logs()
     elif command == "cleanup":
         cleanup()
     else:
-        print("Usage: python scripts/system_control.py start|stop|restart|status|health|cleanup")
+        print("Usage: python scripts/system_control.py start|stop|restart|status|health|logs|cleanup")
         return 1
 
     return 0

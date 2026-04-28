@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field
 
 
 class SurveyCreate(BaseModel):
-    expedition_id: int
+    expedition_id: int | None = None
     title: str
     status: str = "planned"
     geometry: dict[str, Any] | None = None
@@ -22,7 +22,7 @@ class SurveyUpdate(BaseModel):
 
 
 class SurveyObjectCreate(BaseModel):
-    expedition_id: int
+    expedition_id: int | None = None
     type: str
     geometry: dict[str, Any]
     title: str | None = None

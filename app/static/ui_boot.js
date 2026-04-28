@@ -4,7 +4,7 @@ const state = {
   surveys: [],
   layers: [],
   activeSurveyId: null,
-  activeLeft: "manage",
+  activeLeft: "survey",
   activeRight: "layers",
   leftOpen: true,
   rightOpen: true,
@@ -19,6 +19,114 @@ let surveySource, surveyLayer;
 let selectionSource, selectionLayer;
 let drawSource, drawLayer, drawInteraction;
 let contextTileLayers = {};
+
+let modifyInteraction = null;
+let snapInteraction = null;
+
+function editableFeature() {
+  if (!selectionSource) return null;
+  const fs = selectionSource.getFeatures();
+  return fs.length ? fs[0] : null;
+}
+
+function startGeometryEdit() {
+  if (!state.selection) {
+    alert("Select a feature first");
+    return;
+  }
+
+  stopGeometryEdit(false);
+
+  modifyInteraction = new ol.interaction.Modify({
+    source: selectionSource
+  });
+
+  snapInteraction = new ol.interaction.Snap({
+    source: selectionSource
+  });
+
+  map.addInteraction(modifyInteraction);
+  map.addInteraction(snapInteraction);
+
+  toast("Geometry edit on. Drag vertices; click segments to add points.");
+}
+
+function stopGeometryEdit(showToast = true) {
+  if (modifyInteraction) {
+    map.removeInteraction(modifyInteraction);
+    modifyInteraction = null;
+  }
+  if (snapInteraction) {
+    map.removeInteraction(snapInteraction);
+    snapInteraction = null;
+  }
+  if (showToast) toast("Geometry edit off");
+}
+
+async function saveGeometryEdit() {
+  if (!state.selection) {
+    alert("Select a survey object first");
+    return;
+  }
+
+  const edited = editableFeature();
+  if (!edited) {
+    alert("No editable geometry found");
+    return;
+  }
+
+  const id = state.selection.properties.id;
+  if (!id) {
+    alert("Selected feature cannot be edited; no survey object id");
+    return;
+  }
+
+  const props = {...state.selection.properties};
+  const title = document.getElementById("editTitle")?.value || props.title || null;
+  const note = document.getElementById("editNote")?.value || props.note || props.annotation || "";
+
+  props.title = title;
+  props.note = note;
+  props.annotation = note;
+
+  try {
+    await fetchJson(`/api/survey-objects/${id}`, {
+      method: "PATCH",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({
+        geometry: toGeoJSONGeometry(edited),
+        type: props.type || "note",
+        properties: props,
+        title,
+        annotation: note,
+        details: props.details || null,
+        is_active: true
+      })
+    });
+
+    stopGeometryEdit(false);
+
+    if (state.activeSurveyId) {
+      await loadSurveyFeatures(state.activeSurveyId, false);
+    }
+
+    toast("Geometry saved");
+  } catch (error) {
+    console.error("saveGeometryEdit failed", error);
+    alert("Geometry save failed: " + (error?.message || error));
+  }
+}
+
+function resetSelectedGeometry() {
+  if (!state.selection || !state.selection.feature) {
+    alert("Select a feature first");
+    return;
+  }
+  selectionSource.clear();
+  selectionSource.addFeature(state.selection.feature.clone());
+  toast("Geometry reset");
+}
+
 
 function esc(v) {
   return String(v ?? "")
@@ -348,7 +456,7 @@ async function loadManifest() {
     return await fetchJson("/static/ui_manifest.json?ts=" + Date.now());
   } catch {
     return {
-      left: [{id:"manage",title:"Manage"},{id:"plan",title:"Plan"},{id:"create",title:"Create"},{id:"edit",title:"Edit"},{id:"export",title:"Export"}],
+      left: [{id:"survey",title:"Survey"},{id:"manage",title:"Manage"},{id:"plan",title:"Plan"},{id:"create",title:"Create"},{id:"edit",title:"Edit"},{id:"export",title:"Export"}],
       right: [{id:"layers",title:"Layers"},{id:"details",title:"Details"},{id:"region",title:"Region"},{id:"notes",title:"Notes"}]
     };
   }
@@ -406,7 +514,10 @@ function initMap() {
 
   map.on("singleclick", e => {
     let hit = null;
-    map.forEachFeatureAtPixel(e.pixel, f => { if (!hit) hit = f; });
+    map.forEachFeatureAtPixel(e.pixel, f => {
+      hit = f;
+      return true;
+    });
     setSelection(hit);
   });
 }
@@ -524,10 +635,26 @@ async function refreshSystem() {
   render();
 }
 
-async function loadSurveys() {
-  state.surveys = await fetchJson("/api/surveys");
+window.loadSurveys = async function loadSurveys() {
+  try {
+    const payload = await fetchJson("/api/surveys");
+    state.surveys = normaliseSurveyPayload(payload);
+    state.surveyLoadError = "";
+
+    if (state.activeSurveyId && !state.surveys.some(s => surveyId(s) === String(state.activeSurveyId))) {
+      state.activeSurveyId = null;
+    }
+
+    if (!state.activeSurveyId && state.surveys.length) {
+      state.activeSurveyId = surveyId(state.surveys[0]);
+    }
+  } catch (error) {
+    state.surveyLoadError = String(error?.message || error);
+    console.error("loadSurveys failed", error);
+  }
   render();
 }
+
 
 async function loadLayers() {
   const layers = await fetchJson("/api/layers");
@@ -589,6 +716,7 @@ function panel(id, side, title, sub, body) {
 }
 
 function leftBody() {
+  if (state.activeLeft === "survey") return surveyBody();
   if (state.activeLeft === "manage") return manageBody();
   if (state.activeLeft === "plan") return `<div class="section"><div class="section-title">Planning context</div><div class="hint">Use hydrology, protection, parcels and Roman roads to assess regional suitability before creating survey data.</div></div>`;
   if (state.activeLeft === "create") return createBody();
@@ -597,12 +725,79 @@ function leftBody() {
   return "";
 }
 
+
 function rightBody() {
   if (state.activeRight === "layers") return layersBody();
   if (state.activeRight === "details") return detailsBody();
   if (state.activeRight === "region") return regionBody();
   if (state.activeRight === "notes") return `<div class="section"><div class="section-title">Scratch notes</div><textarea placeholder="Planning note"></textarea><button onclick="toast('Notes placeholder')">Save</button></div>`;
   return "";
+}
+
+function surveyRows() {
+  return Array.isArray(state.surveys) ? state.surveys : [];
+}
+
+function surveyId(survey) {
+  return String(survey?.id ?? survey?.survey_id ?? survey?.key ?? survey?.name ?? "");
+}
+
+function surveyName(survey) {
+  return String(survey?.title ?? survey?.name ?? survey?.label ?? survey?.survey_name ?? surveyId(survey) ?? "Unnamed survey");
+}
+
+function surveyStatus(survey) {
+  return String(survey?.status ?? survey?.state ?? "active");
+}
+
+function activeSurveyRecord() {
+  const active = String(state.activeSurveyId || "");
+  return surveyRows().find(s => surveyId(s) === active) || null;
+}
+
+function normaliseSurveyPayload(payload) {
+  if (Array.isArray(payload)) return payload;
+  if (payload && Array.isArray(payload.surveys)) return payload.surveys;
+  if (payload && Array.isArray(payload.items)) return payload.items;
+  if (payload && Array.isArray(payload.data)) return payload.data;
+  if (payload && Array.isArray(payload.results)) return payload.results;
+  return [];
+}
+
+function surveyBody() {
+  const rows = surveyRows();
+  const active = activeSurveyRecord();
+  const activeId = String(state.activeSurveyId || "");
+
+  const options = rows.map(survey => {
+    const id = surveyId(survey);
+    return `<option value="${esc(id)}" ${id === activeId ? "selected" : ""}>${esc(surveyName(survey))}</option>`;
+  }).join("");
+
+  const message = state.surveyLoadError
+    ? `<div class="hint">Survey load error: ${esc(state.surveyLoadError)}</div>`
+    : rows.length
+      ? `<div class="hint">${esc(rows.length)} survey record(s) loaded.</div>`
+      : `<div class="hint">No surveys loaded. Click Refresh.</div>`;
+
+  return `
+    <div class="section">
+      <div class="section-title">Active survey</div>
+      <select id="surveyContextSelect" onchange="setActiveSurveyContext(this.value)">
+        <option value="">Select survey</option>
+        ${options}
+      </select>
+      <button onclick="loadSurveys()">Refresh</button>
+      ${message}
+    </div>
+    <div class="section">
+      <div class="section-title">Survey context</div>
+      <div class="row"><span>Selected</span><strong>${esc(active ? surveyName(active) : "none")}</strong></div>
+      <div class="row"><span>Status</span><strong>${esc(active ? surveyStatus(active) : "-")}</strong></div>
+      <div class="row"><span>ID</span><strong>${esc(active ? surveyId(active) : "-")}</strong></div>
+      <div class="hint">This tab only selects the active survey context. Creation and editing remain separate workflows.</div>
+    </div>
+  `;
 }
 
 function manageBody() {
@@ -648,15 +843,27 @@ function createBody() {
 }
 
 function editBody() {
-  if (!state.selection) return `<div class="section"><div class="hint">Select a survey object first.</div></div>`;
+  if (!state.selection) {
+    return `<div class="section"><div class="hint">Select a survey object first.</div></div>`;
+  }
+
   const p = state.selection.properties || {};
   return `
     <div class="section">
       <div class="section-title">Selected object</div>
       <input id="editTitle" value="${esc(p.title || state.selection.title || "")}" placeholder="Title">
       <textarea id="editNote" placeholder="Notes">${esc(p.note || p.annotation || "")}</textarea>
-      <button class="primary" onclick="saveSelection()">Save</button>
+
+      <button class="primary" onclick="saveSelection()">Save attributes</button>
+      <button onclick="startGeometryEdit()">Edit geometry</button>
+      <button onclick="saveGeometryEdit()">Save geometry</button>
+      <button onclick="resetSelectedGeometry()">Reset geometry</button>
+      <button onclick="stopGeometryEdit()">Stop edit</button>
       <button class="danger" onclick="deleteSelection()">Delete</button>
+
+      <div class="hint">
+        Geometry edit mode supports moving vertices, reshaping polygons, and adding points to line/polygon segments.
+      </div>
     </div>
   `;
 }
@@ -740,6 +947,7 @@ function titleFor(side, id) {
 
 function subtitleFor(id) {
   return {
+    survey:"Active survey context",
     manage:"Workspace controls",
     plan:"Planning context",
     create:"Create survey data",
@@ -752,16 +960,24 @@ function subtitleFor(id) {
   }[id] || "";
 }
 
+
 function setLeft(id){ state.activeLeft = id; state.leftOpen = true; render(); }
 function setRight(id){ state.activeRight = id; state.rightOpen = true; render(); }
 function toggleLeft(){ state.leftOpen = !state.leftOpen; render(); }
 function toggleRight(){ state.rightOpen = !state.rightOpen; render(); }
 
-function setActiveSurvey() {
-  state.activeSurveyId = document.getElementById("surveySelect")?.value || null;
-  toast(state.activeSurveyId ? "Survey set" : "No survey selected");
+function setActiveSurveyContext(value) {
+  state.activeSurveyId = value || null;
+  const survey = activeSurveyRecord();
+  toast(survey ? `Survey set: ${surveyName(survey)}` : "No survey selected");
   render();
 }
+
+function setActiveSurvey() {
+  const value = document.getElementById("surveyContextSelect")?.value || document.getElementById("surveySelect")?.value || null;
+  setActiveSurveyContext(value);
+}
+
 
 async function loadSelectedSurvey(zoom) {
   if (!state.activeSurveyId) return alert("Select a survey first");
@@ -832,12 +1048,34 @@ async function saveSelection() {
   if (!state.selection) return alert("Select an object first");
   const id = state.selection.properties.id;
   if (!id) return alert("Selected feature cannot be edited");
+
   const title = document.getElementById("editTitle")?.value || null;
   const note = document.getElementById("editNote")?.value || "";
-  const props = {...state.selection.properties, title, note};
-  await fetchJson(`/api/survey-objects/${id}`, {method:"PATCH", headers:{"Content-Type":"application/json"}, body:JSON.stringify({geometry:toGeoJSONGeometry(state.selection.feature),type:props.type || "note",properties:props,title,annotation:note,details:null,is_active:true})});
-  await loadSurveyFeatures(state.activeSurveyId, false);
-  toast("Saved");
+  const props = {...state.selection.properties, title, note, annotation: note};
+
+  try {
+    await fetchJson(`/api/survey-objects/${id}`, {
+      method:"PATCH",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({
+        geometry:toGeoJSONGeometry(state.selection.feature),
+        type:props.type || "note",
+        properties:props,
+        title,
+        annotation:note,
+        details:props.details || null,
+        is_active:true
+      })
+    });
+
+    if (state.activeSurveyId) {
+      await loadSurveyFeatures(state.activeSurveyId, false);
+    }
+    toast("Saved");
+  } catch (error) {
+    console.error("saveSelection failed", error);
+    alert("Save failed: " + (error?.message || error));
+  }
 }
 
 async function deleteSelection() {
@@ -895,7 +1133,8 @@ async function start() {
 }
 
 Object.assign(window, {
-  setLeft,setRight,toggleLeft,toggleRight,refreshSystem,setActiveSurvey,loadSelectedSurvey,loadSurveys,
+  startGeometryEdit,stopGeometryEdit,saveGeometryEdit,resetSelectedGeometry,
+  setLeft,setRight,toggleLeft,toggleRight,refreshSystem,setActiveSurvey,setActiveSurveyContext,loadSelectedSurvey,loadSurveys,loadLayers,loadSurveyFeatures,
   toggleLayer,toggleLabels,startDraw,createSurvey,createObject,saveSelection,deleteSelection,
   exportLayer,exportData,exportDocument,exportPermission
 });

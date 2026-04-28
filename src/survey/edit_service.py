@@ -252,10 +252,8 @@ class SurveyEditService:
         is_active: bool | None = None,
     ):
         conn = self.backend.connect()
+
         try:
-            normalised_geometry = None
-            if geometry is not None or geom_wkt is not None:
-                normalised_geometry = self._normalise_geometry_value(conn, geojson=geometry, wkt=geom_wkt)
             with conn.cursor() as cur:
                 cur.execute(
                     """
@@ -266,27 +264,41 @@ class SurveyEditService:
                     (object_id,),
                 )
                 row = cur.fetchone()
+
                 if not row:
                     raise RuntimeError(f"Survey object {object_id} not found")
-                current_properties, current_type, current_active = row
-                merged_properties = dict(current_properties or {})
-                if properties is not None:
-                    merged_properties.update(properties)
-                if title is not None:
-                    merged_properties["title"] = title
-                if annotation is not None:
-                    merged_properties["annotation"] = annotation
-                if details is not None:
-                    merged_properties["details"] = details
 
-                assignments = ["properties = %s::jsonb", "type = %s", "is_active = %s"]
-                params: list[Any] = [json.dumps(merged_properties), obj_type or current_type, current_active if is_active is None else is_active]
+                current_properties, current_type, current_active = row
+                merged = dict(current_properties or {})
+
+                if properties is not None:
+                    merged.update(properties)
+                if title is not None:
+                    merged["title"] = title
+                if annotation is not None:
+                    merged["annotation"] = annotation
+                if details is not None:
+                    merged["details"] = details
+
+                assignments = [
+                    "properties = %s::jsonb",
+                    "type = %s",
+                    "is_active = %s",
+                ]
+
+                params: list[Any] = [
+                    json.dumps(merged),
+                    obj_type or current_type,
+                    current_active if is_active is None else is_active,
+                ]
 
                 if geometry is not None or geom_wkt is not None:
+                    normalised_geometry = self._normalise_geometry_value(conn, geojson=geometry, wkt=geom_wkt)
                     assignments.append(f"geom = {self._geojson_insert_sql()}")
                     params.append(normalised_geometry)
 
                 params.append(object_id)
+
                 cur.execute(
                     f"""
                     UPDATE survey_objects
@@ -295,7 +307,13 @@ class SurveyEditService:
                     """,
                     params,
                 )
+
             conn.commit()
+
+        except Exception as exc:
+            conn.rollback()
+            raise RuntimeError(f"update_survey_object failed: {exc}") from exc
+
         finally:
             conn.close()
 

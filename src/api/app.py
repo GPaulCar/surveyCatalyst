@@ -11,7 +11,7 @@ from typing import Any
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, JSONResponse, Response
+from fastapi.responses import HTMLResponse, JSONResponse, Response, FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from core.db import build_backend
@@ -199,6 +199,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+@app.get("/favicon.ico", include_in_schema=False)
+def favicon():
+    favicon_path = BASE_DIR / "app" / "static" / "favicon.ico"
+    if favicon_path.exists():
+        return FileResponse(favicon_path, media_type="image/x-icon")
+    return Response(status_code=204)
 
 @app.middleware("http")
 async def request_log_middleware(request: Request, call_next):
@@ -689,16 +695,28 @@ def create_survey_object(survey_id: int, payload: SurveyObjectCreate):
 @app.patch("/api/survey-objects/{object_id}")
 def update_survey_object(object_id: int, payload: SurveyObjectUpdate):
     layer_key = _get_object_survey_layer_key(object_id)
-    SurveyEditService().update_survey_object(
-        object_id=object_id,
-        geometry=payload.geometry,
-        obj_type=payload.type,
-        properties=payload.properties,
-        title=payload.title,
-        annotation=payload.annotation,
-        details=payload.details,
-        is_active=payload.is_active,
-    )
+    try:
+        SurveyEditService().update_survey_object(
+            object_id=object_id,
+            geometry=payload.geometry,
+            obj_type=payload.type,
+            properties=payload.properties,
+            title=payload.title,
+            annotation=payload.annotation,
+            details=payload.details,
+            is_active=payload.is_active,
+        )
+    except RuntimeError as exc:
+        status_code = 404 if "not found" in str(exc).lower() else 400
+        raise HTTPException(
+            status_code=status_code,
+            detail=_structured_error(
+                status_code,
+                "survey_object_update_failed",
+                str(exc),
+                {"object_id": object_id},
+            ),
+        ) from exc
     invalidation = _clear_tile_cache_for_layers([layer_key] if layer_key else [])
     return {"ok": True, "cache_invalidation": invalidation}
 

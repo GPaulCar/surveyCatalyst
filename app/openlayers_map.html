@@ -2,57 +2,21 @@
 <html>
 <head>
   <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>SurveyCatalyst</title>
-
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@latest/ol.css">
-
-  <style>
-    html, body { margin:0; padding:0; height:100%; }
-    #map { position:absolute; inset:0; }
-
-    #ui-root {
-      position:absolute;
-      inset:0;
-      pointer-events:none;
-      font-family: Arial, sans-serif;
-    }
-
-    .panel {
-      pointer-events:auto;
-      position:absolute;
-      top:20px;
-      bottom:20px;
-      background:#1e1f23;
-      color:white;
-      border-radius:12px;
-      padding:10px;
-      overflow:auto;
-    }
-
-    #left-panel { left:20px; width:360px; }
-    #right-panel { right:20px; width:420px; }
-
-    .selection-banner {
-      position:absolute;
-      top:10px;
-      left:50%;
-      transform:translateX(-50%);
-      background:orange;
-      padding:10px 20px;
-      border-radius:8px;
-      color:black;
-      pointer-events:auto;
-    }
-  </style>
 </head>
-
 <body>
   <div id="map"></div>
 
   <div id="ui-root">
+    <div id="topbar"></div>
+    <div id="left-tabs"></div>
+    <div id="right-tabs"></div>
     <div id="left-panel" class="panel"></div>
     <div id="right-panel" class="panel"></div>
-    <div id="selection-banner" class="selection-banner" style="display:none;"></div>
+    <div id="statusbar"></div>
+    <div id="toast"></div>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/ol@latest/dist/ol.js"></script>

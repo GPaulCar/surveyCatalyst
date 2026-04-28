@@ -1,15 +1,46 @@
 {
   "left": [
-    {"id": "manage", "title": "Manage"},
-    {"id": "plan", "title": "Plan"},
-    {"id": "create", "title": "Create"},
-    {"id": "edit", "title": "Edit"},
-    {"id": "export", "title": "Export"}
+    {
+      "id": "survey",
+      "title": "Survey"
+    },
+    {
+      "id": "manage",
+      "title": "Manage"
+    },
+    {
+      "id": "plan",
+      "title": "Plan"
+    },
+    {
+      "id": "create",
+      "title": "Create"
+    },
+    {
+      "id": "edit",
+      "title": "Edit"
+    },
+    {
+      "id": "export",
+      "title": "Export"
+    }
   ],
   "right": [
-    {"id": "layers", "title": "Layers"},
-    {"id": "details", "title": "Details"},
-    {"id": "region", "title": "Region"},
-    {"id": "notes", "title": "Notes"}
+    {
+      "id": "layers",
+      "title": "Layers"
+    },
+    {
+      "id": "details",
+      "title": "Details"
+    },
+    {
+      "id": "region",
+      "title": "Region"
+    },
+    {
+      "id": "notes",
+      "title": "Notes"
+    }
   ]
 }
