@@ -502,6 +502,7 @@ def list_layers():
             "sort_order": row[7],
             "metadata": row[8] or {},
             "object_count": row[9] if len(row) > 9 else None,
+            "feature_count": row[9] if len(row) > 9 else None,
         }
         for row in rows
     ]

@@ -913,13 +913,6 @@ function css() {
       justify-content:space-between;
       gap:10px;
     }
-    .layer-row-head {
-      display:flex;
-      align-items:flex-start;
-      justify-content:space-between;
-      gap:10px;
-      width:100%;
-    }
     .layer-name {
       font-size:11px;
       font-weight:600;
@@ -931,12 +924,6 @@ function css() {
       overflow:hidden;
       text-overflow:ellipsis;
     }
-    .layer-meta {
-      color:#667085;
-      font-size:10px;
-      line-height:13px;
-      word-break:break-word;
-    }
     .layer-count {
       flex:0 0 auto;
       font-size:10px;
@@ -946,6 +933,37 @@ function css() {
       border-radius:999px;
       padding:2px 7px;
       white-space:nowrap;
+      min-width:24px;
+      text-align:center;
+    }
+    .layer-toolbar {
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:8px;
+      padding:0 0 8px;
+      margin:0 0 4px;
+      border-bottom:1px solid #e5e7eb;
+    }
+    .layer-toggle {
+      display:flex;
+      align-items:center;
+      gap:6px;
+      min-width:0;
+      margin:0;
+      font-size:11px;
+      font-weight:600;
+      color:#344054;
+    }
+    .layer-toggle input {
+      width:auto;
+      height:auto;
+      margin:0;
+    }
+    .layer-toolbar button {
+      flex:0 0 auto;
+      margin:0;
+      height:24px;
     }
     .props {
       font-size:11px;
@@ -1491,8 +1509,8 @@ function layersBody() {
   const hasLayers = Object.keys(groups).length > 0;
 
   return `
-    <div class="section">
-      <label><input type="checkbox" ${state.labelVisibility ? "checked" : ""} onchange="toggleLabels(this.checked)"> ${esc(t("point_labels"))}</label>
+    <div class="layer-toolbar">
+      <label class="layer-toggle"><input type="checkbox" ${state.labelVisibility ? "checked" : ""} onchange="toggleLabels(this.checked)"> <span>${esc(t("point_labels"))}</span></label>
       <button onclick="loadLayers()">${esc(t("load_layers"))}</button>
     </div>
     ${hasLayers ? Object.keys(groups).sort().map(g => `
@@ -1503,7 +1521,7 @@ function layersBody() {
             <input type="checkbox" ${l.is_visible ? "checked" : ""} onchange="toggleLayer('${esc(l.layer_key)}', this.checked)">
             <div class="layer-row-main">
               <span class="layer-name">${esc(l.layer_name || l.layer_key)}</span>
-              <span class="layer-count">${esc(layerObjectCount(l) ?? 0)} ${esc(t("objects"))}</span>
+              <span class="layer-count">${esc(layerObjectCount(l) ?? 0)}</span>
             </div>
           </label>
         `).join("")}

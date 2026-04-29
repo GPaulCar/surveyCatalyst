@@ -27,6 +27,11 @@ class LiveDBMapService:
                 survey_total_count AS (
                     SELECT 'surveys'::text AS layer_key, COUNT(*) AS object_count
                     FROM surveys
+                ),
+                survey_object_total_count AS (
+                    SELECT 'survey_objects'::text AS layer_key, COUNT(*) AS object_count
+                    FROM survey_objects
+                    WHERE is_active = TRUE
                 )
                 SELECT lr.layer_key,
                        lr.layer_name,
@@ -37,11 +42,12 @@ class LiveDBMapService:
                        lr.opacity,
                        lr.sort_order,
                        lr.metadata,
-                       COALESCE(sc.object_count, ec.object_count, st.object_count, 0) AS object_count
+                       COALESCE(sc.object_count, ec.object_count, st.object_count, sot.object_count, 0) AS object_count
                 FROM layers_registry lr
                 LEFT JOIN survey_counts sc ON sc.layer_key = lr.layer_key
                 LEFT JOIN external_counts ec ON ec.layer_key = lr.layer_key
                 LEFT JOIN survey_total_count st ON st.layer_key = lr.layer_key
+                LEFT JOIN survey_object_total_count sot ON sot.layer_key = lr.layer_key
                 ORDER BY layer_group, sort_order, layer_name
                 '''
             )
