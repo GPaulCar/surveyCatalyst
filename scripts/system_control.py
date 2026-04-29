@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 import socket
 import subprocess
@@ -9,8 +10,10 @@ import urllib.request
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+CONFIG_PATH = ROOT / "config" / "app_config.json"
 
 PG_CTL = ROOT / "postgres" / "bin" / "pg_ctl.exe"
+PG_SERVER = ROOT / "postgres" / "bin" / "postgres.exe"
 PG_DATA = ROOT / "postgres" / "data"
 API_SCRIPT = ROOT / "scripts" / "run_api.py"
 
@@ -30,12 +33,20 @@ API_STDERR_LOG = LOG_DIR / "api.err.log"
 
 DB_PORT = 55433
 API_PORT = 8000
+DB_READY_TIMEOUT = 90.0
+DB_READY_POLL = 1.0
 
 
 def creation_flags() -> int:
     flags = 0
     flags |= getattr(subprocess, "CREATE_NO_WINDOW", 0)
     flags |= getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
+    return flags
+
+
+def detached_creation_flags() -> int:
+    flags = creation_flags()
+    flags |= getattr(subprocess, "CREATE_BREAKAWAY_FROM_JOB", 0)
     return flags
 
 
@@ -52,6 +63,66 @@ def wait_for_port(port: int, timeout_seconds: float = 60.0) -> bool:
             return True
         time.sleep(0.5)
     return port_open(port)
+
+
+def wait_for_port_or_exit(proc: subprocess.Popen | None, port: int, timeout_seconds: float = 60.0) -> tuple[bool, str | None]:
+    deadline = time.time() + timeout_seconds
+    while time.time() < deadline:
+        if proc is not None and proc.poll() is not None:
+            return False, "[ERROR] database process exited early with code " + str(proc.returncode)
+        if port_open(port):
+            return True, None
+        time.sleep(0.5)
+    if port_open(port):
+        return True, None
+    if proc is not None and proc.poll() is not None:
+        return False, "[ERROR] database process exited early with code " + str(proc.returncode)
+    return False, None
+
+
+def db_dsn() -> str:
+    data = json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
+    local = data["db"]["local"]
+    parts = [
+        f"host=127.0.0.1",
+        f"port={local['port']}",
+        f"dbname={local['database']}",
+        f"user={local['user']}",
+    ]
+    return " ".join(parts)
+
+
+def probe_db_ready(connect_timeout: int = 2) -> bool:
+    try:
+        probe_code = (
+            "import sys\n"
+            "import psycopg\n"
+            f"conn = psycopg.connect({db_dsn()!r}, connect_timeout={connect_timeout})\n"
+            "with conn.cursor() as cur:\n"
+            "    cur.execute('SELECT 1')\n"
+            "    row = cur.fetchone()\n"
+            "conn.close()\n"
+            "sys.exit(0 if row and row[0] == 1 else 1)\n"
+        )
+        result = subprocess.run(
+            [str(venv_python()), "-c", probe_code],
+            cwd=ROOT,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            creationflags=creation_flags(),
+        )
+        return result.returncode == 0
+    except Exception:
+        return False
+
+
+def wait_for_db_ready(timeout_seconds: float = DB_READY_TIMEOUT, poll_seconds: float = DB_READY_POLL) -> bool:
+    deadline = time.time() + timeout_seconds
+    while time.time() < deadline:
+        if probe_db_ready():
+            return True
+        time.sleep(poll_seconds)
+    return probe_db_ready()
 
 
 def read_pid(path: Path) -> int | None:
@@ -140,7 +211,7 @@ def kill_pid(pid: int) -> None:
 
 
 def db_status() -> bool:
-    return port_open(DB_PORT)
+    return probe_db_ready()
 
 
 def api_status() -> bool:
@@ -170,16 +241,12 @@ def wait_for_api(proc: subprocess.Popen | None, timeout_seconds: float = 75.0) -
         if proc is not None and proc.poll() is not None:
             print("[ERROR] api process exited early with code " + str(proc.returncode))
             return False
-
-        if port_open(API_PORT):
-            return True
-
         if api_health_ready():
             return True
 
         time.sleep(0.5)
 
-    return port_open(API_PORT) or api_health_ready()
+    return api_health_ready()
 
 
 def start_db() -> None:
@@ -187,26 +254,32 @@ def start_db() -> None:
         print("[DB] already running")
         return
 
-    if not PG_CTL.exists():
-        raise RuntimeError("pg_ctl not found: " + str(PG_CTL))
+    if not PG_SERVER.exists():
+        raise RuntimeError("postgres not found: " + str(PG_SERVER))
     if not PG_DATA.exists():
         raise RuntimeError("Postgres data directory not found: " + str(PG_DATA))
 
     remove_postgres_lock()
     print("[INFO] starting database")
 
-    with DB_STDOUT_LOG.open("a", encoding="utf-8") as out, DB_STDERR_LOG.open("a", encoding="utf-8") as err:
-        proc = subprocess.Popen(
-            [str(PG_CTL), "-D", str(PG_DATA), "-o", "-p " + str(DB_PORT), "start"],
-            cwd=ROOT,
-            stdout=out,
-            stderr=err,
-            creationflags=creation_flags(),
-        )
+    proc = subprocess.Popen(
+        [
+            str(PG_SERVER),
+            "-D",
+            str(PG_DATA),
+            "-p",
+            str(DB_PORT),
+        ],
+        cwd=ROOT,
+        stdout=DB_STDOUT_LOG.open("a", encoding="utf-8"),
+        stderr=DB_STDERR_LOG.open("a", encoding="utf-8"),
+        stdin=subprocess.DEVNULL,
+        creationflags=detached_creation_flags(),
+    )
 
     write_pid(DB_PID_FILE, proc.pid)
 
-    if not wait_for_port(DB_PORT, 45):
+    if not wait_for_db_ready(90):
         print_db_logs()
         raise RuntimeError("database did not become ready")
 
@@ -216,25 +289,19 @@ def start_db() -> None:
 def stop_db() -> None:
     print("[INFO] stopping database")
 
-    if PG_CTL.exists() and PG_DATA.exists():
-        subprocess.Popen(
-            [str(PG_CTL), "-D", str(PG_DATA), "stop", "-m", "immediate"],
-            cwd=ROOT,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-            creationflags=creation_flags(),
-        )
+    pid = read_pid(DB_PID_FILE)
+    if pid:
+        kill_pid(pid)
+
+    listener_pid = find_listener_pid(DB_PORT)
+    if listener_pid:
+        kill_pid(listener_pid)
 
     deadline = time.time() + 15
     while time.time() < deadline:
         if not db_status():
             break
         time.sleep(0.5)
-
-    if db_status():
-        listener_pid = find_listener_pid(DB_PORT)
-        if listener_pid:
-            kill_pid(listener_pid)
 
     delete_pid(DB_PID_FILE)
     remove_postgres_lock()
@@ -271,7 +338,7 @@ def start_api() -> None:
             stdout=out,
             stderr=err,
             stdin=subprocess.DEVNULL,
-            creationflags=creation_flags(),
+            creationflags=detached_creation_flags(),
         )
 
     write_pid(API_PID_FILE, proc.pid)

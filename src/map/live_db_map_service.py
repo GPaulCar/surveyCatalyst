@@ -12,16 +12,36 @@ class LiveDBMapService:
         with conn.cursor() as cur:
             cur.execute(
                 '''
-                SELECT layer_key,
-                       layer_name,
-                       layer_group,
-                       source_table,
-                       geometry_type,
-                       is_visible,
-                       opacity,
-                       sort_order,
-                       metadata
-                FROM layers_registry
+                WITH external_counts AS (
+                    SELECT layer AS layer_key, COUNT(*) AS object_count
+                    FROM external_features
+                    GROUP BY layer
+                ),
+                survey_counts AS (
+                    SELECT s.layer_key AS layer_key, COUNT(so.id) FILTER (WHERE so.is_active = TRUE) AS object_count
+                    FROM surveys s
+                    LEFT JOIN survey_objects so ON so.survey_id = s.id
+                    WHERE s.layer_key IS NOT NULL
+                    GROUP BY s.layer_key
+                ),
+                survey_total_count AS (
+                    SELECT 'surveys'::text AS layer_key, COUNT(*) AS object_count
+                    FROM surveys
+                )
+                SELECT lr.layer_key,
+                       lr.layer_name,
+                       lr.layer_group,
+                       lr.source_table,
+                       lr.geometry_type,
+                       lr.is_visible,
+                       lr.opacity,
+                       lr.sort_order,
+                       lr.metadata,
+                       COALESCE(sc.object_count, ec.object_count, st.object_count, 0) AS object_count
+                FROM layers_registry lr
+                LEFT JOIN survey_counts sc ON sc.layer_key = lr.layer_key
+                LEFT JOIN external_counts ec ON ec.layer_key = lr.layer_key
+                LEFT JOIN survey_total_count st ON st.layer_key = lr.layer_key
                 ORDER BY layer_group, sort_order, layer_name
                 '''
             )

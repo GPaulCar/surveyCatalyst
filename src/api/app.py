@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import re
 from collections import deque
 import shutil
 from pathlib import Path
@@ -218,28 +219,31 @@ async def request_log_middleware(request: Request, call_next):
 
 @app.exception_handler(HTTPException)
 def http_exception_handler(request: Request, exc: HTTPException):
+    lang = _request_lang(request)
     detail = exc.detail
     if isinstance(detail, dict) and "error" in detail:
-        payload = detail
+        payload = _localize_error_payload(detail, lang)
     else:
-        payload = _structured_error(exc.status_code, "http_error", str(detail), None)
+        payload = _structured_error(exc.status_code, "http_error", _localize_message(str(detail), lang), None)
     return JSONResponse(status_code=exc.status_code, content=payload)
 
 
 @app.exception_handler(RequestValidationError)
 def validation_exception_handler(request: Request, exc: RequestValidationError):
+    lang = _request_lang(request)
     return JSONResponse(
         status_code=422,
-        content=_structured_error(422, "validation_error", "Request validation failed", exc.errors()),
+        content=_structured_error(422, "validation_error", _localize_message("Request validation failed", lang), exc.errors()),
     )
 
 
 @app.exception_handler(Exception)
 def unhandled_exception_handler(request: Request, exc: Exception):
     logger.exception("Unhandled API error")
+    lang = _request_lang(request)
     return JSONResponse(
         status_code=500,
-        content=_structured_error(500, "internal_error", "Internal server error", {"type": exc.__class__.__name__}),
+        content=_structured_error(500, "internal_error", _localize_message("Internal server error", lang), {"type": exc.__class__.__name__}),
     )
 
 
@@ -497,6 +501,7 @@ def list_layers():
             "opacity": row[6],
             "sort_order": row[7],
             "metadata": row[8] or {},
+            "object_count": row[9] if len(row) > 9 else None,
         }
         for row in rows
     ]
@@ -621,8 +626,11 @@ def list_surveys():
 
 @app.get("/api/surveys/{survey_id}")
 def get_survey(survey_id: int):
-    hierarchy = SurveyEditService().list_survey_hierarchy(survey_id)
-    return hierarchy["survey"]
+    try:
+        hierarchy = SurveyEditService().list_survey_hierarchy(survey_id)
+        return hierarchy["survey"]
+    except RuntimeError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
 @app.get("/api/surveys/{survey_id}/features")
@@ -777,6 +785,55 @@ def export_survey_data(
     }
 
 
+def _request_lang(request: Request) -> str:
+    raw = (request.query_params.get("lang") or request.headers.get("accept-language") or "en").lower()
+    return "de" if raw.startswith("de") else "en"
+
+
+def _localize_message(message: str, lang: str) -> str:
+    if lang != "de":
+        return message
+
+    exact = {
+        "Request validation failed": "Anfragevalidierung fehlgeschlagen",
+        "Internal server error": "Interner Serverfehler",
+        "bbox must contain minx,miny,maxx,maxy": "bbox muss minx,miny,maxx,maxy enthalten",
+        "Survey not found": "Umfrage nicht gefunden",
+        "Survey object geometry is required": "Geometrie des Umfrageobjekts ist erforderlich",
+        "Unable to validate geometry": "Geometrie konnte nicht validiert werden",
+        "missing layer or source_id": "layer oder source_id fehlen",
+        "feature not found": "Objekt nicht gefunden",
+    }
+    if message in exact:
+        return exact[message]
+
+    regex_map = [
+        (r"^Survey (\d+) not found$", r"Umfrage \1 nicht gefunden"),
+        (r"^Survey object (\d+) not found$", r"Umfrageobjekt \1 nicht gefunden"),
+        (r"^update_survey_object failed: (.*)$", r"Aktualisierung des Umfrageobjekts fehlgeschlagen: \1"),
+        (r"^update_survey failed: (.*)$", r"Aktualisierung der Umfrage fehlgeschlagen: \1"),
+    ]
+    for pattern, replacement in regex_map:
+        if re.match(pattern, message):
+            return re.sub(pattern, replacement, message)
+    return message
+
+
+def _localize_error_payload(payload: dict[str, Any], lang: str) -> dict[str, Any]:
+    if not isinstance(payload, dict):
+        return payload
+    error = payload.get("error")
+    if not isinstance(error, dict):
+        return payload
+    localized = dict(error)
+    message = localized.get("message")
+    if isinstance(message, str):
+        localized["message"] = _localize_message(message, lang)
+    out = dict(payload)
+    out["error"] = localized
+    return out
+
+
 @app.get("/api/surveys/{survey_id}/export/document.json")
 def export_survey_document_data(
     survey_id: int,
@@ -818,7 +875,11 @@ def export_survey_document_data(
 
 @app.on_event("startup")
 def startup_index_check() -> None:
-    statuses = _get_spatial_index_status()
+    try:
+        statuses = _get_spatial_index_status()
+    except Exception as exc:
+        logger.warning("Skipping spatial index check during startup: %s", exc)
+        return
     missing = [s for s in statuses if not s["present"]]
     if missing:
         logger.warning("Missing spatial indexes: %s", missing)
@@ -891,18 +952,19 @@ def sc_save_export(payload: dict):
 
 # === surveyCatalyst UI parcel permission export ===
 @app.post("/api/permissions/export")
-def export_permission(payload: dict):
+def export_permission(request: Request, payload: dict):
     import json
     import re
     from datetime import datetime
     from pathlib import Path
 
+    lang = _request_lang(request)
     layer = str(payload.get("layer") or "").strip()
     source_id = str(payload.get("source_id") or "").strip()
     description = str(payload.get("description") or "ui parcel export").strip()
 
     if not layer or not source_id:
-        return {"ok": False, "error": "missing layer or source_id"}
+        return {"ok": False, "error": _localize_message("missing layer or source_id", lang)}
 
     def _slugify(value: str) -> str:
         raw = re.sub(r"[^a-z0-9]+", "-", value.lower()).strip("-")
@@ -926,7 +988,7 @@ def export_permission(payload: dict):
         conn.close()
 
     if not row:
-        return {"ok": False, "error": "feature not found"}
+        return {"ok": False, "error": _localize_message("feature not found", lang)}
 
     root = Path.cwd() / "workspace" / "permissions" / "requests"
     root.mkdir(parents=True, exist_ok=True)

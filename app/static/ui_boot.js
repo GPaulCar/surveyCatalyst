@@ -12,7 +12,13 @@ const state = {
   layerIndex: new Map(),
   system: { api: false, db: false },
   labelVisibility: true,
-  basemapKey: "osm"
+  activeBasemap: "osm",
+  lang: (() => {
+    const saved = (typeof localStorage !== "undefined" && localStorage.getItem("surveyCatalyst.lang")) || "";
+    if (saved === "de" || saved === "en") return saved;
+    const nav = (navigator.language || navigator.userLanguage || "en").toLowerCase();
+    return nav.startsWith("de") ? "de" : "en";
+  })()
 };
 
 let map;
@@ -20,41 +26,395 @@ let surveySource, surveyLayer;
 let selectionSource, selectionLayer;
 let drawSource, drawLayer, drawInteraction;
 let contextTileLayers = {};
-let basemapLayers = {};
+let baseLayer = null;
 
-const BASEMAPS = {
-  none: {
-    label: "Off"
+const I18N = {
+  en: {
+    app_name: "SurveyCatalyst",
+    api: "API",
+    db: "DB",
+    tab_survey: "Survey",
+    tab_create: "Create",
+    tab_edit: "Edit",
+    tab_export: "Export",
+    tab_manage: "Manage",
+    tab_plan: "Plan",
+    tab_layers: "Layers",
+    tab_basemap: "Basemap",
+    tab_details: "Details",
+    tab_region: "Region",
+    tab_notes: "Notes",
+    survey: "Survey",
+    selection: "Selection",
+    surveys: "Surveys",
+    layers: "Layers",
+    hide_surveys: "Hide Surveys",
+    show_surveys: "Show Surveys",
+    hide_layers: "Hide Layers",
+    show_layers: "Show Layers",
+    lang_en: "EN",
+    lang_de: "DE",
+    active_survey: "Active survey",
+    select_survey: "Select survey",
+    refresh: "Refresh",
+    load: "Load",
+    zoom: "Zoom",
+    survey_context: "Survey context",
+    selected: "Selected",
+    status: "Status",
+    id: "ID",
+    objects: "Objects",
+    survey_context_hint: "This tab only selects the active survey context. Creation and editing remain separate workflows.",
+    system: "System",
+    title: "Title",
+    draw_boundary: "Draw boundary",
+    create: "Create",
+    survey_hint: "Creates a new survey from the drawn boundary, then makes it active.",
+    object: "Object",
+    object_title: "Object title",
+    notes: "Notes",
+    point: "Point",
+    line: "Line",
+    polygon: "Polygon",
+    active_survey_hint: "Active survey",
+    select_object_hint: "Select a survey object first.",
+    selected_object: "Selected object",
+    save_attributes: "Save attributes",
+    edit_geometry: "Edit geometry",
+    save_geometry: "Save geometry",
+    reset_geometry: "Reset geometry",
+    stop_edit: "Stop edit",
+    geometry_hint: "Geometry edit mode supports moving vertices, reshaping polygons, and adding points to line/polygon segments.",
+    survey_export: "Survey export",
+    data: "Data",
+    document: "Document",
+    permission: "Permission",
+    export_selected: "Export selected",
+    point_labels: "Point labels",
+    basemaps: "Basemaps",
+    basemap_hint: "Choose a background map. The active basemap stays in place while survey layers remain on top.",
+    basemap_footer: "Switching basemaps keeps the current survey layers and view in place.",
+    click_feature: "Click a map feature to inspect it.",
+    layer: "Layer",
+    load_layers: "Reload layers",
+    no_layers_loaded: "No layers loaded.",
+    region: "Region",
+    details: "Feature inspection",
+    scratch_notes: "Scratch notes",
+    planning_context: "Planning context",
+    workspace_controls: "Workspace controls",
+    outputs: "Outputs",
+    map_layers: "Map layers",
+    base_map: "Base map",
+    summary: "Summary",
+    scratch_space: "Scratch space",
+    no_surveys_loaded: "No surveys loaded. Click Refresh.",
+    survey_load_error: "Survey load error",
+    loaded_records: "survey record(s) loaded.",
+    survey_set: "Survey set",
+    no_survey_selected: "No survey selected",
+    select_survey_first: "Select a survey first",
+    select_feature_first: "Select a feature first",
+    select_object_first: "Select an object first",
+    enter_title: "Enter a title",
+    draw_boundary_first: "Draw a boundary first",
+    set_active_survey_first: "Set an active survey first",
+    no_editable_geometry_found: "No editable geometry found",
+    selected_feature_no_id: "Selected feature cannot be edited; no survey object id",
+    geometry_edit_on: "Geometry edit on. Drag vertices; click segments to add points.",
+    geometry_edit_off: "Geometry edit off",
+    geometry_saved: "Geometry saved",
+    geometry_reset: "Geometry reset",
+    geometry_save_failed: "Geometry save failed",
+    layer_shown: "Layer shown",
+    layer_hidden: "Layer hidden",
+    labels_on: "Labels on",
+    labels_off: "Labels off",
+    survey_created: "Survey created",
+    object_created: "Object created",
+    saved: "Saved",
+    deleted: "Deleted",
+    permission_exported: "Permission exported",
+    export_failed: "Export failed",
+    geometry_captured: "Geometry captured",
+    save: "Save",
+    active: "Active",
+    other: "Other",
+    group: "Group",
+    show: "Show",
+    hide: "Hide",
+    delete: "Delete",
+    yes: "Yes",
+    no: "No"
+    ,
+    basemaps: {
+      osm: {
+        label: "Standard Map / OSM",
+        description: "General-purpose street map with roads, place names, and cartographic detail from OpenStreetMap.",
+        sourceNote: "Community-maintained street and place data"
+      },
+      satellite: {
+        label: "Satellite / ESRI World Imagery",
+        description: "High-resolution aerial and satellite imagery for inspecting roofs, terrain, boundaries, and land cover.",
+        sourceNote: "Imagery basemap"
+      },
+      topo: {
+        label: "Topographic / ESRI World Topo Map",
+        description: "Topographic reference map with terrain context, contours, and labelled features for planning work.",
+        sourceNote: "Topo reference basemap"
+      },
+      streets: {
+        label: "ESRI Streets",
+        description: "Clean road-oriented map designed for navigation, street context, and quick situational reference.",
+        sourceNote: "Road and place-name basemap"
+      },
+      cartoLight: {
+        label: "Carto Light / Positron",
+        description: "Minimal light basemap that keeps attention on survey overlays, labels, and selected features.",
+        sourceNote: "Neutral cartographic background"
+      },
+      cartoDark: {
+        label: "Carto Dark / Dark Matter",
+        description: "Dark-toned basemap that improves contrast for bright overlays and low-light visual environments.",
+        sourceNote: "Dark contrast basemap"
+      }
+    }
   },
-  osm: {
-    label: "Street",
-    makeLayer: () => new ol.layer.Tile({
-      source: new ol.source.OSM({crossOrigin:"anonymous"}),
-      visible: true
-    })
-  },
-  opentopo: {
-    label: "Topo",
-    makeLayer: () => new ol.layer.Tile({
-      source: new ol.source.XYZ({
-        crossOrigin:"anonymous",
-        url:"https://{a-c}.tile.opentopomap.org/{z}/{x}/{y}.png"
-      }),
-      visible: false
-    })
-  },
-  satellite: {
-    label: "Satellite",
-    makeLayer: () => new ol.layer.Tile({
-      source: new ol.source.XYZ({
-        crossOrigin:"anonymous",
-        maxZoom: 9,
-        url:"https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/MODIS_Terra_CorrectedReflectance_TrueColor/default/GoogleMapsCompatible_Level9/{z}/{y}/{x}.jpg"
-      }),
-      visible: false
-    })
+  de: {
+    app_name: "SurveyCatalyst",
+    api: "API",
+    db: "DB",
+    tab_survey: "Umfrage",
+    tab_create: "Erstellen",
+    tab_edit: "Bearbeiten",
+    tab_export: "Export",
+    tab_manage: "Verwalten",
+    tab_plan: "Planung",
+    tab_layers: "Ebenen",
+    tab_basemap: "Basiskarte",
+    tab_details: "Details",
+    tab_region: "Region",
+    tab_notes: "Notizen",
+    survey: "Umfrage",
+    selection: "Auswahl",
+    surveys: "Umfragen",
+    layers: "Ebenen",
+    hide_surveys: "Umfragen ausblenden",
+    show_surveys: "Umfragen anzeigen",
+    hide_layers: "Ebenen ausblenden",
+    show_layers: "Ebenen anzeigen",
+    lang_en: "EN",
+    lang_de: "DE",
+    active_survey: "Aktive Umfrage",
+    select_survey: "Umfrage auswählen",
+    refresh: "Aktualisieren",
+    load: "Laden",
+    zoom: "Zoomen",
+    survey_context: "Umgebung der Umfrage",
+    selected: "Ausgewählt",
+    status: "Status",
+    id: "ID",
+    objects: "Objekte",
+    survey_context_hint: "Dieser Tab wählt nur die aktive Umfrage aus. Erstellen und Bearbeiten bleiben getrennte Arbeitsabläufe.",
+    system: "System",
+    title: "Titel",
+    draw_boundary: "Grenze zeichnen",
+    create: "Erstellen",
+    survey_hint: "Erstellt eine neue Umfrage aus der gezeichneten Grenze und setzt sie danach aktiv.",
+    object: "Objekt",
+    object_title: "Objekttitel",
+    notes: "Notizen",
+    point: "Punkt",
+    line: "Linie",
+    polygon: "Polygon",
+    active_survey_hint: "Aktive Umfrage",
+    select_object_hint: "Bitte zuerst ein Umfrageobjekt auswählen.",
+    selected_object: "Ausgewähltes Objekt",
+    save_attributes: "Attribute speichern",
+    edit_geometry: "Geometrie bearbeiten",
+    save_geometry: "Geometrie speichern",
+    reset_geometry: "Geometrie zurücksetzen",
+    stop_edit: "Bearbeitung stoppen",
+    geometry_hint: "Der Geometriebearbeitungsmodus unterstützt das Verschieben von Knoten, das Umformen von Polygonen und das Hinzufügen von Punkten an Linien- und Polygonsegmenten.",
+    survey_export: "Export der Umfrage",
+    data: "Daten",
+    document: "Dokument",
+    permission: "Berechtigung",
+    export_selected: "Auswahl exportieren",
+    point_labels: "Punktbeschriftungen",
+    basemaps: "Basiskarten",
+    basemap_hint: "Wählen Sie eine Hintergrundkarte. Die aktive Basiskarte bleibt sichtbar, während die Umfrageebenen darüber liegen.",
+    basemap_footer: "Der Wechsel der Basiskarte verändert die aktuellen Umfrageebenen und die Ansicht nicht.",
+    click_feature: "Klicken Sie ein Kartenobjekt an, um es zu prüfen.",
+    layer: "Ebene",
+    load_layers: "Ebenen neu laden",
+    no_layers_loaded: "Keine Ebenen geladen.",
+    region: "Region",
+    details: "Objektprüfung",
+    scratch_notes: "Notizen",
+    planning_context: "Planungskontext",
+    workspace_controls: "Arbeitsbereich",
+    outputs: "Ausgaben",
+    map_layers: "Kartenebenen",
+    base_map: "Basiskarte",
+    summary: "Zusammenfassung",
+    scratch_space: "Arbeitsnotizen",
+    no_surveys_loaded: "Keine Umfragen geladen. Auf Aktualisieren klicken.",
+    survey_load_error: "Fehler beim Laden der Umfragen",
+    loaded_records: "Umfrageeintrag(e) geladen.",
+    survey_set: "Umfrage gesetzt",
+    no_survey_selected: "Keine Umfrage ausgewählt",
+    select_survey_first: "Bitte zuerst eine Umfrage auswählen",
+    select_feature_first: "Bitte zuerst ein Objekt auswählen",
+    select_object_first: "Bitte zuerst ein Objekt auswählen",
+    enter_title: "Bitte einen Titel eingeben",
+    draw_boundary_first: "Bitte zuerst eine Grenze zeichnen",
+    set_active_survey_first: "Bitte zuerst eine aktive Umfrage festlegen",
+    no_editable_geometry_found: "Keine bearbeitbare Geometrie gefunden",
+    selected_feature_no_id: "Ausgewähltes Objekt kann nicht bearbeitet werden; keine Umfrageobjekt-ID",
+    geometry_edit_on: "Geometriebearbeitung aktiv. Knoten ziehen; Segmente anklicken, um Punkte hinzuzufügen.",
+    geometry_edit_off: "Geometriebearbeitung aus",
+    geometry_saved: "Geometrie gespeichert",
+    geometry_reset: "Geometrie zurückgesetzt",
+    geometry_save_failed: "Fehler beim Speichern der Geometrie",
+    layer_shown: "Ebene angezeigt",
+    layer_hidden: "Ebene ausgeblendet",
+    labels_on: "Beschriftungen an",
+    labels_off: "Beschriftungen aus",
+    survey_created: "Umfrage erstellt",
+    object_created: "Objekt erstellt",
+    saved: "Gespeichert",
+    deleted: "Gelöscht",
+    permission_exported: "Berechtigung exportiert",
+    export_failed: "Export fehlgeschlagen",
+    geometry_captured: "Geometrie erfasst",
+    save: "Speichern",
+    active: "Aktiv",
+    other: "Sonstige",
+    group: "Gruppe",
+    show: "Anzeigen",
+    hide: "Ausblenden",
+    delete: "Löschen",
+    yes: "Ja",
+    no: "Nein",
+    basemaps: {
+      osm: {
+        label: "Standardkarte / OSM",
+        description: "Allgemeine Straßenkarte mit Wegen, Ortsnamen und kartografischen Details aus OpenStreetMap.",
+        sourceNote: "Gemeinschaftlich gepflegte Straßen- und Ortsdaten"
+      },
+      satellite: {
+        label: "Satellit / ESRI World Imagery",
+        description: "Hochauflösende Luft- und Satellitenbilder zum Prüfen von Dächern, Gelände, Grenzen und Landbedeckung.",
+        sourceNote: "Bildbasiskarte"
+      },
+      topo: {
+        label: "Topografisch / ESRI World Topo Map",
+        description: "Topografische Referenzkarte mit Geländekontext, Höhenlinien und beschrifteten Merkmalen für die Planung.",
+        sourceNote: "Topografische Referenzkarte"
+      },
+      streets: {
+        label: "ESRI Straßen",
+        description: "Straßenorientierte Karte für Navigation, Ortsbezug und schnellen Überblick.",
+        sourceNote: "Straßen- und Ortsnamenkarte"
+      },
+      cartoLight: {
+        label: "Carto Hell / Positron",
+        description: "Zurückhaltende helle Basiskarte, die den Fokus auf Überlagerungen und Beschriftungen lässt.",
+        sourceNote: "Neutrale kartografische Hintergrundkarte"
+      },
+      cartoDark: {
+        label: "Carto Dunkel / Dark Matter",
+        description: "Dunkle Basiskarte mit hohem Kontrast für helle Überlagerungen und schwach beleuchtete Umgebungen.",
+        sourceNote: "Dunkle Kontrast-Basiskarte"
+      }
+    }
   }
 };
+
+function langPack() {
+  return I18N[state.lang] || I18N.en;
+}
+
+function t(key, fallback = "") {
+  const pack = langPack();
+  return pack[key] ?? I18N.en[key] ?? fallback ?? key;
+}
+
+function tBasemap(key, field) {
+  const entry = I18N[state.lang]?.basemaps?.[key]?.[field];
+  return entry ?? I18N.en.basemaps?.[key]?.[field] ?? BASEMAPS[key]?.[field] ?? "";
+}
+
+function tTab(id, fallback) {
+  return t(`tab_${id}`, fallback || fallbackTabTitle(id));
+}
+
+function fallbackTabTitle(id) {
+  return ({survey:"Survey", create:"Create", edit:"Edit", export:"Export", manage:"Manage", plan:"Plan", layers:"Layers", basemap:"Basemap", details:"Details", region:"Region", notes:"Notes"})[id] || id;
+}
+
+function setLanguage(lang) {
+  const next = I18N[lang] ? lang : "en";
+  state.lang = next;
+  if (typeof localStorage !== "undefined") localStorage.setItem("surveyCatalyst.lang", next);
+  document.documentElement.lang = next;
+  render();
+}
+
+const BASEMAPS = {
+  osm: {
+    label: "Standard Map / OSM",
+    description: "General-purpose street map with roads, place names, and cartographic detail from OpenStreetMap.",
+    url: "https://{a-c}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+    attributions: "© OpenStreetMap contributors",
+    sourceNote: "Community-maintained street and place data"
+  },
+  satellite: {
+    label: "Satellite / ESRI World Imagery",
+    description: "High-resolution aerial and satellite imagery for inspecting roofs, terrain, boundaries, and land cover.",
+    url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+    attributions: "Tiles © Esri — Source: Esri, Maxar, Earthstar Geographics, and the GIS User Community",
+    sourceNote: "Imagery basemap"
+  },
+  topo: {
+    label: "Topographic / ESRI World Topo Map",
+    description: "Topographic reference map with terrain context, contours, and labelled features for planning work.",
+    url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}",
+    attributions: "Tiles © Esri",
+    sourceNote: "Topo reference basemap"
+  },
+  streets: {
+    label: "ESRI Streets",
+    description: "Clean road-oriented map designed for navigation, street context, and quick situational reference.",
+    url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}",
+    attributions: "Tiles © Esri",
+    sourceNote: "Road and place-name basemap"
+  },
+  cartoLight: {
+    label: "Carto Light / Positron",
+    description: "Minimal light basemap that keeps attention on survey overlays, labels, and selected features.",
+    url: "https://{a-c}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png",
+    attributions: "© OpenStreetMap contributors © CARTO",
+    sourceNote: "Neutral cartographic background"
+  },
+  cartoDark: {
+    label: "Carto Dark / Dark Matter",
+    description: "Dark-toned basemap that improves contrast for bright overlays and low-light visual environments.",
+    url: "https://{a-c}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png",
+    attributions: "© OpenStreetMap contributors © CARTO",
+    sourceNote: "Dark contrast basemap"
+  }
+};
+
+function createBasemapSource(key) {
+  const entry = BASEMAPS[key] || BASEMAPS.osm;
+  return new ol.source.XYZ({
+    url: entry.url,
+    attributions: entry.attributions,
+    crossOrigin: "anonymous"
+  });
+}
 
 let modifyInteraction = null;
 let snapInteraction = null;
@@ -67,7 +427,7 @@ function editableFeature() {
 
 function startGeometryEdit() {
   if (!state.selection) {
-    alert("Select a feature first");
+    alert(t("select_feature_first"));
     return;
   }
 
@@ -84,7 +444,7 @@ function startGeometryEdit() {
   map.addInteraction(modifyInteraction);
   map.addInteraction(snapInteraction);
 
-  toast("Geometry edit on. Drag vertices; click segments to add points.");
+  toast(t("geometry_edit_on"));
 }
 
 function stopGeometryEdit(showToast = true) {
@@ -96,24 +456,24 @@ function stopGeometryEdit(showToast = true) {
     map.removeInteraction(snapInteraction);
     snapInteraction = null;
   }
-  if (showToast) toast("Geometry edit off");
+  if (showToast) toast(t("geometry_edit_off"));
 }
 
 async function saveGeometryEdit() {
   if (!state.selection) {
-    alert("Select a survey object first");
+    alert(t("select_object_first"));
     return;
   }
 
   const edited = editableFeature();
   if (!edited) {
-    alert("No editable geometry found");
+    alert(t("no_editable_geometry_found"));
     return;
   }
 
   const id = state.selection.properties.id;
   if (!id) {
-    alert("Selected feature cannot be edited; no survey object id");
+    alert(t("selected_feature_no_id"));
     return;
   }
 
@@ -146,21 +506,21 @@ async function saveGeometryEdit() {
       await loadSurveyFeatures(state.activeSurveyId, false);
     }
 
-    toast("Geometry saved");
+    toast(t("geometry_saved"));
   } catch (error) {
     console.error("saveGeometryEdit failed", error);
-    alert("Geometry save failed: " + (error?.message || error));
+    alert(t("geometry_save_failed") + ": " + (error?.message || error));
   }
 }
 
 function resetSelectedGeometry() {
   if (!state.selection || !state.selection.feature) {
-    alert("Select a feature first");
+    alert(t("select_feature_first"));
     return;
   }
   selectionSource.clear();
   selectionSource.addFeature(state.selection.feature.clone());
-  toast("Geometry reset");
+  toast(t("geometry_reset"));
 }
 
 
@@ -170,6 +530,18 @@ function esc(v) {
     .replaceAll("<", "&lt;")
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;");
+}
+
+function apiUrl(url) {
+  try {
+    const u = new URL(url, window.location.origin);
+    if (u.pathname.startsWith("/api/") || u.pathname === "/health") {
+      u.searchParams.set("lang", state.lang || "en");
+    }
+    return u.pathname + u.search + u.hash;
+  } catch {
+    return url;
+  }
 }
 
 function css() {
@@ -208,25 +580,38 @@ function css() {
     }
     #topbar {
       position:absolute;
-      top:8px;
-      left:50%;
-      transform:translateX(-50%);
+      top:0;
+      left:0;
+      right:0;
+      transform:none;
       z-index:40;
       pointer-events:auto;
     }
     .topbar {
-      display:flex;
+      display:grid;
+      grid-template-columns:minmax(0, 1fr) auto;
       align-items:center;
-      gap:14px;
-      height:34px;
-      padding:0 12px;
-      border-radius:10px;
+      gap:12px;
+      width:100%;
+      min-width:0;
+      height:auto;
+      padding:10px 16px;
+      box-sizing:border-box;
+      border-radius:0;
       color:#f8fafc;
       background:var(--dark);
       border:1px solid rgba(255,255,255,.12);
+      border-left:0;
+      border-right:0;
       box-shadow:0 8px 26px rgba(15,23,42,.22);
       backdrop-filter:blur(10px);
-      white-space:nowrap;
+    }
+    .topbar-left {
+      display:flex;
+      align-items:center;
+      gap:14px;
+      min-width:0;
+      flex-wrap:wrap;
     }
     .brand {
       display:flex;
@@ -234,6 +619,7 @@ function css() {
       gap:7px;
       font-weight:700;
       letter-spacing:.1px;
+      flex:0 0 auto;
     }
     .mark {
       width:16px;
@@ -244,8 +630,43 @@ function css() {
     .top-meta {
       display:flex;
       gap:8px;
+      flex-wrap:wrap;
+      margin-left:auto;
+      justify-content:flex-end;
       color:#cbd5e1;
       font-size:11px;
+    }
+    .topbar-actions {
+      display:flex;
+      align-items:center;
+      gap:6px;
+      flex-wrap:wrap;
+    }
+    .topbar-actions button,
+    .topbar-actions select {
+      height:22px;
+      padding:0 8px;
+      border-radius:999px;
+      border-color:rgba(255,255,255,.14);
+      background:rgba(255,255,255,.08);
+      color:#f8fafc;
+      box-shadow:none;
+    }
+    .topbar-actions select {
+      appearance:none;
+      min-width:120px;
+      padding-right:10px;
+    }
+    .topbar-actions .tab {
+      height:22px;
+      padding:0 10px;
+      border-color:rgba(255,255,255,.14);
+      background:rgba(255,255,255,.08);
+      color:#f8fafc;
+      box-shadow:none;
+    }
+    .topbar-actions .tab:hover {
+      background:rgba(255,255,255,.13);
     }
     .status-dot {
       display:inline-block;
@@ -256,30 +677,19 @@ function css() {
       background:#ef4444;
     }
     .status-dot.on { background:#22c55e; }
-    #left-tabs, #right-tabs {
-      position:absolute;
-      top:60px;
-      display:flex;
-      flex-direction:column;
-      gap:4px;
-      z-index:35;
-      pointer-events:auto;
-    }
-    #left-tabs { left:8px; }
-    #right-tabs { right:8px; }
     .tab {
-      width:30px;
-      height:74px;
-      border:1px solid var(--line);
-      border-radius:8px;
-      background:rgba(255,255,255,.88);
-      color:#334155;
-      writing-mode:vertical-rl;
-      text-orientation:mixed;
+      height:24px;
+      padding:0 10px;
+      border:1px solid #d6dbe5;
+      border-radius:999px;
+      background:rgba(255,255,255,.92);
+      color:#475467;
       font-size:11px;
-      font-weight:600;
+      font-weight:700;
+      line-height:22px;
+      letter-spacing:0;
       cursor:pointer;
-      box-shadow:0 4px 12px rgba(15,23,42,.08);
+      box-shadow:0 2px 6px rgba(15,23,42,.06);
     }
     .tab.active {
       color:#fff;
@@ -287,22 +697,22 @@ function css() {
       border-color:#1d4ed8;
     }
     .tab.toggle {
-      height:48px;
+      height:24px;
       color:#fff;
       background:#111827;
       border-color:#111827;
     }
     .panel {
       position:absolute;
-      top:52px;
+      top:54px;
       bottom:10px;
       width:330px;
       z-index:30;
       pointer-events:auto;
-      background:var(--bg);
-      border:1px solid rgba(148,163,184,.45);
-      border-radius:12px;
-      box-shadow:0 14px 38px rgba(15,23,42,.14);
+      background:var(--panel);
+      border:1px solid rgba(148,163,184,.34);
+      border-radius:10px;
+      box-shadow:0 16px 42px rgba(15,23,42,.12);
       backdrop-filter:blur(10px);
       overflow:hidden;
       display:flex;
@@ -314,38 +724,60 @@ function css() {
     .panel.closed-left { transform:translateX(-390px); opacity:0; }
     .panel.closed-right { transform:translateX(390px); opacity:0; }
     .panel-head {
-      height:42px;
-      padding:8px 11px;
+      padding:10px 11px 8px;
       box-sizing:border-box;
       border-bottom:1px solid var(--line);
-      background:rgba(255,255,255,.7);
+      background:linear-gradient(to bottom, rgba(255,255,255,.88), rgba(248,250,252,.92));
+    }
+    .panel-head-main {
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap:10px;
     }
     .panel-title {
-      font-size:13px;
+      font-size:12px;
       font-weight:700;
-      line-height:14px;
+      line-height:16px;
+      letter-spacing:0;
     }
     .panel-sub {
       color:var(--muted);
       font-size:10px;
-      margin-top:2px;
+      margin-top:1px;
+      line-height:13px;
+    }
+    .panel-tabs {
+      display:flex;
+      flex-wrap:wrap;
+      gap:4px;
+      margin-top:8px;
+      padding-top:8px;
+      border-top:1px solid rgba(148,163,184,.22);
+      overflow-x:auto;
+    }
+    .panel-tabs .tab {
+      flex:0 0 auto;
+      white-space:nowrap;
     }
     .panel-body {
-      padding:9px;
+      padding:10px;
       overflow:auto;
       flex:1;
     }
     .section {
       margin-bottom:10px;
-      padding-bottom:8px;
+      padding:10px 0 8px;
       border-bottom:1px solid #e5e7eb;
     }
     .section:last-child { border-bottom:0; }
     .section-title {
-      font-size:11px;
+      font-size:10px;
       font-weight:700;
-      color:#334155;
-      margin:0 0 6px 0;
+      color:#475467;
+      margin:0 0 7px 0;
+      text-transform:uppercase;
+      letter-spacing:.04em;
     }
     .basemap-grid {
       display:grid;
@@ -355,6 +787,37 @@ function css() {
     .basemap-btn {
       width:100%;
       margin:0;
+      height:auto;
+      min-height:78px;
+      padding:8px 10px;
+      text-align:left;
+      border-radius:8px;
+      line-height:1.2;
+      display:flex;
+      flex-direction:column;
+      gap:4px;
+      justify-content:flex-start;
+      white-space:normal;
+      overflow:visible;
+    }
+    .basemap-btn .basemap-title {
+      font-size:11px;
+      font-weight:700;
+      color:inherit;
+      line-height:14px;
+    }
+    .basemap-btn .basemap-desc {
+      font-size:10px;
+      font-weight:500;
+      color:inherit;
+      opacity:.86;
+      line-height:14px;
+    }
+    .basemap-btn .basemap-meta {
+      font-size:9px;
+      color:inherit;
+      opacity:.72;
+      line-height:12px;
     }
     label {
       font-size:11px;
@@ -390,6 +853,12 @@ function css() {
       font-weight:600;
       cursor:pointer;
     }
+    .panel-head button {
+      margin:0;
+    }
+    .panel-head .tab {
+      margin:0;
+    }
     button.primary {
       border-color:#1d4ed8;
       background:#1d4ed8;
@@ -422,23 +891,61 @@ function css() {
     }
     .badge.on { background:#16a34a; }
     .layer-row {
-      display:grid;
-      grid-template-columns:18px 1fr;
-      gap:6px;
-      padding:5px 0;
+      display:flex;
+      align-items:center;
+      gap:8px;
+      width:100%;
+      padding:6px 0;
       border-bottom:1px solid #eef2f7;
     }
     .layer-row:last-child { border-bottom:0; }
+    .layer-row input {
+      width:auto;
+      height:auto;
+      margin:0;
+      flex:0 0 auto;
+    }
+    .layer-row-main {
+      flex:1;
+      min-width:0;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+    }
+    .layer-row-head {
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap:10px;
+      width:100%;
+    }
     .layer-name {
       font-size:11px;
       font-weight:600;
       color:#1f2937;
       line-height:14px;
+      word-break:break-word;
+      min-width:0;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
     }
     .layer-meta {
       color:#667085;
       font-size:10px;
       line-height:13px;
+      word-break:break-word;
+    }
+    .layer-count {
+      flex:0 0 auto;
+      font-size:10px;
+      font-weight:700;
+      color:#475467;
+      background:#eef2f7;
+      border-radius:999px;
+      padding:2px 7px;
+      white-space:nowrap;
     }
     .props {
       font-size:11px;
@@ -488,7 +995,7 @@ function toast(text, ms=1500) {
 }
 
 async function fetchJson(url, opts) {
-  const res = await fetch(url, opts);
+  const res = await fetch(apiUrl(url), opts);
   const text = await res.text();
   let data = null;
   try { data = text ? JSON.parse(text) : null; } catch { data = null; }
@@ -501,22 +1008,20 @@ async function loadManifest() {
     return await fetchJson("/static/ui_manifest.json?ts=" + Date.now());
   } catch {
     return {
-      left: [{id:"survey",title:"Survey"},{id:"manage",title:"Manage"},{id:"plan",title:"Plan"},{id:"create",title:"Create"},{id:"edit",title:"Edit"},{id:"export",title:"Export"}],
-      right: [{id:"layers",title:"Layers"},{id:"details",title:"Details"},{id:"region",title:"Region"},{id:"notes",title:"Notes"}]
+      left: [{id:"survey",title:"Survey"},{id:"create",title:"Create"},{id:"edit",title:"Edit"},{id:"export",title:"Export"},{id:"manage",title:"Manage"},{id:"plan",title:"Plan"}],
+      right: [{id:"layers",title:"Layers"},{id:"basemap",title:"Basemap"},{id:"details",title:"Details"},{id:"region",title:"Region"},{id:"notes",title:"Notes"}]
     };
   }
 }
 
 function initMap() {
-  basemapLayers = {
-    osm: BASEMAPS.osm.makeLayer(),
-    opentopo: BASEMAPS.opentopo.makeLayer(),
-    satellite: BASEMAPS.satellite.makeLayer()
-  };
+  baseLayer = new ol.layer.Tile({
+    source: createBasemapSource(state.activeBasemap)
+  });
 
   map = new ol.Map({
     target:"map",
-    layers:[basemapLayers.osm, basemapLayers.opentopo, basemapLayers.satellite],
+    layers:[baseLayer],
     view:new ol.View({center:ol.proj.fromLonLat([11,48]), zoom:7})
   });
 
@@ -562,7 +1067,7 @@ function initMap() {
   map.addLayer(surveyLayer);
   map.addLayer(drawLayer);
   map.addLayer(selectionLayer);
-  setBasemap(state.basemapKey);
+  setBasemap(state.activeBasemap);
 
   map.on("singleclick", e => {
     let hit = null;
@@ -736,41 +1241,60 @@ function topbar() {
   const survey = state.surveys.find(s => String(s.id) === String(state.activeSurveyId));
   document.getElementById("topbar").innerHTML = `
     <div class="topbar">
-      <div class="brand"><span class="mark"></span>SurveyCatalyst</div>
+      <div class="topbar-left">
+        <div class="brand"><span class="mark"></span>${esc(t("app_name", "SurveyCatalyst"))}</div>
+        <div class="topbar-actions">
+          <button class="tab" onclick="toggleLeft()">${esc(state.leftOpen ? t("hide_surveys") : t("show_surveys"))}</button>
+          <button class="tab" onclick="toggleRight()">${esc(state.rightOpen ? t("hide_layers") : t("show_layers"))}</button>
+          <button class="tab" onclick="setLanguage('en')">${t("lang_en")}</button>
+          <button class="tab" onclick="setLanguage('de')">${t("lang_de")}</button>
+        </div>
+      </div>
       <div class="top-meta">
-        <span><span class="status-dot ${state.system.api ? "on" : ""}"></span>API</span>
-        <span>Survey: ${esc(survey?.title || state.activeSurveyId || "none")}</span>
-        <span>Selection: ${esc(state.selection?.title || "none")}</span>
+        <span><span class="status-dot ${state.system.api ? "on" : ""}"></span>${esc(t("api"))}</span>
+        <span>${esc(t("db"))} ${state.system.db ? "ON" : "OFF"}</span>
+        <span>${esc(titleFor("left", state.activeLeft))} / ${esc(titleFor("right", state.activeRight))}</span>
+        <span>${esc(t("survey"))}: ${esc(survey?.title || state.activeSurveyId || "none")}</span>
+        <span>${esc(t("selection"))}: ${esc(state.selection?.title || "none")}</span>
       </div>
     </div>
-  `;
-}
-
-function tabs() {
-  const left = state.manifest.left || [];
-  const right = state.manifest.right || [];
-
-  document.getElementById("left-tabs").innerHTML = `
-    ${left.map(t => `<button class="tab ${state.activeLeft === t.id ? "active" : ""}" onclick="setLeft('${esc(t.id)}')">${esc(t.title)}</button>`).join("")}
-    <button class="tab toggle" onclick="toggleLeft()">${state.leftOpen ? "Hide" : "Show"}</button>
-  `;
-
-  document.getElementById("right-tabs").innerHTML = `
-    ${right.map(t => `<button class="tab ${state.activeRight === t.id ? "active" : ""}" onclick="setRight('${esc(t.id)}')">${esc(t.title)}</button>`).join("")}
-    <button class="tab toggle" onclick="toggleRight()">${state.rightOpen ? "Hide" : "Show"}</button>
   `;
 }
 
 function panel(id, side, title, sub, body) {
   const el = document.getElementById(id);
   el.className = `panel ${side === "left" ? (state.leftOpen ? "" : "closed-left") : (state.rightOpen ? "" : "closed-right")}`;
-  el.innerHTML = `<div class="panel-head"><div class="panel-title">${esc(title)}</div><div class="panel-sub">${esc(sub)}</div></div><div class="panel-body">${body}</div>`;
+  const toggle = side === "left"
+    ? `<button class="tab toggle" onclick="toggleLeft()">${state.leftOpen ? "Hide" : "Show"}</button>`
+    : `<button class="tab toggle" onclick="toggleRight()">${state.rightOpen ? "Hide" : "Show"}</button>`;
+  el.innerHTML = `
+    <div class="panel-head">
+      <div class="panel-head-main">
+        <div>
+          <div class="panel-title">${esc(title)}</div>
+          <div class="panel-sub">${esc(sub)}</div>
+        </div>
+        ${toggle}
+      </div>
+      <div class="panel-tabs">${panelTabs(side)}</div>
+    </div>
+    <div class="panel-body">${body}</div>
+  `;
+}
+
+function panelTabs(side) {
+  const tabs = side === "left" ? (state.manifest?.left || []) : (state.manifest?.right || []);
+  return tabs.map(t => {
+    const active = side === "left" ? state.activeLeft === t.id : state.activeRight === t.id;
+    const click = side === "left" ? `setLeft('${esc(t.id)}')` : `setRight('${esc(t.id)}')`;
+    return `<button class="tab ${active ? "active" : ""}" onclick="${click}">${esc(tTab(t.id, t.title))}</button>`;
+  }).join("");
 }
 
 function leftBody() {
   if (state.activeLeft === "survey") return surveyBody();
   if (state.activeLeft === "manage") return manageBody();
-  if (state.activeLeft === "plan") return `<div class="section"><div class="section-title">Planning context</div><div class="hint">Use hydrology, protection, parcels and Roman roads to assess regional suitability before creating survey data.</div></div>`;
+  if (state.activeLeft === "plan") return `<div class="section"><div class="section-title">${esc(t("planning_context"))}</div><div class="hint">${esc(t("planning_context"))}</div></div>`;
   if (state.activeLeft === "create") return createBody();
   if (state.activeLeft === "edit") return editBody();
   if (state.activeLeft === "export") return exportBody();
@@ -780,9 +1304,10 @@ function leftBody() {
 
 function rightBody() {
   if (state.activeRight === "layers") return layersBody();
+  if (state.activeRight === "basemap") return basemapBody();
   if (state.activeRight === "details") return detailsBody();
   if (state.activeRight === "region") return regionBody();
-  if (state.activeRight === "notes") return `<div class="section"><div class="section-title">Scratch notes</div><textarea placeholder="Planning note"></textarea><button onclick="toast('Notes placeholder')">Save</button></div>`;
+  if (state.activeRight === "notes") return `<div class="section"><div class="section-title">${esc(t("scratch_notes"))}</div><textarea placeholder="${esc(t("scratch_space"))}"></textarea><button onclick="toast('${esc(t("save"))}')">${esc(t("save"))}</button></div>`;
   return "";
 }
 
@@ -800,6 +1325,17 @@ function surveyName(survey) {
 
 function surveyStatus(survey) {
   return String(survey?.status ?? survey?.state ?? "active");
+}
+
+function layerObjectCount(layer) {
+  const direct = layer?.object_count ?? layer?.feature_count ?? layer?.metadata?.object_count ?? layer?.metadata?.feature_count;
+  if (direct !== undefined && direct !== null && direct !== "") return direct;
+  const key = String(layer?.layer_key || "");
+  if (key.startsWith("survey_")) {
+    const survey = surveyRows().find(s => String(s?.layer_key || "") === key);
+    if (survey && survey.object_count !== undefined && survey.object_count !== null) return survey.object_count;
+  }
+  return null;
 }
 
 function activeSurveyRecord() {
@@ -827,111 +1363,120 @@ function surveyBody() {
   }).join("");
 
   const message = state.surveyLoadError
-    ? `<div class="hint">Survey load error: ${esc(state.surveyLoadError)}</div>`
+    ? `<div class="hint">${esc(t("survey_load_error"))}: ${esc(state.surveyLoadError)}</div>`
     : rows.length
-      ? `<div class="hint">${esc(rows.length)} survey record(s) loaded.</div>`
-      : `<div class="hint">No surveys loaded. Click Refresh.</div>`;
+      ? `<div class="hint">${esc(rows.length)} ${esc(t("loaded_records"))}</div>`
+      : `<div class="hint">${esc(t("no_surveys_loaded"))}</div>`;
 
   return `
     <div class="section">
-      <div class="section-title">Active survey</div>
+      <div class="section-title">${esc(t("active_survey"))}</div>
       <select id="surveyContextSelect" onchange="setActiveSurveyContext(this.value)">
-        <option value="">Select survey</option>
+        <option value="">${esc(t("select_survey"))}</option>
         ${options}
       </select>
-      <button onclick="loadSurveys()">Refresh</button>
+      <button onclick="loadSurveys()">${esc(t("refresh"))}</button>
+      <button class="primary" onclick="loadSelectedSurvey(false)">${esc(t("load"))}</button>
+      <button onclick="loadSelectedSurvey(true)">${esc(t("zoom"))}</button>
       ${message}
     </div>
     <div class="section">
-      <div class="section-title">Survey context</div>
-      <div class="row"><span>Selected</span><strong>${esc(active ? surveyName(active) : "none")}</strong></div>
-      <div class="row"><span>Status</span><strong>${esc(active ? surveyStatus(active) : "-")}</strong></div>
-      <div class="row"><span>ID</span><strong>${esc(active ? surveyId(active) : "-")}</strong></div>
-      <div class="hint">This tab only selects the active survey context. Creation and editing remain separate workflows.</div>
+      <div class="section-title">${esc(t("survey_context"))}</div>
+      <div class="row"><span>${esc(t("selected"))}</span><strong>${esc(active ? surveyName(active) : "none")}</strong></div>
+      <div class="row"><span>${esc(t("status"))}</span><strong>${esc(active ? surveyStatus(active) : "-")}</strong></div>
+      <div class="row"><span>${esc(t("id"))}</span><strong>${esc(active ? surveyId(active) : "-")}</strong></div>
+      <div class="row"><span>${esc(t("objects"))}</span><strong>${esc(active ? (active.object_count ?? active.feature_count ?? active.objects?.length ?? "-") : "-")}</strong></div>
+      <div class="hint">${esc(t("survey_context_hint"))}</div>
     </div>
   `;
 }
 
 function manageBody() {
-  const opts = state.surveys.map(s => `<option value="${esc(s.id)}" ${String(s.id)===String(state.activeSurveyId) ? "selected" : ""}>${esc(s.title || s.id)}</option>`).join("");
   return `
     <div class="section">
-      <div class="section-title">System</div>
-      <div class="row"><span>API</span><span class="badge ${state.system.api ? "on" : ""}">${state.system.api ? "ON" : "OFF"}</span></div>
-      <div class="row"><span>DB</span><span class="badge ${state.system.db ? "on" : ""}">${state.system.db ? "ON" : "OFF"}</span></div>
-      <button onclick="refreshSystem()">Refresh</button>
-    </div>
-    <div class="section">
-      <div class="section-title">Survey</div>
-      <select id="surveySelect"><option value="">Select survey</option>${opts}</select>
-      <button class="primary" onclick="setActiveSurvey()">Set active</button>
-      <button onclick="loadSelectedSurvey(false)">Load</button>
-      <button onclick="loadSelectedSurvey(true)">Zoom</button>
-      <button onclick="loadSurveys()">Refresh</button>
+      <div class="section-title">${esc(t("system"))}</div>
+      <div class="row"><span>${esc(t("api"))}</span><span class="badge ${state.system.api ? "on" : ""}">${state.system.api ? "ON" : "OFF"}</span></div>
+      <div class="row"><span>${esc(t("db"))}</span><span class="badge ${state.system.db ? "on" : ""}">${state.system.db ? "ON" : "OFF"}</span></div>
+      <button onclick="refreshSystem()">${esc(t("refresh"))}</button>
     </div>
   `;
 }
 
 function createBody() {
+  const active = activeSurveyRecord();
   return `
     <div class="section">
-      <div class="section-title">Survey</div>
-      <input id="createSurveyTitle" placeholder="Survey title">
-      <input id="createSurveyStatus" value="active" placeholder="Status">
-      <button onclick="startDraw('polygon')">Draw boundary</button>
-      <button class="primary" onclick="createSurvey()">Create</button>
+      <div class="section-title">${esc(t("survey"))}</div>
+      <input id="createSurveyTitle" placeholder="${esc(t("title"))}">
+      <input id="createSurveyStatus" value="active" placeholder="${esc(t("status"))}">
+      <button onclick="startDraw('polygon')">${esc(t("draw_boundary"))}</button>
+      <button class="primary" onclick="createSurvey()">${esc(t("create"))}</button>
+      <div class="hint">${esc(t("survey_hint"))}</div>
     </div>
     <div class="section">
-      <div class="section-title">Object</div>
+      <div class="section-title">${esc(t("active_survey"))}</div>
+      <div class="row"><span>${esc(t("selected"))}</span><strong>${esc(active ? surveyName(active) : "none")}</strong></div>
+      <div class="row"><span>${esc(t("status"))}</span><strong>${esc(active ? surveyStatus(active) : "-")}</strong></div>
+      <div class="row"><span>${esc(t("id"))}</span><strong>${esc(active ? surveyId(active) : "-")}</strong></div>
+    </div>
+    <div class="section">
+      <div class="section-title">${esc(t("object"))}</div>
       <select id="createObjectType"><option value="note">note</option><option value="findspot">findspot</option><option value="track">track</option><option value="polygon">polygon</option></select>
-      <input id="createObjectTitle" placeholder="Object title">
-      <textarea id="createObjectNote" placeholder="Notes"></textarea>
-      <button onclick="startDraw('point')">Point</button>
-      <button onclick="startDraw('line')">Line</button>
-      <button onclick="startDraw('polygon')">Polygon</button>
-      <button class="primary" onclick="createObject()">Create</button>
+      <input id="createObjectTitle" placeholder="${esc(t("object_title"))}">
+      <textarea id="createObjectNote" placeholder="${esc(t("notes"))}"></textarea>
+      <button onclick="startDraw('point')">${esc(t("point"))}</button>
+      <button onclick="startDraw('line')">${esc(t("line"))}</button>
+      <button onclick="startDraw('polygon')">${esc(t("polygon"))}</button>
+      <button class="primary" onclick="createObject()">${esc(t("create"))}</button>
     </div>
   `;
 }
 
 function editBody() {
-  if (!state.selection) {
-    return `<div class="section"><div class="hint">Select a survey object first.</div></div>`;
-  }
-
-  const p = state.selection.properties || {};
+  const survey = activeSurveyRecord();
+  const p = state.selection?.properties || {};
   return `
     <div class="section">
-      <div class="section-title">Selected object</div>
-      <input id="editTitle" value="${esc(p.title || state.selection.title || "")}" placeholder="Title">
-      <textarea id="editNote" placeholder="Notes">${esc(p.note || p.annotation || "")}</textarea>
+      <div class="section-title">${esc(t("active_survey"))}</div>
+      <div class="row"><span>${esc(t("selected"))}</span><strong>${esc(survey ? surveyName(survey) : "none")}</strong></div>
+      <div class="row"><span>${esc(t("status"))}</span><strong>${esc(survey ? surveyStatus(survey) : "-")}</strong></div>
+      <div class="row"><span>${esc(t("id"))}</span><strong>${esc(survey ? surveyId(survey) : "-")}</strong></div>
+      <div class="row"><span>${esc(t("objects"))}</span><strong>${esc(survey ? (survey.object_count ?? survey.feature_count ?? survey.objects?.length ?? "-") : "-")}</strong></div>
+      <div class="hint">${esc(t("select_object_hint"))}</div>
+    </div>
+    ${state.selection ? `
+    <div class="section">
+      <div class="section-title">${esc(t("selected_object"))}</div>
+      <input id="editTitle" value="${esc(p.title || state.selection.title || "")}" placeholder="${esc(t("title"))}">
+      <textarea id="editNote" placeholder="${esc(t("notes"))}">${esc(p.note || p.annotation || "")}</textarea>
 
-      <button class="primary" onclick="saveSelection()">Save attributes</button>
-      <button onclick="startGeometryEdit()">Edit geometry</button>
-      <button onclick="saveGeometryEdit()">Save geometry</button>
-      <button onclick="resetSelectedGeometry()">Reset geometry</button>
-      <button onclick="stopGeometryEdit()">Stop edit</button>
-      <button class="danger" onclick="deleteSelection()">Delete</button>
+      <button class="primary" onclick="saveSelection()">${esc(t("save_attributes"))}</button>
+      <button onclick="startGeometryEdit()">${esc(t("edit_geometry"))}</button>
+      <button onclick="saveGeometryEdit()">${esc(t("save_geometry"))}</button>
+      <button onclick="resetSelectedGeometry()">${esc(t("reset_geometry"))}</button>
+      <button onclick="stopGeometryEdit()">${esc(t("stop_edit"))}</button>
+      <button class="danger" onclick="deleteSelection()">${esc(t("delete"))}</button>
 
       <div class="hint">
-        Geometry edit mode supports moving vertices, reshaping polygons, and adding points to line/polygon segments.
+        ${esc(t("geometry_hint"))}
       </div>
     </div>
+    ` : `<div class="section"><div class="hint">${esc(t("select_object_hint"))}</div></div>`}
   `;
 }
 
 function exportBody() {
   return `
     <div class="section">
-      <div class="section-title">Survey export</div>
+      <div class="section-title">${esc(t("survey_export"))}</div>
       <button class="primary" onclick="exportLayer()">GeoJSON</button>
-      <button onclick="exportData()">Data</button>
-      <button onclick="exportDocument()">Document</button>
+      <button onclick="exportData()">${esc(t("data"))}</button>
+      <button onclick="exportDocument()">${esc(t("document"))}</button>
     </div>
     <div class="section">
-      <div class="section-title">Permission</div>
-      <button class="primary" onclick="exportPermission()">Export selected</button>
-      <div class="hint">Select a parcel or context feature first.</div>
+      <div class="section-title">${esc(t("permission"))}</div>
+      <button class="primary" onclick="exportPermission()">${esc(t("export_selected"))}</button>
+      <div class="hint">${esc(t("click_feature"))}</div>
     </div>
   `;
 }
@@ -943,41 +1488,56 @@ function layersBody() {
     if (!groups[g]) groups[g] = [];
     groups[g].push(l);
   });
+  const hasLayers = Object.keys(groups).length > 0;
 
   return `
     <div class="section">
-      <div class="section-title">Base maps</div>
-      <div class="basemap-grid">
-        ${Object.entries(BASEMAPS).map(([key, entry]) => `
-          <button class="basemap-btn ${state.basemapKey === key ? "primary" : ""}" onclick="setBasemap('${esc(key)}')">${esc(entry.label)}</button>
-        `).join("")}
-      </div>
-      <div class="hint">Select one background map or turn basemaps off entirely.</div>
+      <label><input type="checkbox" ${state.labelVisibility ? "checked" : ""} onchange="toggleLabels(this.checked)"> ${esc(t("point_labels"))}</label>
+      <button onclick="loadLayers()">${esc(t("load_layers"))}</button>
     </div>
-    <div class="section">
-      <label><input type="checkbox" ${state.labelVisibility ? "checked" : ""} onchange="toggleLabels(this.checked)"> Point labels</label>
-    </div>
-    ${Object.keys(groups).sort().map(g => `
+    ${hasLayers ? Object.keys(groups).sort().map(g => `
       <div class="section">
-        <div class="section-title">${esc(g.replaceAll("_"," "))}</div>
+        <div class="section-title">${esc(g === "other" ? t("other") : g.replaceAll("_"," "))}</div>
         ${groups[g].map(l => `
           <label class="layer-row">
             <input type="checkbox" ${l.is_visible ? "checked" : ""} onchange="toggleLayer('${esc(l.layer_key)}', this.checked)">
-            <span><span class="layer-name">${esc(l.layer_name || l.layer_key)}</span><br><span class="layer-meta">${esc(l.geometry_type || "")}</span></span>
+            <div class="layer-row-main">
+              <span class="layer-name">${esc(l.layer_name || l.layer_key)}</span>
+              <span class="layer-count">${esc(layerObjectCount(l) ?? 0)} ${esc(t("objects"))}</span>
+            </div>
           </label>
         `).join("")}
       </div>
-    `).join("")}
+    `).join("") : `<div class="section"><div class="hint">${esc(t("no_layers_loaded"))}</div></div>`}
+  `;
+}
+
+function basemapBody() {
+  return `
+    <div class="section">
+      <div class="section-title">${esc(t("basemaps"))}</div>
+      <div class="hint">${esc(t("basemap_hint"))}</div>
+      <div class="basemap-grid">
+        ${Object.entries(BASEMAPS).map(([key, entry]) => `
+          <button class="basemap-btn ${state.activeBasemap === key ? "primary" : ""}" onclick="setBasemap('${esc(key)}')">
+            <span class="basemap-title">${esc(tBasemap(key, "label"))}${state.activeBasemap === key ? " • " + esc(t("active")) : ""}</span>
+            <span class="basemap-desc">${esc(tBasemap(key, "description"))}</span>
+            <span class="basemap-meta">${esc(tBasemap(key, "sourceNote") || entry.attributions || "")}</span>
+          </button>
+        `).join("")}
+      </div>
+      <div class="hint">${esc(t("basemap_footer"))}</div>
+    </div>
   `;
 }
 
 function detailsBody() {
-  if (!state.selection) return `<div class="section"><div class="hint">Click a map feature to inspect it.</div></div>`;
+  if (!state.selection) return `<div class="section"><div class="hint">${esc(t("click_feature"))}</div></div>`;
   const p = state.selection.properties || {};
   return `
     <div class="section">
       <div class="section-title">${esc(state.selection.title)}</div>
-      <div class="hint">Layer: ${esc(state.selection.layer)}<br>ID: ${esc(state.selection.id)}</div>
+      <div class="hint">${esc(t("layer"))}: ${esc(state.selection.layer)}<br>${esc(t("id"))}: ${esc(state.selection.id)}</div>
     </div>
     <div class="props">${Object.keys(p).sort().map(k => `<div class="prop"><div class="prop-k">${esc(k)}</div><div class="prop-v">${esc(p[k])}</div></div>`).join("")}</div>
   `;
@@ -985,10 +1545,10 @@ function detailsBody() {
 
 function regionBody() {
   return `
-    <div class="section"><div class="section-title">Region</div>
-      <div class="row"><span>Layers</span><strong>${state.layers.length}</strong></div>
-      <div class="row"><span>Survey</span><strong>${esc(state.activeSurveyId || "none")}</strong></div>
-      <div class="row"><span>Selection</span><strong>${state.selection ? "yes" : "no"}</strong></div>
+    <div class="section"><div class="section-title">${esc(t("region"))}</div>
+      <div class="row"><span>${esc(t("layers"))}</span><strong>${state.layers.length}</strong></div>
+      <div class="row"><span>${esc(t("survey"))}</span><strong>${esc(state.activeSurveyId || "none")}</strong></div>
+      <div class="row"><span>${esc(t("selection"))}</span><strong>${state.selection ? esc(t("yes")) : esc(t("no"))}</strong></div>
     </div>
   `;
 }
@@ -996,28 +1556,29 @@ function regionBody() {
 function render() {
   css();
   topbar();
-  tabs();
   panel("left-panel", "left", titleFor("left", state.activeLeft), subtitleFor(state.activeLeft), leftBody());
   panel("right-panel", "right", titleFor("right", state.activeRight), subtitleFor(state.activeRight), rightBody());
 }
 
 function titleFor(side, id) {
   const tabs = side === "left" ? state.manifest.left : state.manifest.right;
-  return tabs.find(t => t.id === id)?.title || id;
+  const tab = tabs.find(t => t.id === id);
+  return tTab(id, tab?.title || id);
 }
 
 function subtitleFor(id) {
   return {
-    survey:"Active survey context",
-    manage:"Workspace controls",
-    plan:"Planning context",
-    create:"Create survey data",
-    edit:"Edit selected object",
-    export:"Outputs",
-    layers:"Map layers",
-    details:"Feature inspection",
-    region:"Summary",
-    notes:"Scratch space"
+    survey:t("survey_context"),
+    manage:t("workspace_controls"),
+    plan:t("planning_context"),
+    create:t("survey_hint"),
+    edit:t("select_object_hint"),
+    export:t("outputs"),
+    layers:t("map_layers"),
+    basemap:t("base_map"),
+    details:t("details"),
+    region:t("summary"),
+    notes:t("scratch_space")
   }[id] || "";
 }
 
@@ -1030,7 +1591,7 @@ function toggleRight(){ state.rightOpen = !state.rightOpen; render(); }
 function setActiveSurveyContext(value) {
   state.activeSurveyId = value || null;
   const survey = activeSurveyRecord();
-  toast(survey ? `Survey set: ${surveyName(survey)}` : "No survey selected");
+  toast(survey ? `${t("survey_set")}: ${surveyName(survey)}` : t("no_survey_selected"));
   render();
 }
 
@@ -1041,7 +1602,7 @@ function setActiveSurvey() {
 
 
 async function loadSelectedSurvey(zoom) {
-  if (!state.activeSurveyId) return alert("Select a survey first");
+  if (!state.activeSurveyId) return alert(t("select_survey_first"));
   await loadSurveyFeatures(state.activeSurveyId, zoom);
 }
 
@@ -1049,23 +1610,19 @@ function toggleLayer(key, value) {
   const l = state.layerIndex.get(key);
   if (l) l.is_visible = !!value;
   if (contextTileLayers[key]) contextTileLayers[key].setVisible(!!value);
-  toast(value ? "Layer shown" : "Layer hidden");
+  toast(value ? t("layer_shown") : t("layer_hidden"));
 }
 
 function toggleLabels(value) {
   state.labelVisibility = !!value;
   syncContextLayers();
-  toast(value ? "Labels on" : "Labels off");
+  toast(value ? t("labels_on") : t("labels_off"));
 }
 
 function setBasemap(key) {
-  const next = BASEMAPS[key] ? key : "none";
-  state.basemapKey = next;
-
-  Object.entries(basemapLayers).forEach(([name, layer]) => {
-    layer.setVisible(name === next);
-  });
-
+  const next = BASEMAPS[key] ? key : "osm";
+  state.activeBasemap = next;
+  if (baseLayer) baseLayer.setSource(createBasemapSource(next));
   render();
 }
 
@@ -1077,7 +1634,7 @@ function startDraw(type) {
   drawInteraction.on("drawend", () => {
     map.removeInteraction(drawInteraction);
     drawInteraction = null;
-    toast("Geometry captured");
+    toast(t("geometry_captured"));
   });
   map.addInteraction(drawInteraction);
 }
@@ -1095,31 +1652,36 @@ async function createSurvey() {
   const title = document.getElementById("createSurveyTitle")?.value?.trim();
   const status = document.getElementById("createSurveyStatus")?.value?.trim() || "active";
   const f = drawnFeature();
-  if (!title) return alert("Enter title");
-  if (!f) return alert("Draw boundary first");
-  await fetchJson("/api/surveys", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({expedition_id:null,title,status,geometry:toGeoJSONGeometry(f),metadata:{}})});
+  if (!title) return alert(t("enter_title"));
+  if (!f) return alert(t("draw_boundary_first"));
+  const result = await fetchJson("/api/surveys", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({expedition_id:null,title,status,geometry:toGeoJSONGeometry(f),metadata:{}})});
   drawSource.clear();
   await loadSurveys();
-  toast("Survey created");
+  if (result?.survey_id) {
+    state.activeSurveyId = String(result.survey_id);
+    await loadSurveyFeatures(state.activeSurveyId, true);
+  }
+  render();
+  toast(t("survey_created"));
 }
 
 async function createObject() {
-  if (!state.activeSurveyId) return alert("Set active survey first");
+  if (!state.activeSurveyId) return alert(t("set_active_survey_first"));
   const f = drawnFeature();
-  if (!f) return alert("Draw geometry first");
+  if (!f) return alert(t("draw_boundary_first"));
   const type = document.getElementById("createObjectType")?.value || "note";
   const title = document.getElementById("createObjectTitle")?.value || null;
   const note = document.getElementById("createObjectNote")?.value || "";
   await fetchJson(`/api/surveys/${state.activeSurveyId}/objects`, {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({expedition_id:null,type,geometry:toGeoJSONGeometry(f),properties:{note},title,annotation:note,details:null})});
   drawSource.clear();
   await loadSurveyFeatures(state.activeSurveyId, false);
-  toast("Object created");
+  toast(t("object_created"));
 }
 
 async function saveSelection() {
-  if (!state.selection) return alert("Select an object first");
+  if (!state.selection) return alert(t("select_object_first"));
   const id = state.selection.properties.id;
-  if (!id) return alert("Selected feature cannot be edited");
+  if (!id) return alert(t("selected_feature_no_id"));
 
   const title = document.getElementById("editTitle")?.value || null;
   const note = document.getElementById("editNote")?.value || "";
@@ -1143,21 +1705,21 @@ async function saveSelection() {
     if (state.activeSurveyId) {
       await loadSurveyFeatures(state.activeSurveyId, false);
     }
-    toast("Saved");
+    toast(t("saved"));
   } catch (error) {
     console.error("saveSelection failed", error);
-    alert("Save failed: " + (error?.message || error));
+    alert(t("saved") + " failed: " + (error?.message || error));
   }
 }
 
 async function deleteSelection() {
-  if (!state.selection) return alert("Select object first");
+  if (!state.selection) return alert(t("select_object_first"));
   const id = state.selection.properties.id;
-  if (!id) return alert("Selected feature cannot be deleted");
+  if (!id) return alert(t("selected_feature_no_id"));
   await fetchJson(`/api/survey-objects/${id}`, {method:"DELETE"});
   setSelection(null);
   if (state.activeSurveyId) await loadSurveyFeatures(state.activeSurveyId, false);
-  toast("Deleted");
+  toast(t("deleted"));
 }
 
 function downloadText(name, content) {
@@ -1173,29 +1735,30 @@ function downloadText(name, content) {
 }
 
 async function exportLayer() {
-  if (!state.activeSurveyId) return alert("Set active survey first");
+  if (!state.activeSurveyId) return alert(t("set_active_survey_first"));
   const d = await fetchJson(`/api/surveys/${state.activeSurveyId}/export/layer.geojson`);
   downloadText(`survey_${state.activeSurveyId}_layer.geojson`, JSON.stringify(d,null,2));
 }
 async function exportData() {
-  if (!state.activeSurveyId) return alert("Set active survey first");
+  if (!state.activeSurveyId) return alert(t("set_active_survey_first"));
   const d = await fetchJson(`/api/surveys/${state.activeSurveyId}/export/data.json`);
   downloadText(`survey_${state.activeSurveyId}_data.json`, JSON.stringify(d,null,2));
 }
 async function exportDocument() {
-  if (!state.activeSurveyId) return alert("Set active survey first");
+  if (!state.activeSurveyId) return alert(t("set_active_survey_first"));
   const d = await fetchJson(`/api/surveys/${state.activeSurveyId}/export/document.json`);
   downloadText(`survey_${state.activeSurveyId}_document.json`, JSON.stringify(d,null,2));
 }
 async function exportPermission() {
-  if (!state.selection) return alert("Select feature first");
+  if (!state.selection) return alert(t("select_feature_first"));
   const out = await fetchJson("/api/permissions/export", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({layer:state.selection.layer, source_id:state.selection.id, description:"ui export"})});
-  toast(out.ok ? "Permission exported" : "Export failed");
+  toast(out.ok ? t("permission_exported") : t("export_failed"));
 }
 
 async function start() {
   css();
   state.manifest = await loadManifest();
+  document.documentElement.lang = state.lang || "en";
   initMap();
   render();
   await refreshSystem();
@@ -1207,7 +1770,7 @@ async function start() {
 Object.assign(window, {
   startGeometryEdit,stopGeometryEdit,saveGeometryEdit,resetSelectedGeometry,
   setLeft,setRight,toggleLeft,toggleRight,refreshSystem,setActiveSurvey,setActiveSurveyContext,loadSelectedSurvey,loadSurveys,loadLayers,loadSurveyFeatures,
-  toggleLayer,toggleLabels,startDraw,createSurvey,createObject,saveSelection,deleteSelection,
+  toggleLayer,toggleLabels,startDraw,setBasemap,createSurvey,createObject,saveSelection,deleteSelection,
   exportLayer,exportData,exportDocument,exportPermission
 });
 

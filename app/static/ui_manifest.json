@@ -5,14 +5,6 @@
       "title": "Survey"
     },
     {
-      "id": "manage",
-      "title": "Manage"
-    },
-    {
-      "id": "plan",
-      "title": "Plan"
-    },
-    {
       "id": "create",
       "title": "Create"
     },
@@ -23,12 +15,24 @@
     {
       "id": "export",
       "title": "Export"
+    },
+    {
+      "id": "manage",
+      "title": "Manage"
+    },
+    {
+      "id": "plan",
+      "title": "Plan"
     }
   ],
   "right": [
     {
       "id": "layers",
       "title": "Layers"
+    },
+    {
+      "id": "basemap",
+      "title": "Basemap"
     },
     {
       "id": "details",
