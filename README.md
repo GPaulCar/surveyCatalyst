@@ -37,6 +37,7 @@ The UI supports English and German, with the translation table in `app/static/ui
 
 Core workflow and stability notes:
 
+- [Installation guide](INSTALLATION.md)
 - [Survey workflow stability](docs/survey_workflow_stability.md)
 - [FastAPI / OpenLayers migration notes](docs/fastapi_openlayers_migration.md)
 - [Python environment setup](docs/python_environment_setup.md)
@@ -46,4 +47,3 @@ Selected historical notes and phase reports remain under `docs/` and `reports/`.
 ## Helper scripts archive
 
 Root-level helper `.py` files that are not part of the live runtime have been moved into `zip/` to keep the repository root clean.
-
