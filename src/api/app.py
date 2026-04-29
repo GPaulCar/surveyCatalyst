@@ -190,6 +190,63 @@ def _ensure_spatial_indexes() -> list[dict[str, Any]]:
         conn.close()
     return _get_spatial_index_status()
 
+
+PERMISSION_REQUEST_STATUSES = {
+    "draft",
+    "requested",
+    "granted",
+    "refused",
+    "expired",
+    "cancelled",
+}
+
+
+def _ensure_permission_request_table(conn) -> None:
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS permission_requests (
+                id SERIAL PRIMARY KEY,
+                survey_id INTEGER REFERENCES surveys(id) ON DELETE SET NULL,
+                feature_id INTEGER REFERENCES external_features(id) ON DELETE SET NULL,
+                layer TEXT NOT NULL,
+                source_id TEXT,
+                source_table TEXT,
+                status TEXT NOT NULL DEFAULT 'draft',
+                owner_name TEXT,
+                owner_contact TEXT,
+                notes TEXT,
+                properties JSONB NOT NULL DEFAULT '{}'::jsonb,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+            """
+        )
+        cur.execute(
+            "CREATE INDEX IF NOT EXISTS idx_permission_requests_survey_id ON permission_requests (survey_id)"
+        )
+        cur.execute(
+            "CREATE INDEX IF NOT EXISTS idx_permission_requests_feature_id ON permission_requests (feature_id)"
+        )
+
+
+def _permission_request_from_row(row) -> dict[str, Any]:
+    return {
+        "id": row[0],
+        "survey_id": row[1],
+        "feature_id": row[2],
+        "layer": row[3],
+        "source_id": row[4],
+        "source_table": row[5],
+        "status": row[6],
+        "owner_name": row[7],
+        "owner_contact": row[8],
+        "notes": row[9],
+        "properties": row[10] or {},
+        "created_at": row[11].isoformat() if row[11] else None,
+        "updated_at": row[12].isoformat() if row[12] else None,
+    }
+
 app = FastAPI(title="surveyCatalyst API", version="0.5.0")
 app.mount("/static", StaticFiles(directory=BASE_DIR / "app" / "static"), name="static")
 app.add_middleware(
@@ -625,6 +682,94 @@ def list_surveys():
     ]
 
 
+@app.get("/api/surveys/{survey_id}/permission-candidates")
+def list_permission_candidates(survey_id: int, limit: int = Query(default=25, ge=1, le=100)):
+    backend = build_backend()
+    conn = backend.connect()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT geom IS NOT NULL FROM surveys WHERE id = %s", (survey_id,))
+            survey_row = cur.fetchone()
+            if not survey_row:
+                raise HTTPException(status_code=404, detail="Survey not found")
+            if not survey_row[0]:
+                return {"survey_id": survey_id, "candidates": []}
+
+            cur.execute(
+                """
+                WITH survey AS (
+                    SELECT geom AS raw_geom, ST_MakeValid(geom) AS geom
+                    FROM surveys
+                    WHERE id = %s
+                )
+                SELECT
+                    ef.id,
+                    ef.layer,
+                    ef.source_id,
+                    ef.source_table,
+                    ef.properties,
+                    ST_Area(
+                        ST_Intersection(
+                            ST_Transform(ST_MakeValid(ef.geom), 3857),
+                            ST_Transform(s.geom, 3857)
+                        )
+                    ) AS overlap_area_m2
+                FROM external_features ef
+                CROSS JOIN survey s
+                WHERE ef.layer = 'parcel_boundaries'
+                  AND ef.geom IS NOT NULL
+                  AND ef.geom && s.raw_geom
+                  AND ST_Intersects(ef.geom, s.raw_geom)
+                ORDER BY overlap_area_m2 DESC NULLS LAST, ef.id
+                LIMIT %s
+                """,
+                (survey_id, limit),
+            )
+            rows = cur.fetchall()
+    finally:
+        conn.close()
+
+    return {
+        "survey_id": survey_id,
+        "layer": "parcel_boundaries",
+        "candidates": [
+            {
+                "feature_id": row[0],
+                "layer": row[1],
+                "source_id": row[2],
+                "source_table": row[3],
+                "properties": row[4] or {},
+                "overlap_area_m2": float(row[5] or 0),
+            }
+            for row in rows
+        ],
+    }
+
+
+@app.get("/api/surveys/{survey_id}/permission-requests")
+def list_permission_requests(survey_id: int):
+    backend = build_backend()
+    conn = backend.connect()
+    try:
+        _ensure_permission_request_table(conn)
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT id, survey_id, feature_id, layer, source_id, source_table, status,
+                       owner_name, owner_contact, notes, properties, created_at, updated_at
+                FROM permission_requests
+                WHERE survey_id = %s
+                ORDER BY updated_at DESC, id DESC
+                """,
+                (survey_id,),
+            )
+            rows = cur.fetchall()
+        conn.commit()
+    finally:
+        conn.close()
+    return {"survey_id": survey_id, "requests": [_permission_request_from_row(row) for row in rows]}
+
+
 @app.get("/api/surveys/{survey_id}")
 def get_survey(survey_id: int):
     try:
@@ -804,6 +949,11 @@ def _localize_message(message: str, lang: str) -> str:
         "Unable to validate geometry": "Geometrie konnte nicht validiert werden",
         "missing layer or source_id": "layer oder source_id fehlen",
         "feature not found": "Objekt nicht gefunden",
+        "survey_id is required": "survey_id ist erforderlich",
+        "feature_id must be an integer": "feature_id muss eine Ganzzahl sein",
+        "feature_id or source_id is required": "feature_id oder source_id ist erforderlich",
+        "invalid permission request status": "Ungültiger Status der Berechtigungsanfrage",
+        "permission request not found": "Berechtigungsanfrage nicht gefunden",
     }
     if message in exact:
         return exact[message]
@@ -962,9 +1112,14 @@ def export_permission(request: Request, payload: dict):
     lang = _request_lang(request)
     layer = str(payload.get("layer") or "").strip()
     source_id = str(payload.get("source_id") or "").strip()
+    feature_id_raw = payload.get("feature_id")
+    try:
+        feature_id = int(feature_id_raw) if feature_id_raw not in (None, "") else None
+    except (TypeError, ValueError):
+        feature_id = None
     description = str(payload.get("description") or "ui parcel export").strip()
 
-    if not layer or not source_id:
+    if not layer or (not source_id and not feature_id):
         return {"ok": False, "error": _localize_message("missing layer or source_id", lang)}
 
     def _slugify(value: str) -> str:
@@ -975,16 +1130,38 @@ def export_permission(request: Request, payload: dict):
     conn = backend.connect()
     try:
         with conn.cursor() as cur:
-            cur.execute(
-                """
-                SELECT layer, source_id, source_table, properties, ST_AsGeoJSON(geom)
-                FROM external_features
-                WHERE layer = %s AND source_id = %s
-                LIMIT 1
-                """,
-                (layer, source_id),
-            )
+            if feature_id:
+                cur.execute(
+                    """
+                    SELECT layer, source_id, source_table, properties, ST_AsGeoJSON(geom)
+                    FROM external_features
+                    WHERE id = %s AND layer = %s
+                    LIMIT 1
+                    """,
+                    (feature_id, layer),
+                )
+            else:
+                cur.execute(
+                    """
+                    SELECT layer, source_id, source_table, properties, ST_AsGeoJSON(geom)
+                    FROM external_features
+                    WHERE layer = %s AND source_id = %s
+                    LIMIT 1
+                    """,
+                    (layer, source_id),
+                )
             row = cur.fetchone()
+            if not row and source_id.isdigit():
+                cur.execute(
+                    """
+                    SELECT layer, source_id, source_table, properties, ST_AsGeoJSON(geom)
+                    FROM external_features
+                    WHERE id = %s AND layer = %s
+                    LIMIT 1
+                    """,
+                    (int(source_id), layer),
+                )
+                row = cur.fetchone()
     finally:
         conn.close()
 
@@ -1011,6 +1188,149 @@ def export_permission(request: Request, payload: dict):
     out.write_text(json.dumps(payload_out, indent=2), encoding="utf-8")
 
     return {"ok": True, "folder": str(folder)}
+
+
+@app.post("/api/permissions/requests")
+def create_permission_request(payload: dict):
+    try:
+        survey_id = int(payload.get("survey_id"))
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=400, detail="survey_id is required")
+
+    layer = str(payload.get("layer") or "parcel_boundaries").strip()
+    source_id = str(payload.get("source_id") or "").strip()
+    feature_id_raw = payload.get("feature_id")
+    try:
+        feature_id = int(feature_id_raw) if feature_id_raw not in (None, "") else None
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=400, detail="feature_id must be an integer")
+
+    if not feature_id and not source_id:
+        raise HTTPException(status_code=400, detail="feature_id or source_id is required")
+
+    status = str(payload.get("status") or "draft").strip().lower()
+    if status not in PERMISSION_REQUEST_STATUSES:
+        raise HTTPException(status_code=400, detail="invalid permission request status")
+
+    owner_name = str(payload.get("owner_name") or "").strip() or None
+    owner_contact = str(payload.get("owner_contact") or "").strip() or None
+    notes = str(payload.get("notes") or "").strip() or None
+
+    backend = build_backend()
+    conn = backend.connect()
+    try:
+        _ensure_permission_request_table(conn)
+        with conn.cursor() as cur:
+            cur.execute("SELECT 1 FROM surveys WHERE id = %s", (survey_id,))
+            if not cur.fetchone():
+                raise HTTPException(status_code=404, detail="Survey not found")
+
+            if feature_id:
+                cur.execute(
+                    """
+                    SELECT id, layer, source_id, source_table, properties
+                    FROM external_features
+                    WHERE id = %s
+                    LIMIT 1
+                    """,
+                    (feature_id,),
+                )
+            else:
+                cur.execute(
+                    """
+                    SELECT id, layer, source_id, source_table, properties
+                    FROM external_features
+                    WHERE layer = %s AND source_id = %s
+                    LIMIT 1
+                    """,
+                    (layer, source_id),
+                )
+            feature_row = cur.fetchone()
+            if not feature_row:
+                raise HTTPException(status_code=404, detail="feature not found")
+
+            cur.execute(
+                """
+                INSERT INTO permission_requests (
+                    survey_id, feature_id, layer, source_id, source_table, status,
+                    owner_name, owner_contact, notes, properties
+                )
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s::jsonb)
+                RETURNING id, survey_id, feature_id, layer, source_id, source_table, status,
+                          owner_name, owner_contact, notes, properties, created_at, updated_at
+                """,
+                (
+                    survey_id,
+                    feature_row[0],
+                    feature_row[1],
+                    feature_row[2],
+                    feature_row[3],
+                    status,
+                    owner_name,
+                    owner_contact,
+                    notes,
+                    json.dumps(feature_row[4] or {}),
+                ),
+            )
+            row = cur.fetchone()
+        conn.commit()
+    finally:
+        conn.close()
+
+    return {"ok": True, "request": _permission_request_from_row(row)}
+
+
+@app.patch("/api/permissions/requests/{request_id}")
+def update_permission_request(request_id: int, payload: dict):
+    fields: list[str] = []
+    params: list[Any] = []
+    if "status" in payload:
+        status = str(payload.get("status") or "").strip().lower()
+        if status not in PERMISSION_REQUEST_STATUSES:
+            raise HTTPException(status_code=400, detail="invalid permission request status")
+        fields.append("status = %s")
+        params.append(status)
+    for key in ("owner_name", "owner_contact", "notes"):
+        if key in payload:
+            value = str(payload.get(key) or "").strip() or None
+            fields.append(f"{key} = %s")
+            params.append(value)
+
+    backend = build_backend()
+    conn = backend.connect()
+    try:
+        _ensure_permission_request_table(conn)
+        with conn.cursor() as cur:
+            if fields:
+                params.append(request_id)
+                cur.execute(
+                    f"""
+                    UPDATE permission_requests
+                    SET {", ".join(fields)}, updated_at = NOW()
+                    WHERE id = %s
+                    RETURNING id, survey_id, feature_id, layer, source_id, source_table, status,
+                              owner_name, owner_contact, notes, properties, created_at, updated_at
+                    """,
+                    params,
+                )
+            else:
+                cur.execute(
+                    """
+                    SELECT id, survey_id, feature_id, layer, source_id, source_table, status,
+                           owner_name, owner_contact, notes, properties, created_at, updated_at
+                    FROM permission_requests
+                    WHERE id = %s
+                    """,
+                    (request_id,),
+                )
+            row = cur.fetchone()
+            if not row:
+                raise HTTPException(status_code=404, detail="permission request not found")
+        conn.commit()
+    finally:
+        conn.close()
+
+    return {"ok": True, "request": _permission_request_from_row(row)}
 # === ui2 scratch notes and selection support ===
 from pydantic import BaseModel
 

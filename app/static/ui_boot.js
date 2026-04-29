@@ -13,6 +13,9 @@ const state = {
   system: { api: false, db: false },
   labelVisibility: true,
   activeBasemap: "osm",
+  permissionCandidates: [],
+  permissionRequests: [],
+  permissionStatus: "",
   lang: (() => {
     const saved = (typeof localStorage !== "undefined" && localStorage.getItem("surveyCatalyst.lang")) || "";
     if (saved === "de" || saved === "en") return saved;
@@ -89,6 +92,21 @@ const I18N = {
     data: "Data",
     document: "Document",
     permission: "Permission",
+    permission_workflow: "Permission workflow",
+    ownership_notice: "Owner details are not sourced from map data. Add the lawful ownership source/contact details before sending requests.",
+    load_permission_candidates: "Load parcels",
+    load_requests: "Load requests",
+    permission_candidates: "Parcel candidates",
+    permission_requests: "Permission requests",
+    no_permission_candidates: "No parcel candidates loaded.",
+    no_permission_requests: "No permission requests recorded.",
+    owner_name: "Owner name",
+    owner_contact: "Owner contact",
+    request_notes: "Request notes",
+    create_request: "Create request",
+    candidate_overlap: "Overlap",
+    request_created: "Permission request created",
+    permission_candidates_loaded: "parcel candidate(s) loaded",
     export_selected: "Export selected",
     point_labels: "Point labels",
     basemaps: "Basemaps",
@@ -240,6 +258,21 @@ const I18N = {
     data: "Daten",
     document: "Dokument",
     permission: "Berechtigung",
+    permission_workflow: "Berechtigungsablauf",
+    ownership_notice: "Eigentümerdaten stammen nicht aus den Kartendaten. Erfassen Sie die rechtmäßige Quelle und Kontaktdaten, bevor Anfragen versendet werden.",
+    load_permission_candidates: "Flurstücke laden",
+    load_requests: "Anfragen laden",
+    permission_candidates: "Flurstück-Kandidaten",
+    permission_requests: "Berechtigungsanfragen",
+    no_permission_candidates: "Keine Flurstück-Kandidaten geladen.",
+    no_permission_requests: "Keine Berechtigungsanfragen erfasst.",
+    owner_name: "Eigentümername",
+    owner_contact: "Eigentümerkontakt",
+    request_notes: "Notizen zur Anfrage",
+    create_request: "Anfrage erstellen",
+    candidate_overlap: "Überlappung",
+    request_created: "Berechtigungsanfrage erstellt",
+    permission_candidates_loaded: "Flurstück-Kandidat(en) geladen",
     export_selected: "Auswahl exportieren",
     point_labels: "Punktbeschriftungen",
     basemaps: "Basiskarten",
@@ -1014,6 +1047,42 @@ function css() {
       margin:0;
       height:24px;
     }
+    .permission-row {
+      display:grid;
+      grid-template-columns:minmax(0, 1fr) auto;
+      gap:8px;
+      align-items:center;
+      padding:7px 0;
+      border-bottom:1px solid #eef2f7;
+    }
+    .permission-row:last-child { border-bottom:0; }
+    .permission-main {
+      min-width:0;
+      display:flex;
+      flex-direction:column;
+      gap:2px;
+    }
+    .permission-main strong {
+      font-size:11px;
+      line-height:14px;
+      color:#1f2937;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+    .permission-meta {
+      font-size:10px;
+      color:var(--muted);
+      line-height:13px;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+    .permission-row button {
+      margin:0;
+      height:24px;
+      white-space:nowrap;
+    }
     .props {
       font-size:11px;
     }
@@ -1241,6 +1310,8 @@ function setSelection(feature) {
   state.selection = {
     feature,
     id: props.source_id || props.id || "",
+    feature_id: props.id || "",
+    source_id: props.source_id || "",
     layer: props.layer || props.layer_key || props.source_table || "",
     title: props.title || props.name || props.place || props.feature_role || "Selected feature",
     properties: props
@@ -1405,6 +1476,27 @@ function layerObjectCount(layer) {
   return null;
 }
 
+function permissionCandidateLabel(candidate) {
+  const p = candidate?.properties || {};
+  return String(
+    p.name ||
+    p.label ||
+    p.parcel_id ||
+    p.flurstueck ||
+    p.ref ||
+    (p.landuse && `${p.landuse} #${candidate?.feature_id || ""}`) ||
+    candidate?.source_id ||
+    `#${candidate?.feature_id || ""}`
+  );
+}
+
+function formatArea(value) {
+  const n = Number(value || 0);
+  if (!Number.isFinite(n) || n <= 0) return "-";
+  if (n >= 10000) return `${(n / 10000).toFixed(2)} ha`;
+  return `${Math.round(n)} m2`;
+}
+
 function activeSurveyRecord() {
   const active = String(state.activeSurveyId || "");
   return surveyRows().find(s => surveyId(s) === active) || null;
@@ -1532,6 +1624,46 @@ function editBody() {
   `;
 }
 
+function permissionWorkflowBody() {
+  const candidates = state.permissionCandidates || [];
+  const requests = state.permissionRequests || [];
+  return `
+    <div class="section">
+      <div class="section-title">${esc(t("permission_workflow"))}</div>
+      <div class="hint">${esc(t("ownership_notice"))}</div>
+      <input id="permissionOwnerName" placeholder="${esc(t("owner_name"))}">
+      <input id="permissionOwnerContact" placeholder="${esc(t("owner_contact"))}">
+      <textarea id="permissionNotes" placeholder="${esc(t("request_notes"))}"></textarea>
+      <button class="primary" onclick="loadPermissionCandidates()">${esc(t("load_permission_candidates"))}</button>
+      <button onclick="loadPermissionRequests()">${esc(t("load_requests"))}</button>
+      ${state.permissionStatus ? `<div class="hint">${esc(state.permissionStatus)}</div>` : ""}
+    </div>
+    <div class="section">
+      <div class="section-title">${esc(t("permission_candidates"))}</div>
+      ${candidates.length ? candidates.map(candidate => `
+        <div class="permission-row">
+          <div class="permission-main">
+            <strong>${esc(permissionCandidateLabel(candidate))}</strong>
+            <span class="permission-meta">${esc(candidate.layer)} - ${esc(t("candidate_overlap"))}: ${esc(formatArea(candidate.overlap_area_m2))} - ${esc(t("id"))}: ${esc(candidate.source_id || candidate.feature_id)}</span>
+          </div>
+          <button onclick="createPermissionRequest(${Number(candidate.feature_id)})">${esc(t("create_request"))}</button>
+        </div>
+      `).join("") : `<div class="hint">${esc(t("no_permission_candidates"))}</div>`}
+    </div>
+    <div class="section">
+      <div class="section-title">${esc(t("permission_requests"))}</div>
+      ${requests.length ? requests.map(request => `
+        <div class="permission-row">
+          <div class="permission-main">
+            <strong>${esc(permissionCandidateLabel({properties: request.properties, source_id: request.source_id, feature_id: request.feature_id}))}</strong>
+            <span class="permission-meta">${esc(request.status)} - ${esc(t("id"))}: ${esc(request.id)} - ${esc(request.owner_name || request.owner_contact || "-")}</span>
+          </div>
+        </div>
+      `).join("") : `<div class="hint">${esc(t("no_permission_requests"))}</div>`}
+    </div>
+  `;
+}
+
 function exportBody() {
   return `
     <div class="section">
@@ -1545,6 +1677,7 @@ function exportBody() {
       <button class="primary" onclick="exportPermission()">${esc(t("export_selected"))}</button>
       <div class="hint">${esc(t("click_feature"))}</div>
     </div>
+    ${permissionWorkflowBody()}
   `;
 }
 
@@ -1657,6 +1790,9 @@ function toggleRight(){ state.rightOpen = !state.rightOpen; render(); }
 
 function setActiveSurveyContext(value) {
   state.activeSurveyId = value || null;
+  state.permissionCandidates = [];
+  state.permissionRequests = [];
+  state.permissionStatus = "";
   const survey = activeSurveyRecord();
   toast(survey ? `${t("survey_set")}: ${surveyName(survey)}` : t("no_survey_selected"));
   render();
@@ -1818,8 +1954,63 @@ async function exportDocument() {
 }
 async function exportPermission() {
   if (!state.selection) return alert(t("select_feature_first"));
-  const out = await fetchJson("/api/permissions/export", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({layer:state.selection.layer, source_id:state.selection.id, description:"ui export"})});
+  const out = await fetchJson("/api/permissions/export", {
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({
+      layer:state.selection.layer,
+      source_id:state.selection.source_id || state.selection.id,
+      feature_id:state.selection.feature_id,
+      description:"ui export"
+    })
+  });
   toast(out.ok ? t("permission_exported") : t("export_failed"));
+}
+
+async function loadPermissionCandidates() {
+  if (!state.activeSurveyId) return alert(t("set_active_survey_first"));
+  const payload = await fetchJson(`/api/surveys/${state.activeSurveyId}/permission-candidates?limit=25`);
+  state.permissionCandidates = Array.isArray(payload?.candidates) ? payload.candidates : [];
+  state.permissionStatus = `${state.permissionCandidates.length} ${t("permission_candidates_loaded")}`;
+  render();
+  toast(state.permissionStatus);
+}
+
+async function loadPermissionRequests(showToast = true) {
+  if (!state.activeSurveyId) return alert(t("set_active_survey_first"));
+  const payload = await fetchJson(`/api/surveys/${state.activeSurveyId}/permission-requests`);
+  state.permissionRequests = Array.isArray(payload?.requests) ? payload.requests : [];
+  if (showToast) toast(`${state.permissionRequests.length} ${t("permission_requests")}`);
+  render();
+}
+
+async function createPermissionRequest(featureId) {
+  if (!state.activeSurveyId) return alert(t("set_active_survey_first"));
+  const candidate = (state.permissionCandidates || []).find(c => Number(c.feature_id) === Number(featureId));
+  if (!candidate) return alert(t("select_feature_first"));
+  const ownerName = document.getElementById("permissionOwnerName")?.value || "";
+  const ownerContact = document.getElementById("permissionOwnerContact")?.value || "";
+  const notes = document.getElementById("permissionNotes")?.value || "";
+  const out = await fetchJson("/api/permissions/requests", {
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({
+      survey_id:Number(state.activeSurveyId),
+      feature_id:candidate.feature_id,
+      layer:candidate.layer,
+      source_id:candidate.source_id,
+      status:"draft",
+      owner_name:ownerName,
+      owner_contact:ownerContact,
+      notes
+    })
+  });
+  if (out?.request) {
+    state.permissionRequests = [out.request, ...(state.permissionRequests || [])];
+  }
+  state.permissionStatus = t("request_created");
+  render();
+  toast(t("request_created"));
 }
 
 async function start() {
@@ -1838,7 +2029,7 @@ Object.assign(window, {
   startGeometryEdit,stopGeometryEdit,saveGeometryEdit,resetSelectedGeometry,
   setLeft,setRight,toggleLeft,toggleRight,refreshSystem,setActiveSurvey,setActiveSurveyContext,loadSelectedSurvey,loadSurveys,loadLayers,loadSurveyFeatures,
   toggleLayer,toggleLabels,startDraw,setBasemap,createSurvey,createObject,saveSelection,deleteSelection,
-  exportLayer,exportData,exportDocument,exportPermission
+  exportLayer,exportData,exportDocument,exportPermission,loadPermissionCandidates,loadPermissionRequests,createPermissionRequest
 });
 
 start().catch(e => {
