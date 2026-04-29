@@ -11,7 +11,8 @@ const state = {
   selection: null,
   layerIndex: new Map(),
   system: { api: false, db: false },
-  labelVisibility: true
+  labelVisibility: true,
+  basemapKey: "osm"
 };
 
 let map;
@@ -19,6 +20,41 @@ let surveySource, surveyLayer;
 let selectionSource, selectionLayer;
 let drawSource, drawLayer, drawInteraction;
 let contextTileLayers = {};
+let basemapLayers = {};
+
+const BASEMAPS = {
+  none: {
+    label: "Off"
+  },
+  osm: {
+    label: "Street",
+    makeLayer: () => new ol.layer.Tile({
+      source: new ol.source.OSM({crossOrigin:"anonymous"}),
+      visible: true
+    })
+  },
+  opentopo: {
+    label: "Topo",
+    makeLayer: () => new ol.layer.Tile({
+      source: new ol.source.XYZ({
+        crossOrigin:"anonymous",
+        url:"https://{a-c}.tile.opentopomap.org/{z}/{x}/{y}.png"
+      }),
+      visible: false
+    })
+  },
+  satellite: {
+    label: "Satellite",
+    makeLayer: () => new ol.layer.Tile({
+      source: new ol.source.XYZ({
+        crossOrigin:"anonymous",
+        maxZoom: 9,
+        url:"https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/MODIS_Terra_CorrectedReflectance_TrueColor/default/GoogleMapsCompatible_Level9/{z}/{y}/{x}.jpg"
+      }),
+      visible: false
+    })
+  }
+};
 
 let modifyInteraction = null;
 let snapInteraction = null;
@@ -311,6 +347,15 @@ function css() {
       color:#334155;
       margin:0 0 6px 0;
     }
+    .basemap-grid {
+      display:grid;
+      grid-template-columns:repeat(2, minmax(0, 1fr));
+      gap:6px;
+    }
+    .basemap-btn {
+      width:100%;
+      margin:0;
+    }
     label {
       font-size:11px;
       color:#344054;
@@ -463,9 +508,15 @@ async function loadManifest() {
 }
 
 function initMap() {
+  basemapLayers = {
+    osm: BASEMAPS.osm.makeLayer(),
+    opentopo: BASEMAPS.opentopo.makeLayer(),
+    satellite: BASEMAPS.satellite.makeLayer()
+  };
+
   map = new ol.Map({
     target:"map",
-    layers:[new ol.layer.Tile({source:new ol.source.OSM()})],
+    layers:[basemapLayers.osm, basemapLayers.opentopo, basemapLayers.satellite],
     view:new ol.View({center:ol.proj.fromLonLat([11,48]), zoom:7})
   });
 
@@ -511,6 +562,7 @@ function initMap() {
   map.addLayer(surveyLayer);
   map.addLayer(drawLayer);
   map.addLayer(selectionLayer);
+  setBasemap(state.basemapKey);
 
   map.on("singleclick", e => {
     let hit = null;
@@ -894,6 +946,15 @@ function layersBody() {
 
   return `
     <div class="section">
+      <div class="section-title">Base maps</div>
+      <div class="basemap-grid">
+        ${Object.entries(BASEMAPS).map(([key, entry]) => `
+          <button class="basemap-btn ${state.basemapKey === key ? "primary" : ""}" onclick="setBasemap('${esc(key)}')">${esc(entry.label)}</button>
+        `).join("")}
+      </div>
+      <div class="hint">Select one background map or turn basemaps off entirely.</div>
+    </div>
+    <div class="section">
       <label><input type="checkbox" ${state.labelVisibility ? "checked" : ""} onchange="toggleLabels(this.checked)"> Point labels</label>
     </div>
     ${Object.keys(groups).sort().map(g => `
@@ -995,6 +1056,17 @@ function toggleLabels(value) {
   state.labelVisibility = !!value;
   syncContextLayers();
   toast(value ? "Labels on" : "Labels off");
+}
+
+function setBasemap(key) {
+  const next = BASEMAPS[key] ? key : "none";
+  state.basemapKey = next;
+
+  Object.entries(basemapLayers).forEach(([name, layer]) => {
+    layer.setVisible(name === next);
+  });
+
+  render();
 }
 
 function startDraw(type) {

@@ -11,6 +11,7 @@ Updated after the geometry-edit repair and API/schema alignment.
 5. Create a survey object with GeoJSON geometry.
 6. Select the object, use `Edit geometry`, then `Save geometry`.
 7. Reload the survey hierarchy or features to confirm the geometry persisted.
+8. Use the Layers panel to switch basemaps on or off while keeping survey and object layers intact.
 
 ## Request limit
 
@@ -26,4 +27,5 @@ The current UI requests `20000` features when loading a survey so the visible wo
 
 - Survey geometry updates are persisted through the survey object PATCH endpoint.
 - The frontend sends GeoJSON geometry, `type`, `properties`, `title`, `annotation`, `details`, and `is_active`.
+- Basemap selection is a client-side background toggle in the Layers panel, not a survey data change.
 - Large background layers should continue to use the tile-backed path rather than direct JSON expansion.
