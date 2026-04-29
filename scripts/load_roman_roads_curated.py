@@ -85,7 +85,7 @@ def load_geojson(path: Path) -> int:
                     INSERT INTO external_features (layer, geom, properties, source_table, source_id)
                     VALUES (
                         %s,
-                        ST_SetSRID(ST_GeomFromGeoJSON(%s), 4326),
+                        ST_Force2D(ST_SetSRID(ST_GeomFromGeoJSON(%s), 4326)),
                         %s::jsonb,
                         %s,
                         %s

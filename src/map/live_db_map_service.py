@@ -18,7 +18,10 @@ class LiveDBMapService:
                     GROUP BY layer
                 ),
                 survey_counts AS (
-                    SELECT s.layer_key AS layer_key, COUNT(so.id) FILTER (WHERE so.is_active = TRUE) AS object_count
+                    SELECT
+                        s.layer_key AS layer_key,
+                        COUNT(so.id) FILTER (WHERE so.is_active = TRUE)
+                            + CASE WHEN BOOL_OR(s.geom IS NOT NULL) THEN 1 ELSE 0 END AS object_count
                     FROM surveys s
                     LEFT JOIN survey_objects so ON so.survey_id = s.id
                     WHERE s.layer_key IS NOT NULL
@@ -48,6 +51,8 @@ class LiveDBMapService:
                 LEFT JOIN external_counts ec ON ec.layer_key = lr.layer_key
                 LEFT JOIN survey_total_count st ON st.layer_key = lr.layer_key
                 LEFT JOIN survey_object_total_count sot ON sot.layer_key = lr.layer_key
+                WHERE lr.layer_group <> 'context'
+                   OR COALESCE(sc.object_count, ec.object_count, st.object_count, sot.object_count, 0) > 0
                 ORDER BY layer_group, sort_order, layer_name
                 '''
             )
