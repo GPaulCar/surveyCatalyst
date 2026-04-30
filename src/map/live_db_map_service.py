@@ -53,6 +53,7 @@ class LiveDBMapService:
                 LEFT JOIN survey_object_total_count sot ON sot.layer_key = lr.layer_key
                 WHERE lr.layer_group <> 'context'
                    OR COALESCE(sc.object_count, ec.object_count, st.object_count, sot.object_count, 0) > 0
+                   OR lower(COALESCE(lr.metadata->>'always_show', 'false')) IN ('true', '1', 'yes')
                 ORDER BY layer_group, sort_order, layer_name
                 '''
             )

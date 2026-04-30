@@ -247,7 +247,7 @@ def _permission_request_from_row(row) -> dict[str, Any]:
         "updated_at": row[12].isoformat() if row[12] else None,
     }
 
-app = FastAPI(title="surveyCatalyst API", version="0.5.0")
+app = FastAPI(title="surveyCatalyst API", version="0.6.0")
 app.mount("/static", StaticFiles(directory=BASE_DIR / "app" / "static"), name="static")
 app.add_middleware(
     CORSMiddleware,
@@ -515,7 +515,7 @@ def get_logs(limit: int = Query(100, ge=1, le=500)):
 
 @app.get("/api")
 def api_root():
-    return {"name": "surveyCatalyst API", "version": "0.5.0"}
+    return {"name": "surveyCatalyst API", "version": "0.6.0"}
 
 
 @app.get("/api/admin/index-status")

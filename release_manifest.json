@@ -1,0 +1,12 @@
+{
+  "app": "surveyCatalyst",
+  "version": "0.6.0",
+  "runtime": "portable-postgresql-postgis",
+  "status": "minor-release",
+  "includes": [
+    "layer_registry_master.csv",
+    "db/migrations/0004_master_layer_registry.sql",
+    "src/layers/master_registry_service.py",
+    "scripts/import_layer_registry_master.py"
+  ]
+}
