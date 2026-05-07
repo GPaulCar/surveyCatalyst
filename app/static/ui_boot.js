@@ -11,6 +11,17 @@ const state = {
   selection: null,
   layerIndex: new Map(),
   system: { api: false, db: false },
+  admin: {
+    services: {},
+    logs: [],
+    selectedLog: "",
+    logMode: "tail",
+    logQuery: "",
+    logLines: 200,
+    logOutput: [],
+    logStatus: "",
+    actionStatus: ""
+  },
   labelVisibility: true,
   activeBasemap: "osm",
   permissionCandidates: [],
@@ -40,7 +51,7 @@ const I18N = {
     tab_create: "Create",
     tab_edit: "Edit",
     tab_export: "Export",
-    tab_manage: "Manage",
+    tab_manage: "Admin",
     tab_plan: "Plan",
     tab_layers: "Layers",
     tab_basemap: "Basemap",
@@ -69,6 +80,38 @@ const I18N = {
     objects: "Objects",
     survey_context_hint: "This tab only selects the active survey context. Creation and editing remain separate workflows.",
     system: "System",
+    service_controls: "Service controls",
+    api_service: "API service",
+    database_service: "Database service",
+    all_services: "All services",
+    start: "Start",
+    stop: "Stop",
+    restart: "Restart",
+    logs: "Logs",
+    log_file: "Log file",
+    tail: "Tail",
+    search: "Search",
+    search_logs: "Search logs",
+    clear_screen: "Clear screen",
+    lines: "Lines",
+    query: "Search text",
+    output: "Output",
+    load_logs: "Load logs",
+    no_logs_loaded: "No logs loaded.",
+    no_log_output: "No log output.",
+    action_scheduled: "Action scheduled",
+    action_complete: "Action complete",
+    log_loaded: "Log loaded",
+    legal_restrictions: "Legal restrictions",
+    legal_high: "High",
+    legal_protected: "Protected",
+    legal_verify: "Verify",
+    legal_restriction_notice: "Restriction display is a planning aid. Verify current permission and law before fieldwork.",
+    legal_restriction_layer: "Legal restriction layer",
+    visible: "Visible",
+    available_context_layers: "Available context layers",
+    active_planning_scope: "Active planning scope",
+    records: "Records",
     title: "Title",
     draw_boundary: "Draw boundary",
     create: "Create",
@@ -152,6 +195,18 @@ const I18N = {
     object_created: "Object created",
     saved: "Saved",
     deleted: "Deleted",
+    archive: "Archive",
+    archive_survey: "Archive survey",
+    delete_survey: "Delete survey",
+    archive_object: "Archive object",
+    confirm_archive_survey: "Archive this survey?",
+    confirm_delete_survey: "Delete this survey and all of its objects?",
+    confirm_archive_object: "Archive this survey object?",
+    confirm_delete_object: "Delete this survey object?",
+    survey_archived: "Survey archived",
+    survey_deleted: "Survey deleted",
+    object_archived: "Object archived",
+    object_deleted: "Object deleted",
     permission_exported: "Permission exported",
     export_failed: "Export failed",
     geometry_captured: "Geometry captured",
@@ -206,7 +261,7 @@ const I18N = {
     tab_create: "Erstellen",
     tab_edit: "Bearbeiten",
     tab_export: "Export",
-    tab_manage: "Verwalten",
+    tab_manage: "Admin",
     tab_plan: "Planung",
     tab_layers: "Ebenen",
     tab_basemap: "Basiskarte",
@@ -235,6 +290,38 @@ const I18N = {
     objects: "Objekte",
     survey_context_hint: "Dieser Tab wählt nur die aktive Umfrage aus. Erstellen und Bearbeiten bleiben getrennte Arbeitsabläufe.",
     system: "System",
+    service_controls: "Dienststeuerung",
+    api_service: "API-Dienst",
+    database_service: "Datenbankdienst",
+    all_services: "Alle Dienste",
+    start: "Starten",
+    stop: "Stoppen",
+    restart: "Neustart",
+    logs: "Protokolle",
+    log_file: "Protokolldatei",
+    tail: "Tail",
+    search: "Suche",
+    search_logs: "Protokolle suchen",
+    clear_screen: "Ausgabe leeren",
+    lines: "Zeilen",
+    query: "Suchtext",
+    output: "Ausgabe",
+    load_logs: "Protokolle laden",
+    no_logs_loaded: "Keine Protokolle geladen.",
+    no_log_output: "Keine Protokollausgabe.",
+    action_scheduled: "Aktion geplant",
+    action_complete: "Aktion abgeschlossen",
+    log_loaded: "Protokoll geladen",
+    legal_restrictions: "Rechtliche Einschränkungen",
+    legal_high: "Hoch",
+    legal_protected: "Geschützt",
+    legal_verify: "Prüfen",
+    legal_restriction_notice: "Die Restriktionsanzeige ist eine Planungshilfe. Prüfen Sie aktuelle Genehmigungen und Rechtslage vor der Feldarbeit.",
+    legal_restriction_layer: "Ebene rechtlicher Einschränkungen",
+    visible: "Sichtbar",
+    available_context_layers: "Verfügbare Kontext-Ebenen",
+    active_planning_scope: "Aktiver Planungsbereich",
+    records: "Datensätze",
     title: "Titel",
     draw_boundary: "Grenze zeichnen",
     create: "Erstellen",
@@ -318,6 +405,18 @@ const I18N = {
     object_created: "Objekt erstellt",
     saved: "Gespeichert",
     deleted: "Gelöscht",
+    archive: "Archivieren",
+    archive_survey: "Umfrage archivieren",
+    delete_survey: "Umfrage löschen",
+    archive_object: "Objekt archivieren",
+    confirm_archive_survey: "Diese Umfrage archivieren?",
+    confirm_delete_survey: "Diese Umfrage und alle zugehörigen Objekte löschen?",
+    confirm_archive_object: "Dieses Umfrageobjekt archivieren?",
+    confirm_delete_object: "Dieses Umfrageobjekt löschen?",
+    survey_archived: "Umfrage archiviert",
+    survey_deleted: "Umfrage gelöscht",
+    object_archived: "Objekt archiviert",
+    object_deleted: "Objekt gelöscht",
     permission_exported: "Berechtigung exportiert",
     export_failed: "Export fehlgeschlagen",
     geometry_captured: "Geometrie erfasst",
@@ -384,7 +483,7 @@ function tTab(id, fallback) {
 }
 
 function fallbackTabTitle(id) {
-  return ({survey:"Survey", create:"Create", edit:"Edit", export:"Export", manage:"Manage", plan:"Plan", layers:"Layers", basemap:"Basemap", details:"Details", region:"Region", notes:"Notes"})[id] || id;
+  return ({survey:"Survey", create:"Create", edit:"Edit", export:"Export", manage:"Admin", plan:"Plan", layers:"Layers", basemap:"Basemap", details:"Details", region:"Region", notes:"Notes"})[id] || id;
 }
 
 function setLanguage(lang) {
@@ -504,7 +603,7 @@ async function saveGeometryEdit() {
     return;
   }
 
-  const id = state.selection.properties.id;
+  const id = selectedSurveyObjectId();
   if (!id) {
     alert(t("selected_feature_no_id"));
     return;
@@ -1047,6 +1146,82 @@ function css() {
       margin:0;
       height:24px;
     }
+    .admin-service-grid {
+      display:grid;
+      grid-template-columns:1fr;
+      gap:7px;
+    }
+    .admin-service-card {
+      border:1px solid #e2e8f0;
+      border-radius:5px;
+      padding:8px;
+      background:#fbfcfe;
+    }
+    .admin-service-head {
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:8px;
+      margin-bottom:7px;
+    }
+    .admin-service-title {
+      font-size:11px;
+      font-weight:750;
+      color:#1f2937;
+    }
+    .admin-actions {
+      display:flex;
+      flex-wrap:wrap;
+      gap:5px;
+    }
+    .admin-actions button {
+      margin:0;
+      height:24px;
+    }
+    .admin-log-controls {
+      display:grid;
+      grid-template-columns:minmax(0, 1fr) 82px;
+      gap:6px;
+      align-items:end;
+    }
+    .admin-log-controls select,
+    .admin-log-controls input {
+      margin-bottom:0;
+    }
+    .admin-log-output {
+      height:220px;
+      overflow:auto;
+      white-space:pre-wrap;
+      word-break:break-word;
+      padding:8px;
+      border:1px solid #cbd5e1;
+      border-radius:5px;
+      background:#0f172a;
+      color:#dbeafe;
+      font-family:Consolas, "Courier New", monospace;
+      font-size:10px;
+      line-height:14px;
+    }
+    .legal-legend {
+      display:grid;
+      grid-template-columns:repeat(3, minmax(0, 1fr));
+      gap:5px;
+      margin-top:7px;
+    }
+    .legal-legend span {
+      display:flex;
+      align-items:center;
+      gap:5px;
+      font-size:10px;
+      color:#475467;
+      min-width:0;
+    }
+    .legal-swatch {
+      width:10px;
+      height:10px;
+      border-radius:2px;
+      flex:0 0 auto;
+    }
     .permission-row {
       display:grid;
       grid-template-columns:minmax(0, 1fr) auto;
@@ -1144,7 +1319,7 @@ async function loadManifest() {
     return await fetchJson("/static/ui_manifest.json?ts=" + Date.now());
   } catch {
     return {
-      left: [{id:"survey",title:"Survey"},{id:"create",title:"Create"},{id:"edit",title:"Edit"},{id:"export",title:"Export"},{id:"manage",title:"Manage"},{id:"plan",title:"Plan"}],
+      left: [{id:"survey",title:"Survey"},{id:"create",title:"Create"},{id:"edit",title:"Edit"},{id:"export",title:"Export"},{id:"manage",title:"Admin"},{id:"plan",title:"Plan"}],
       right: [{id:"layers",title:"Layers"},{id:"basemap",title:"Basemap"},{id:"details",title:"Details"},{id:"region",title:"Region"},{id:"notes",title:"Notes"}]
     };
   }
@@ -1225,6 +1400,50 @@ function layerColour(key) {
   return "#475569";
 }
 
+function legalRestrictionSeverity(feature) {
+  const fields = [
+    feature.get("legal_severity"),
+    feature.get("restriction_level"),
+    feature.get("severity"),
+    feature.get("restriction_label"),
+    feature.get("metal_detecting_status"),
+    feature.get("category"),
+    feature.get("siteprotectionclassification"),
+    feature.get("designationasstring"),
+    feature.get("name")
+  ].filter(Boolean).join(" ").toLowerCase();
+
+  if (fields.includes("high") || fields.includes("prohibit") || fields.includes("verbot") || fields.includes("bodendenkmal") || fields.includes("archaeolog")) return "high";
+  if (fields.includes("medium") || fields.includes("protected") || fields.includes("restricted") || fields.includes("denkmal") || fields.includes("cultural")) return "medium";
+  return "verify";
+}
+
+function legalRestrictionStyle(feature, gt) {
+  const severity = legalRestrictionSeverity(feature);
+  const palette = {
+    high: {stroke:"#b42318", fill:"rgba(180,35,24,.28)"},
+    medium: {stroke:"#ea580c", fill:"rgba(234,88,12,.20)"},
+    verify: {stroke:"#d97706", fill:"rgba(217,119,6,.14)"}
+  }[severity];
+
+  if (gt.includes("POINT")) {
+    return new ol.style.Style({
+      image:new ol.style.Circle({
+        radius:5,
+        fill:new ol.style.Fill({color:palette.stroke}),
+        stroke:new ol.style.Stroke({color:"#fff",width:1})
+      })
+    });
+  }
+  if (gt.includes("LINE")) {
+    return new ol.style.Style({stroke:new ol.style.Stroke({color:palette.stroke,width:2})});
+  }
+  return new ol.style.Style({
+    stroke:new ol.style.Stroke({color:palette.stroke,width:1.4}),
+    fill:new ol.style.Fill({color:palette.fill})
+  });
+}
+
 function makeStyle(layer) {
   return feature => {
     const key = layer.layer_key || "";
@@ -1232,6 +1451,10 @@ function makeStyle(layer) {
     const gt = (feature.getGeometry()?.getType?.() || "").toUpperCase();
     const name = feature.get("name") || feature.get("title") || feature.get("place") || "";
     const styles = [];
+
+    if (key === "legal_restricted_areas" || key.startsWith("legal_")) {
+      return legalRestrictionStyle(feature, gt);
+    }
 
     if (gt.includes("POINT")) {
       styles.push(new ol.style.Style({
@@ -1322,15 +1545,116 @@ function setSelection(feature) {
 
 async function refreshSystem() {
   try {
-    const r = await fetch("/health", {cache:"no-store"});
-    state.system = {api:r.ok, db:r.ok};
+    const payload = await fetchJson("/api/admin/system/status");
+    state.admin.services = payload?.services || {};
+    state.system = {
+      api:!!state.admin.services.api?.running,
+      db:!!state.admin.services.database?.running
+    };
   } catch {
-    state.system = {api:false, db:false};
+    try {
+      const r = await fetch("/health", {cache:"no-store"});
+      state.system = {api:r.ok, db:false};
+    } catch {
+      state.system = {api:false, db:false};
+    }
   }
   render();
 }
 
-window.loadSurveys = async function loadSurveys() {
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function serviceInfo(key) {
+  return state.admin.services?.[key] || {};
+}
+
+async function controlAdminService(target, action) {
+  state.admin.actionStatus = `${target} ${action}...`;
+  render();
+  try {
+    const payload = await fetchJson(`/api/admin/system/${target}/${action}`, {method:"POST"});
+    state.admin.actionStatus = payload?.scheduled ? t("action_scheduled") : t("action_complete");
+    if (payload?.status) {
+      state.admin.services = payload.status;
+      state.system = {
+        api:!!state.admin.services.api?.running,
+        db:!!state.admin.services.database?.running
+      };
+    }
+    render();
+    toast(state.admin.actionStatus);
+    await sleep(payload?.scheduled ? 1800 : 300);
+    await refreshSystem();
+  } catch (error) {
+    state.admin.actionStatus = String(error?.message || error);
+    render();
+    alert(state.admin.actionStatus);
+  }
+}
+
+async function loadAdminLogs(showToast = false) {
+  try {
+    const payload = await fetchJson("/api/admin/log-files");
+    state.admin.logs = Array.isArray(payload?.logs) ? payload.logs : [];
+    if (!state.admin.selectedLog && state.admin.logs.length) {
+      const preferred = state.admin.logs.find(l => l.name === "api.err.log")
+        || state.admin.logs.find(l => l.name === "admin_control.log")
+        || state.admin.logs[0];
+      state.admin.selectedLog = preferred.name;
+    }
+    state.admin.logStatus = `${state.admin.logs.length} ${t("logs")}`;
+    render();
+    if (showToast) toast(state.admin.logStatus);
+  } catch (error) {
+    state.admin.logStatus = String(error?.message || error);
+    render();
+  }
+}
+
+function readAdminLogControls() {
+  state.admin.selectedLog = document.getElementById("adminLogSelect")?.value || state.admin.selectedLog || "";
+  state.admin.logMode = document.getElementById("adminLogMode")?.value || state.admin.logMode || "tail";
+  state.admin.logQuery = document.getElementById("adminLogQuery")?.value || "";
+  const lineValue = Number(document.getElementById("adminLogLines")?.value || state.admin.logLines || 200);
+  state.admin.logLines = Number.isFinite(lineValue) ? Math.max(1, Math.min(lineValue, 1000)) : 200;
+}
+
+async function viewAdminLog(mode) {
+  readAdminLogControls();
+  if (mode) state.admin.logMode = mode;
+  if (!state.admin.selectedLog) {
+    state.admin.logStatus = t("no_logs_loaded");
+    render();
+    return;
+  }
+  const params = new URLSearchParams({
+    name: state.admin.selectedLog,
+    mode: state.admin.logMode,
+    lines: String(state.admin.logLines),
+    q: state.admin.logQuery || ""
+  });
+  try {
+    const payload = await fetchJson(`/api/admin/logs?${params.toString()}`);
+    state.admin.logOutput = Array.isArray(payload?.lines) ? payload.lines : [];
+    state.admin.logStatus = `${t("log_loaded")}: ${payload?.returned ?? state.admin.logOutput.length}/${payload?.total_lines ?? "-"}`;
+    render();
+  } catch (error) {
+    state.admin.logStatus = String(error?.message || error);
+    render();
+    alert(state.admin.logStatus);
+  }
+}
+
+function clearAdminLogOutput() {
+  state.admin.logOutput = [];
+  state.admin.logStatus = "";
+  render();
+}
+
+window.loadSurveys = async function loadSurveys(options = {}) {
+  const autoSelect = options?.autoSelect !== false;
   try {
     const payload = await fetchJson("/api/surveys");
     state.surveys = normaliseSurveyPayload(payload);
@@ -1340,7 +1664,7 @@ window.loadSurveys = async function loadSurveys() {
       state.activeSurveyId = null;
     }
 
-    if (!state.activeSurveyId && state.surveys.length) {
+    if (autoSelect && !state.activeSurveyId && state.surveys.length) {
       state.activeSurveyId = surveyId(state.surveys[0]);
     }
   } catch (error) {
@@ -1432,7 +1756,7 @@ function panelTabs(side) {
 function leftBody() {
   if (state.activeLeft === "survey") return surveyBody();
   if (state.activeLeft === "manage") return manageBody();
-  if (state.activeLeft === "plan") return `<div class="section"><div class="section-title">${esc(t("planning_context"))}</div><div class="hint">${esc(t("planning_context"))}</div></div>`;
+  if (state.activeLeft === "plan") return planBody();
   if (state.activeLeft === "create") return createBody();
   if (state.activeLeft === "edit") return editBody();
   if (state.activeLeft === "export") return exportBody();
@@ -1502,6 +1826,11 @@ function activeSurveyRecord() {
   return surveyRows().find(s => surveyId(s) === active) || null;
 }
 
+function selectedSurveyObjectId() {
+  const props = state.selection?.properties || {};
+  return props.feature_role === "survey_object" ? props.id : "";
+}
+
 function normaliseSurveyPayload(payload) {
   if (Array.isArray(payload)) return payload;
   if (payload && Array.isArray(payload.surveys)) return payload.surveys;
@@ -1545,18 +1874,119 @@ function surveyBody() {
       <div class="row"><span>${esc(t("status"))}</span><strong>${esc(active ? surveyStatus(active) : "-")}</strong></div>
       <div class="row"><span>${esc(t("id"))}</span><strong>${esc(active ? surveyId(active) : "-")}</strong></div>
       <div class="row"><span>${esc(t("objects"))}</span><strong>${esc(active ? (active.object_count ?? active.feature_count ?? active.objects?.length ?? "-") : "-")}</strong></div>
+      ${active ? `
+        <button onclick="archiveActiveSurvey()">${esc(t("archive_survey"))}</button>
+        <button class="danger" onclick="deleteActiveSurvey()">${esc(t("delete_survey"))}</button>
+      ` : ""}
       <div class="hint">${esc(t("survey_context_hint"))}</div>
     </div>
   `;
 }
 
-function manageBody() {
+function planBody() {
+  const active = activeSurveyRecord();
+  const contextLayers = (state.layers || []).filter(layer => layer.layer_group === "context");
+  const legalLayer = (state.layers || []).find(layer => layer.layer_key === "legal_restricted_areas");
   return `
     <div class="section">
-      <div class="section-title">${esc(t("system"))}</div>
-      <div class="row"><span>${esc(t("api"))}</span><span class="badge ${state.system.api ? "on" : ""}">${state.system.api ? "ON" : "OFF"}</span></div>
-      <div class="row"><span>${esc(t("db"))}</span><span class="badge ${state.system.db ? "on" : ""}">${state.system.db ? "ON" : "OFF"}</span></div>
+      <div class="section-title">${esc(t("active_planning_scope"))}</div>
+      <div class="row"><span>${esc(t("survey"))}</span><strong>${esc(active ? surveyName(active) : t("no_survey_selected"))}</strong></div>
+      <div class="row"><span>${esc(t("id"))}</span><strong>${esc(active ? surveyId(active) : "-")}</strong></div>
+      <div class="row"><span>${esc(t("selection"))}</span><strong>${esc(state.selection ? state.selection.title : "none")}</strong></div>
+    </div>
+    <div class="section">
+      <div class="section-title">${esc(t("legal_restriction_layer"))}</div>
+      <div class="row"><span>${esc(t("visible"))}</span><strong>${esc(legalLayer?.is_visible ? t("yes") : t("no"))}</strong></div>
+      <div class="row"><span>${esc(t("records"))}</span><strong>${esc(legalLayer?.object_count ?? legalLayer?.feature_count ?? 0)}</strong></div>
+      <div class="hint">${esc(t("legal_restriction_notice"))}</div>
+    </div>
+    <div class="section">
+      <div class="section-title">${esc(t("available_context_layers"))}</div>
+      <div class="row"><span>${esc(t("layers"))}</span><strong>${esc(contextLayers.length)}</strong></div>
+      <button onclick="setRight('layers')">${esc(t("layers"))}</button>
+      <button onclick="setRight('details')">${esc(t("details"))}</button>
+    </div>
+  `;
+}
+
+function manageBody() {
+  const api = serviceInfo("api");
+  const db = serviceInfo("database");
+  const logOptions = (state.admin.logs || []).map(log => {
+    const sizeKb = Math.max(1, Math.round((log.size || 0) / 1024));
+    return `<option value="${esc(log.name)}" ${log.name === state.admin.selectedLog ? "selected" : ""}>${esc(log.name)} (${sizeKb} KB)</option>`;
+  }).join("");
+  const output = (state.admin.logOutput || []).length
+    ? esc((state.admin.logOutput || []).join("\n"))
+    : esc(t("no_log_output"));
+  return `
+    <div class="section">
+      <div class="section-title">${esc(t("service_controls"))}</div>
+      <div class="admin-service-grid">
+        ${adminServiceCard("all", t("all_services"), state.system.api && state.system.db, null)}
+        ${adminServiceCard("api", t("api_service"), !!api.running, api)}
+        ${adminServiceCard("database", t("database_service"), !!db.running, db)}
+      </div>
       <button onclick="refreshSystem()">${esc(t("refresh"))}</button>
+      ${state.admin.actionStatus ? `<div class="hint">${esc(state.admin.actionStatus)}</div>` : ""}
+    </div>
+    <div class="section">
+      <div class="section-title">${esc(t("logs"))}</div>
+      <label>${esc(t("log_file"))}</label>
+      <select id="adminLogSelect" onchange="readAdminLogControls()">
+        ${logOptions || `<option value="">${esc(t("no_logs_loaded"))}</option>`}
+      </select>
+      <div class="admin-log-controls">
+        <div>
+          <label>${esc(t("search"))}</label>
+          <input id="adminLogQuery" value="${esc(state.admin.logQuery)}" placeholder="${esc(t("query"))}">
+        </div>
+        <div>
+          <label>${esc(t("lines"))}</label>
+          <input id="adminLogLines" type="number" min="1" max="1000" value="${esc(state.admin.logLines)}">
+        </div>
+      </div>
+      <select id="adminLogMode" onchange="readAdminLogControls()">
+        <option value="tail" ${state.admin.logMode === "tail" ? "selected" : ""}>${esc(t("tail"))}</option>
+        <option value="search" ${state.admin.logMode === "search" ? "selected" : ""}>${esc(t("search_logs"))}</option>
+      </select>
+      <button class="primary" onclick="viewAdminLog('tail')">${esc(t("tail"))}</button>
+      <button onclick="viewAdminLog('search')">${esc(t("search"))}</button>
+      <button onclick="loadAdminLogs(true)">${esc(t("load_logs"))}</button>
+      <button onclick="clearAdminLogOutput()">${esc(t("clear_screen"))}</button>
+      ${state.admin.logStatus ? `<div class="hint">${esc(state.admin.logStatus)}</div>` : ""}
+    </div>
+    <div class="section">
+      <div class="section-title">${esc(t("output"))}</div>
+      <pre class="admin-log-output">${output}</pre>
+    </div>
+    <div class="section">
+      <div class="section-title">${esc(t("legal_restrictions"))}</div>
+      <div class="hint">${esc(t("legal_restriction_notice"))}</div>
+      <div class="legal-legend">
+        <span><i class="legal-swatch" style="background:#b42318"></i>${esc(t("legal_high"))}</span>
+        <span><i class="legal-swatch" style="background:#ea580c"></i>${esc(t("legal_protected"))}</span>
+        <span><i class="legal-swatch" style="background:#d97706"></i>${esc(t("legal_verify"))}</span>
+      </div>
+    </div>
+  `;
+}
+
+function adminServiceCard(target, title, running, detail) {
+  const stateText = running ? "ON" : "OFF";
+  const port = detail?.port ? `:${detail.port}` : "";
+  const pid = detail?.pid ? ` pid ${detail.pid}` : "";
+  return `
+    <div class="admin-service-card">
+      <div class="admin-service-head">
+        <div class="admin-service-title">${esc(title)}${esc(port)}${esc(pid)}</div>
+        <span class="badge ${running ? "on" : ""}">${esc(stateText)}</span>
+      </div>
+      <div class="admin-actions">
+        <button class="primary" onclick="controlAdminService('${esc(target)}','start')">${esc(t("start"))}</button>
+        <button onclick="controlAdminService('${esc(target)}','restart')">${esc(t("restart"))}</button>
+        <button class="danger" onclick="controlAdminService('${esc(target)}','stop')">${esc(t("stop"))}</button>
+      </div>
     </div>
   `;
 }
@@ -1594,6 +2024,7 @@ function createBody() {
 function editBody() {
   const survey = activeSurveyRecord();
   const p = state.selection?.properties || {};
+  const objectId = selectedSurveyObjectId();
   return `
     <div class="section">
       <div class="section-title">${esc(t("active_survey"))}</div>
@@ -1603,7 +2034,7 @@ function editBody() {
       <div class="row"><span>${esc(t("objects"))}</span><strong>${esc(survey ? (survey.object_count ?? survey.feature_count ?? survey.objects?.length ?? "-") : "-")}</strong></div>
       <div class="hint">${esc(t("select_object_hint"))}</div>
     </div>
-    ${state.selection ? `
+    ${state.selection && objectId ? `
     <div class="section">
       <div class="section-title">${esc(t("selected_object"))}</div>
       <input id="editTitle" value="${esc(p.title || state.selection.title || "")}" placeholder="${esc(t("title"))}">
@@ -1614,6 +2045,7 @@ function editBody() {
       <button onclick="saveGeometryEdit()">${esc(t("save_geometry"))}</button>
       <button onclick="resetSelectedGeometry()">${esc(t("reset_geometry"))}</button>
       <button onclick="stopGeometryEdit()">${esc(t("stop_edit"))}</button>
+      <button onclick="archiveSelection()">${esc(t("archive_object"))}</button>
       <button class="danger" onclick="deleteSelection()">${esc(t("delete"))}</button>
 
       <div class="hint">
@@ -1769,7 +2201,7 @@ function titleFor(side, id) {
 function subtitleFor(id) {
   return {
     survey:t("survey_context"),
-    manage:t("workspace_controls"),
+    manage:t("service_controls"),
     plan:t("planning_context"),
     create:t("survey_hint"),
     edit:t("select_object_hint"),
@@ -1783,7 +2215,12 @@ function subtitleFor(id) {
 }
 
 
-function setLeft(id){ state.activeLeft = id; state.leftOpen = true; render(); }
+function setLeft(id){
+  state.activeLeft = id;
+  state.leftOpen = true;
+  render();
+  if (id === "manage" && !state.admin.logs.length) loadAdminLogs(false);
+}
 function setRight(id){ state.activeRight = id; state.rightOpen = true; render(); }
 function toggleLeft(){ state.leftOpen = !state.leftOpen; render(); }
 function toggleRight(){ state.rightOpen = !state.rightOpen; render(); }
@@ -1807,6 +2244,43 @@ function setActiveSurvey() {
 async function loadSelectedSurvey(zoom) {
   if (!state.activeSurveyId) return alert(t("select_survey_first"));
   await loadSurveyFeatures(state.activeSurveyId, zoom);
+}
+
+async function archiveActiveSurvey() {
+  const survey = activeSurveyRecord();
+  if (!survey) return alert(t("select_survey_first"));
+  if (!confirm(`${t("confirm_archive_survey")} ${surveyName(survey)}`)) return;
+
+  await fetchJson(`/api/surveys/${surveyId(survey)}/archive`, {method:"POST"});
+  surveySource.clear();
+  setSelection(null);
+  state.activeSurveyId = null;
+  state.permissionCandidates = [];
+  state.permissionRequests = [];
+  state.permissionStatus = "";
+  await loadSurveys({autoSelect:false});
+  await loadLayers();
+  render();
+  toast(t("survey_archived"));
+}
+
+async function deleteActiveSurvey() {
+  const survey = activeSurveyRecord();
+  if (!survey) return alert(t("select_survey_first"));
+  if (!confirm(`${t("confirm_delete_survey")} ${surveyName(survey)}`)) return;
+
+  await fetchJson(`/api/surveys/${surveyId(survey)}`, {method:"DELETE"});
+  surveySource.clear();
+  drawSource.clear();
+  setSelection(null);
+  state.activeSurveyId = null;
+  state.permissionCandidates = [];
+  state.permissionRequests = [];
+  state.permissionStatus = "";
+  await loadSurveys({autoSelect:false});
+  await loadLayers();
+  render();
+  toast(t("survey_deleted"));
 }
 
 function toggleLayer(key, value) {
@@ -1877,13 +2351,14 @@ async function createObject() {
   const note = document.getElementById("createObjectNote")?.value || "";
   await fetchJson(`/api/surveys/${state.activeSurveyId}/objects`, {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({expedition_id:null,type,geometry:toGeoJSONGeometry(f),properties:{note},title,annotation:note,details:null})});
   drawSource.clear();
+  await loadSurveys();
   await loadSurveyFeatures(state.activeSurveyId, false);
   toast(t("object_created"));
 }
 
 async function saveSelection() {
   if (!state.selection) return alert(t("select_object_first"));
-  const id = state.selection.properties.id;
+  const id = selectedSurveyObjectId();
   if (!id) return alert(t("selected_feature_no_id"));
 
   const title = document.getElementById("editTitle")?.value || null;
@@ -1917,12 +2392,30 @@ async function saveSelection() {
 
 async function deleteSelection() {
   if (!state.selection) return alert(t("select_object_first"));
-  const id = state.selection.properties.id;
+  const id = selectedSurveyObjectId();
   if (!id) return alert(t("selected_feature_no_id"));
+  if (!confirm(t("confirm_delete_object"))) return;
   await fetchJson(`/api/survey-objects/${id}`, {method:"DELETE"});
   setSelection(null);
+  await loadSurveys();
   if (state.activeSurveyId) await loadSurveyFeatures(state.activeSurveyId, false);
-  toast(t("deleted"));
+  toast(t("object_deleted"));
+}
+
+async function archiveSelection() {
+  if (!state.selection) return alert(t("select_object_first"));
+  const id = selectedSurveyObjectId();
+  if (!id) return alert(t("selected_feature_no_id"));
+  if (!confirm(t("confirm_archive_object"))) return;
+  await fetchJson(`/api/survey-objects/${id}`, {
+    method:"PATCH",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({is_active:false})
+  });
+  setSelection(null);
+  await loadSurveys();
+  if (state.activeSurveyId) await loadSurveyFeatures(state.activeSurveyId, false);
+  toast(t("object_archived"));
 }
 
 function downloadText(name, content) {
@@ -2020,6 +2513,7 @@ async function start() {
   initMap();
   render();
   await refreshSystem();
+  await loadAdminLogs(false);
   await loadSurveys();
   await loadLayers();
   render();
@@ -2028,7 +2522,8 @@ async function start() {
 Object.assign(window, {
   startGeometryEdit,stopGeometryEdit,saveGeometryEdit,resetSelectedGeometry,
   setLeft,setRight,toggleLeft,toggleRight,refreshSystem,setActiveSurvey,setActiveSurveyContext,loadSelectedSurvey,loadSurveys,loadLayers,loadSurveyFeatures,
-  toggleLayer,toggleLabels,startDraw,setBasemap,createSurvey,createObject,saveSelection,deleteSelection,
+  controlAdminService,loadAdminLogs,readAdminLogControls,viewAdminLog,clearAdminLogOutput,
+  toggleLayer,toggleLabels,startDraw,setBasemap,createSurvey,createObject,saveSelection,archiveSelection,deleteSelection,archiveActiveSurvey,deleteActiveSurvey,
   exportLayer,exportData,exportDocument,exportPermission,loadPermissionCandidates,loadPermissionRequests,createPermissionRequest
 });
 

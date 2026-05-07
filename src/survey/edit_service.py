@@ -183,11 +183,46 @@ class SurveyEditService:
             with conn.cursor() as cur:
                 cur.execute("SELECT layer_key FROM surveys WHERE id = %s", (survey_id,))
                 row = cur.fetchone()
-                layer_key = row[0] if row else f"survey_{survey_id}"
+                if not row:
+                    raise RuntimeError(f"Survey {survey_id} not found")
+                layer_key = row[0] or f"survey_{survey_id}"
                 cur.execute("DELETE FROM survey_objects WHERE survey_id = %s", (survey_id,))
+                deleted_object_count = cur.rowcount
                 cur.execute("DELETE FROM layers_registry WHERE layer_key = %s", (layer_key,))
                 cur.execute("DELETE FROM surveys WHERE id = %s", (survey_id,))
             conn.commit()
+            return {"survey_id": survey_id, "layer_key": layer_key, "deleted_object_count": deleted_object_count}
+        finally:
+            conn.close()
+
+    def archive_survey(self, survey_id: int):
+        conn = self.backend.connect()
+        try:
+            with conn.cursor() as cur:
+                cur.execute("SELECT layer_key FROM surveys WHERE id = %s", (survey_id,))
+                row = cur.fetchone()
+                if not row:
+                    raise RuntimeError(f"Survey {survey_id} not found")
+                layer_key = row[0] or f"survey_{survey_id}"
+                cur.execute(
+                    """
+                    UPDATE surveys
+                    SET status = 'archived'
+                    WHERE id = %s
+                    """,
+                    (survey_id,),
+                )
+                cur.execute(
+                    """
+                    UPDATE layers_registry
+                    SET is_visible = FALSE,
+                        updated_at = NOW()
+                    WHERE layer_key = %s
+                    """,
+                    (layer_key,),
+                )
+            conn.commit()
+            return {"survey_id": survey_id, "layer_key": layer_key, "status": "archived"}
         finally:
             conn.close()
 
@@ -324,8 +359,13 @@ class SurveyEditService:
         conn = self.backend.connect()
         try:
             with conn.cursor() as cur:
+                cur.execute("SELECT layer_key FROM survey_objects WHERE id = %s", (object_id,))
+                row = cur.fetchone()
+                if not row:
+                    raise RuntimeError(f"Survey object {object_id} not found")
                 cur.execute('DELETE FROM survey_objects WHERE id = %s', (object_id,))
             conn.commit()
+            return {"object_id": object_id, "layer_key": row[0]}
         finally:
             conn.close()
 

@@ -129,7 +129,28 @@ class BLfDProvider(BaseProvider):
                         jsonb_build_object(
                             'name', name,
                             'category', category,
-                            'source', source
+                            'source', source,
+                            'legal_severity',
+                                CASE
+                                    WHEN lower(COALESCE(category, '') || ' ' || COALESCE(name, '') || ' ' || properties::text)
+                                         ~ '(bodendenkmal|archaeolog|archaeological|ground monument)'
+                                        THEN 'high'
+                                    WHEN lower(COALESCE(category, '') || ' ' || COALESCE(name, '') || ' ' || properties::text)
+                                         ~ '(denkmal|monument|protected|cultural|restricted)'
+                                        THEN 'medium'
+                                    ELSE 'medium'
+                                END,
+                            'restriction_label',
+                                CASE
+                                    WHEN lower(COALESCE(category, '') || ' ' || COALESCE(name, '') || ' ' || properties::text)
+                                         ~ '(bodendenkmal|archaeolog|archaeological|ground monument)'
+                                        THEN 'High legal restriction'
+                                    WHEN lower(COALESCE(category, '') || ' ' || COALESCE(name, '') || ' ' || properties::text)
+                                         ~ '(denkmal|monument|protected|cultural|restricted)'
+                                        THEN 'Protected/restricted area'
+                                    ELSE 'Restriction requires verification'
+                                END,
+                            'metal_detecting_status', 'Restricted - verify legal permission before detecting'
                         ) || properties
                     )
                 FROM {self.schema_name}.restricted_areas
@@ -151,16 +172,20 @@ class BLfDProvider(BaseProvider):
 
         self.register_layer(
             "legal_restricted_areas",
-            "Restricted Areas",
+            "No Metal Detecting / Legal Restrictions",
             "legal.restricted_areas",
             "GEOMETRY",
             {
                 "source_key": self.source_key,
+                "subgroup": "legal_permission",
                 "wms_url": self.WMS_URL,
                 "wfs_url": self.WFS_URL,
                 "typename": effective_typename,
                 "loaded": loaded,
                 "projected": projected,
+                "always_show": True,
+                "severity_field": "legal_severity",
+                "description": "Protected and restricted areas where metal detecting may be prohibited or require explicit permission. Verify current legal status before fieldwork.",
             },
             sort_order=230,
         )

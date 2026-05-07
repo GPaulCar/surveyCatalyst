@@ -17,6 +17,7 @@ from fastapi.staticfiles import StaticFiles
 
 from core.db import build_backend
 from map.live_db_map_service import LiveDBMapService
+from management.admin_runtime_service import AdminRuntimeService
 from survey.edit_service import SurveyEditService
 from .schemas import SurveyCreate, SurveyObjectCreate, SurveyObjectUpdate, SurveyUpdate
 
@@ -249,6 +250,7 @@ def _permission_request_from_row(row) -> dict[str, Any]:
 
 app = FastAPI(title="surveyCatalyst API", version="0.6.0")
 app.mount("/static", StaticFiles(directory=BASE_DIR / "app" / "static"), name="static")
+admin_runtime = AdminRuntimeService()
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -509,8 +511,48 @@ def health():
 
 
 @app.get("/api/admin/logs")
-def get_logs(limit: int = Query(100, ge=1, le=500)):
+def get_logs(
+    limit: int = Query(100, ge=1, le=500),
+    name: str | None = None,
+    mode: str = Query("tail", pattern="^(tail|search)$"),
+    lines: int = Query(200, ge=1, le=1000),
+    q: str = "",
+    case_sensitive: bool = False,
+):
+    if name:
+        try:
+            return admin_runtime.read_log(
+                name=name,
+                mode=mode,
+                lines=lines,
+                query=q,
+                case_sensitive=case_sensitive,
+            )
+        except FileNotFoundError as exc:
+            raise HTTPException(status_code=404, detail="Log file not found") from exc
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
     return {"lines": list(API_LOG_BUFFER)[-limit:]}
+
+
+@app.get("/api/admin/log-files")
+def admin_log_files():
+    return admin_runtime.list_logs()
+
+
+@app.get("/api/admin/system/status")
+def admin_system_status():
+    return admin_runtime.system_status()
+
+
+@app.post("/api/admin/system/{target}/{action}")
+def admin_system_action(target: str, action: str):
+    try:
+        return admin_runtime.run_action(target=target, action=action)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 
 @app.get("/api")
@@ -824,9 +866,25 @@ def update_survey(survey_id: int, payload: SurveyUpdate):
 @app.delete("/api/surveys/{survey_id}")
 def delete_survey(survey_id: int):
     layer_key = _get_survey_layer_key(survey_id)
-    SurveyEditService().delete_survey(survey_id)
-    invalidation = _clear_tile_cache_for_layers([layer_key] if layer_key else [])
-    return {"ok": True, "cache_invalidation": invalidation}
+    try:
+        result = SurveyEditService().delete_survey(survey_id)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    invalidation_layer = layer_key or result.get("layer_key")
+    invalidation = _clear_tile_cache_for_layers([invalidation_layer] if invalidation_layer else [])
+    return {"ok": True, **result, "cache_invalidation": invalidation}
+
+
+@app.post("/api/surveys/{survey_id}/archive")
+def archive_survey(survey_id: int):
+    layer_key = _get_survey_layer_key(survey_id)
+    try:
+        result = SurveyEditService().archive_survey(survey_id)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    invalidation_layer = layer_key or result.get("layer_key")
+    invalidation = _clear_tile_cache_for_layers([invalidation_layer] if invalidation_layer else [])
+    return {"ok": True, **result, "cache_invalidation": invalidation}
 
 
 @app.post("/api/surveys/{survey_id}/objects")
@@ -878,9 +936,13 @@ def update_survey_object(object_id: int, payload: SurveyObjectUpdate):
 @app.delete("/api/survey-objects/{object_id}")
 def delete_survey_object(object_id: int):
     layer_key = _get_object_survey_layer_key(object_id)
-    SurveyEditService().delete_survey_object(object_id)
-    invalidation = _clear_tile_cache_for_layers([layer_key] if layer_key else [])
-    return {"ok": True, "cache_invalidation": invalidation}
+    try:
+        result = SurveyEditService().delete_survey_object(object_id)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    invalidation_layer = layer_key or result.get("layer_key")
+    invalidation = _clear_tile_cache_for_layers([invalidation_layer] if invalidation_layer else [])
+    return {"ok": True, **result, "cache_invalidation": invalidation}
 
 
 @app.get("/api/surveys/{survey_id}/export/layer.geojson")
