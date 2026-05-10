@@ -6,6 +6,7 @@ const state = {
   activeSurveyId: null,
   activeLeft: "survey",
   activeRight: "layers",
+  activeDetailsChild: "properties",
   leftOpen: true,
   rightOpen: true,
   selection: {
@@ -33,6 +34,7 @@ const state = {
   activeLayerRegion: "auto",
   autoLayerRegion: "global",
   layerEfficiency: null,
+  lookupData: null,
   identifyRequestSeq: 0,
   permissionCandidates: [],
   permissionRequests: [],
@@ -173,6 +175,15 @@ const I18N = {
     no_layers_loaded: "No layers loaded.",
     region: "Region",
     details: "Feature inspection",
+    details_properties: "Properties",
+    details_lookup: "Lookup",
+    lookup_request: "Lookup Context",
+    lookup_pending: "Looking up context sources...",
+    lookup_none: "No lookup data loaded.",
+    lookup_open_wikipedia: "Open Wikipedia",
+    lookup_open_osm: "Open OSM",
+    lookup_sources: "Sources",
+    lookup_location: "Location",
     identify_results: "Identify results",
     no_identify_results: "No identify results.",
     identify_pending: "Identifying visible layers...",
@@ -492,6 +503,15 @@ const I18N = {
     no_layers_loaded: "Keine Ebenen geladen.",
     region: "Region",
     details: "Objektprüfung",
+    details_properties: "Attribute",
+    details_lookup: "Nachschlagen",
+    lookup_request: "Kontext nachschlagen",
+    lookup_pending: "Kontextquellen werden abgefragt...",
+    lookup_none: "Keine Nachschlage-Daten geladen.",
+    lookup_open_wikipedia: "Wikipedia öffnen",
+    lookup_open_osm: "OSM öffnen",
+    lookup_sources: "Quellen",
+    lookup_location: "Ort",
     identify_results: "Identifizierung",
     no_identify_results: "Keine Identifizierungsergebnisse.",
     identify_pending: "Sichtbare Ebenen werden identifiziert...",
@@ -1411,6 +1431,8 @@ function paintSelectionFeature(feature) {
 function setSelectionState(selection, options = {}) {
   const next = selection?.feature || selection?.type ? selection : emptySelection();
   state.selection = next;
+  state.lookupData = null;
+  state.activeDetailsChild = "properties";
   paintSelectionFeature(next.feature);
 
   if (next.surveyId) {
@@ -1555,6 +1577,90 @@ function zoomToSelection() {
   const geometry = feature?.getGeometry?.();
   if (!geometry) return alert(t("select_feature_first"));
   map.getView().fit(geometry.getExtent(), {padding:[42,42,42,42], maxZoom:18});
+}
+
+function detailsChildTab(id) {
+  state.activeDetailsChild = id === "lookup" ? "lookup" : "properties";
+  render();
+}
+
+function selectionLookupContext(selection = state.selection) {
+  const props = selection?.properties || {};
+  const primary = identifyPrimaryProperties(selection);
+  const title = String(
+    props.title || props.name || props.label || props.place || primary.title || primary.name || ""
+  ).trim();
+
+  let lon = Number(props.click_lon ?? primary.click_lon ?? props.lon ?? props.lng ?? primary.lon ?? primary.lng);
+  let lat = Number(props.click_lat ?? primary.click_lat ?? props.lat ?? primary.lat);
+
+  if ((!Number.isFinite(lon) || !Number.isFinite(lat)) && map) {
+    const feature = selection?.feature || findLoadedSelectionFeature(selection);
+    const geometry = feature?.getGeometry?.();
+    if (geometry) {
+      const extent = geometry.getExtent();
+      const center = ol.extent.getCenter(extent);
+      [lon, lat] = ol.proj.toLonLat(center);
+    }
+  }
+
+  return {
+    title,
+    lon: Number.isFinite(lon) ? lon : null,
+    lat: Number.isFinite(lat) ? lat : null
+  };
+}
+
+async function loadLookupData() {
+  if (!hasSelection()) return alert(t("select_feature_first"));
+  const context = selectionLookupContext();
+  if (!context.title && (!Number.isFinite(context.lon) || !Number.isFinite(context.lat))) {
+    return alert(t("request_failed"));
+  }
+
+  state.lookupData = {pending: true, context};
+  render();
+
+  const wikiHost = state.lang === "de" ? "de.wikipedia.org" : "en.wikipedia.org";
+  const wikiSearchUrl = context.title
+    ? `https://${wikiHost}/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(context.title)}&srlimit=1&format=json&origin=*`
+    : null;
+  const osmUrl = (Number.isFinite(context.lon) && Number.isFinite(context.lat))
+    ? `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${encodeURIComponent(String(context.lat))}&lon=${encodeURIComponent(String(context.lon))}&zoom=16&addressdetails=1`
+    : null;
+
+  try {
+    let wiki = null;
+    if (wikiSearchUrl) {
+      const search = await fetch(wikiSearchUrl, {cache: "no-store"}).then(r => r.json());
+      const title = search?.query?.search?.[0]?.title;
+      if (title) {
+        const summaryUrl = `https://${wikiHost}/api/rest_v1/page/summary/${encodeURIComponent(title)}`;
+        const summary = await fetch(summaryUrl, {cache: "no-store"}).then(r => r.json());
+        wiki = {
+          title: summary?.title || title,
+          extract: summary?.extract || "",
+          url: summary?.content_urls?.desktop?.page || `https://${wikiHost}/wiki/${encodeURIComponent(title)}`
+        };
+      }
+    }
+
+    let osm = null;
+    if (osmUrl) {
+      const reverse = await fetch(osmUrl, {cache: "no-store"}).then(r => r.json());
+      osm = {
+        displayName: reverse?.display_name || "",
+        url: Number.isFinite(context.lon) && Number.isFinite(context.lat)
+          ? `https://www.openstreetmap.org/?mlat=${encodeURIComponent(String(context.lat))}&mlon=${encodeURIComponent(String(context.lon))}#map=16/${encodeURIComponent(String(context.lat))}/${encodeURIComponent(String(context.lon))}`
+          : ""
+      };
+    }
+
+    state.lookupData = {pending: false, context, wiki, osm};
+  } catch (error) {
+    state.lookupData = {pending: false, context, error: String(error?.message || error)};
+  }
+  render();
 }
 
 
@@ -1841,6 +1947,31 @@ function css() {
       border-bottom:1px solid #e5e7eb;
     }
     .section:last-child { border-bottom:0; }
+    .detail-child-tabs {
+      display:flex;
+      gap:4px;
+      margin:0 0 8px;
+    }
+    .detail-child-tabs .tab {
+      margin:0;
+      height:25px;
+      line-height:23px;
+      border-color:#cbd5e1;
+      background:#fff;
+      color:#334155;
+    }
+    .detail-child-tabs .tab.active {
+      color:#172033;
+      border-color:#a9c4ee;
+      background:#eaf2ff;
+    }
+    .lookup-links a {
+      display:inline-block;
+      margin-right:8px;
+      color:#1f5fbf;
+      text-decoration:none;
+      font-weight:600;
+    }
     .section-title {
       font-size:10px;
       font-weight:700;
@@ -3425,12 +3556,52 @@ function basemapBody() {
   `;
 }
 
+function detailsLookupBody() {
+  const lookup = state.lookupData;
+  const context = selectionLookupContext();
+  const hasPoint = Number.isFinite(context.lon) && Number.isFinite(context.lat);
+  const coordText = hasPoint ? `${context.lat.toFixed(5)}, ${context.lon.toFixed(5)}` : "-";
+  return `
+    <div class="section">
+      <div class="section-title">${esc(t("lookup_sources"))}</div>
+      <button onclick="loadLookupData()">${esc(t("lookup_request"))}</button>
+      ${lookup?.pending ? `<div class="hint">${esc(t("lookup_pending"))}</div>` : ""}
+      ${lookup?.error ? `<div class="hint">${esc(t("request_failed"))}: ${esc(lookup.error)}</div>` : ""}
+      <div class="row"><span>${esc(t("lookup_location"))}</span><strong>${esc(coordText)}</strong></div>
+      ${lookup?.wiki?.url || lookup?.osm?.url ? `
+      <div class="lookup-links">
+        ${lookup?.wiki?.url ? `<a href="${esc(lookup.wiki.url)}" target="_blank" rel="noopener noreferrer">${esc(t("lookup_open_wikipedia"))}</a>` : ""}
+        ${lookup?.osm?.url ? `<a href="${esc(lookup.osm.url)}" target="_blank" rel="noopener noreferrer">${esc(t("lookup_open_osm"))}</a>` : ""}
+      </div>` : ""}
+    </div>
+    ${lookup?.wiki ? `
+    <div class="section">
+      <div class="section-title">Wikipedia</div>
+      <div class="row"><span>${esc(t("title"))}</span><strong>${esc(lookup.wiki.title || "-")}</strong></div>
+      <div class="hint">${esc(lookup.wiki.extract || "-")}</div>
+    </div>` : ""}
+    ${lookup?.osm ? `
+    <div class="section">
+      <div class="section-title">OSM / Nominatim</div>
+      <div class="hint">${esc(lookup.osm.displayName || "-")}</div>
+    </div>` : ""}
+    ${!lookup ? `<div class="section"><div class="hint">${esc(t("lookup_none"))}</div></div>` : ""}
+  `;
+}
+
 function detailsBody() {
   if (!hasSelection()) return `<div class="section"><div class="hint">${esc(t("click_feature"))}</div></div>`;
+  const tabs = `
+    <div class="detail-child-tabs">
+      <button class="tab ${state.activeDetailsChild === "properties" ? "active" : ""}" onclick="detailsChildTab('properties')">${esc(t("details_properties"))}</button>
+      <button class="tab ${state.activeDetailsChild === "lookup" ? "active" : ""}" onclick="detailsChildTab('lookup')">${esc(t("details_lookup"))}</button>
+    </div>
+  `;
+  if (state.activeDetailsChild === "lookup") return tabs + detailsLookupBody();
   const selection = state.selection;
-  if (selection.type === "identify") return identifyBody();
+  if (selection.type === "identify") return tabs + identifyBody();
   const p = selection.properties || {};
-  return `
+  return tabs + `
     <div class="section">
       <div class="section-title">${esc(selectionTitle())}</div>
       <div class="hint">${esc(t("layer"))}: ${esc(selectionLayerLabel(selection) || "-")}<br>${esc(t("id"))}: ${esc(selectionRecordId(selection) || "-")}<br>${esc(t("status"))}: ${esc(selectionTypeLabel(selection?.type))}</div>
@@ -3831,6 +4002,7 @@ async function start() {
 
 Object.assign(window, {
   startGeometryEdit,stopGeometryEdit,saveGeometryEdit,resetSelectedGeometry,zoomToSelection,
+  detailsChildTab,loadLookupData,
   setLanguage,setLeft,setRight,toggleLeft,toggleRight,refreshSystem,setActiveSurvey,setActiveSurveyContext,loadSelectedSurvey,loadSurveys,loadLayers,loadSurveyFeatures,
   controlAdminService,loadAdminLogs,readAdminLogControls,viewAdminLog,clearAdminLogOutput,
   toggleLayer,toggleLabels,setLayerRegion,startDraw,setBasemap,createSurvey,createObject,saveSelection,archiveSelection,deleteSelection,archiveActiveSurvey,deleteActiveSurvey,
