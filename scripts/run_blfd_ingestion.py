@@ -13,7 +13,7 @@ from data.ingestion.providers.blfd import BLfDProvider
 
 def main():
     typename = None
-    max_features = 5000
+    max_features = BLfDProvider.DEFAULT_MAX_FEATURES
 
     args = sys.argv[1:]
     if args:

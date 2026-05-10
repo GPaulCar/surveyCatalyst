@@ -208,7 +208,8 @@ def load_features(layer_key: str, source_table: str, kind: str, features: list[d
     try:
         with conn.cursor() as cur:
             cur.execute("DELETE FROM external_features WHERE layer = %s", (layer_key,))
-            for feat in features:
+            print(f"[INFO] loading {len(features)} {layer_key} features into PostGIS", flush=True)
+            for index, feat in enumerate(features, start=1):
                 props = feat["properties"]
                 source_id = str(props.get("osm_id") or "")
                 geom_expr = "ST_Force2D(ST_SetSRID(ST_GeomFromGeoJSON(%s), 4326))"
@@ -235,6 +236,8 @@ def load_features(layer_key: str, source_table: str, kind: str, features: list[d
                     ),
                 )
                 inserted += 1
+                if inserted % 1000 == 0:
+                    print(f"[LOAD] {layer_key}: inserted {inserted}/{len(features)}", flush=True)
         conn.commit()
     finally:
         conn.close()
@@ -256,11 +259,14 @@ def ingest_layer(layer_key: str, cfg: dict) -> None:
         payload, saved = fetch(query, layer_key, part=part)
         saved_files.append(saved)
         print(f"[INFO] raw saved to {saved}")
-        all_elements.extend(payload.get("elements") or [])
+        elements = payload.get("elements") or []
+        print(f"[INFO] {layer_key}{f' part {idx}/{len(queries)}' if part is not None else ''}: source elements={len(elements)}", flush=True)
+        all_elements.extend(elements)
 
     seen = set()
     features = []
-    for element in all_elements:
+    print(f"[INFO] {layer_key}: total source elements={len(all_elements)}", flush=True)
+    for index, element in enumerate(all_elements, start=1):
         feature = element_to_feature(element, cfg["kind"])
         if not feature:
             continue
@@ -269,7 +275,10 @@ def ingest_layer(layer_key: str, cfg: dict) -> None:
             continue
         seen.add(key)
         features.append(feature)
+        if index % 10000 == 0:
+            print(f"[PARSE] {layer_key}: scanned {index}/{len(all_elements)} elements, features={len(features)}", flush=True)
 
+    print(f"[INFO] {layer_key}: parsed features={len(features)}", flush=True)
     inserted = load_features(layer_key, cfg["source_table"], cfg["kind"], features)
     print(f"[DONE] {layer_key}: source={len(all_elements)} loaded={inserted}")
 

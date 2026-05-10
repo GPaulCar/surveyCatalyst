@@ -80,5 +80,21 @@ class RealIngestionService:
             self._finish_run(run_id, Failed())
             raise
 
+    def run_all(self, force: bool = False):
+        results = {}
+        for source_key in self.list_sources():
+            try:
+                results[source_key] = self.run_one(source_key, force=force)
+            except Exception as exc:
+                results[source_key] = {
+                    "source_key": source_key,
+                    "status": "failed",
+                    "message": str(exc),
+                }
+        return results
+
     def list_sources(self):
         return sorted(PROVIDERS.keys())
+
+
+IngestionService = RealIngestionService

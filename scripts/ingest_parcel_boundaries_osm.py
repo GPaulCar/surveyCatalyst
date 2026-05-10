@@ -120,7 +120,8 @@ def load_features(features: list[dict]) -> int:
         with conn.cursor() as cur:
             ensure_registry(cur)
             cur.execute("DELETE FROM external_features WHERE layer = %s", (LAYER_KEY,))
-            for feat in features:
+            print(f"[INFO] loading {len(features)} parcel proxy features into PostGIS", flush=True)
+            for index, feat in enumerate(features, start=1):
                 props = feat["properties"]
                 source_id = str(props.get("osm_id") or "")
                 cur.execute(
@@ -143,6 +144,8 @@ def load_features(features: list[dict]) -> int:
                     ),
                 )
                 inserted += 1
+                if inserted % 1000 == 0:
+                    print(f"[LOAD] {LAYER_KEY}: inserted {inserted}/{len(features)}", flush=True)
         conn.commit()
     finally:
         conn.close()
@@ -154,10 +157,11 @@ def main() -> int:
     print(f"[INFO] raw download saved to {saved}")
 
     elements = payload.get("elements") or []
+    print(f"[INFO] source elements: {len(elements)}", flush=True)
     features = []
     seen = set()
 
-    for element in elements:
+    for index, element in enumerate(elements, start=1):
         feature = element_to_feature(element)
         if not feature:
             continue
@@ -166,9 +170,11 @@ def main() -> int:
             continue
         seen.add(key)
         features.append(feature)
+        if index % 10000 == 0:
+            print(f"[PARSE] {LAYER_KEY}: scanned {index}/{len(elements)} elements, features={len(features)}", flush=True)
 
+    print(f"[INFO] parsed parcel proxy features: {len(features)}", flush=True)
     inserted = load_features(features)
-    print(f"[INFO] source elements: {len(elements)}")
     print(f"[DONE] loaded {inserted} parcel proxy features into layer '{LAYER_KEY}'")
     return 0
 

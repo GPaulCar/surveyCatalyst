@@ -1,4 +1,4 @@
 from data.ingestion.registry import PROVIDERS, get_provider
-from data.ingestion.service import RealIngestionService
+from data.ingestion.service import IngestionService, RealIngestionService
 
-__all__ = ["PROVIDERS", "get_provider", "RealIngestionService"]
+__all__ = ["PROVIDERS", "get_provider", "IngestionService", "RealIngestionService"]

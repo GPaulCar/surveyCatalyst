@@ -45,6 +45,7 @@ def fetch_overpass() -> dict:
     stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     raw_file = RAW_OUTPUT_DIR / f"roman_roads_osm_{stamp}.json"
     raw_file.write_text(json.dumps(payload), encoding="utf-8")
+    print(f"[INFO] raw download saved to {raw_file}", flush=True)
     return payload
 
 def element_to_geojson(element: dict) -> dict | None:
@@ -117,7 +118,8 @@ def load_features(features: list[dict]) -> int:
         with conn.cursor() as cur:
             ensure_registry(cur)
             cur.execute("DELETE FROM external_features WHERE layer = %s", (LAYER_KEY,))
-            for feat in features:
+            print(f"[INFO] loading {len(features)} OSM Roman-road features into PostGIS", flush=True)
+            for index, feat in enumerate(features, start=1):
                 geometry = feat["geometry"]
                 properties = feat["properties"]
                 source_id = str(properties.get("osm_id") or "")
@@ -141,6 +143,8 @@ def load_features(features: list[dict]) -> int:
                     ),
                 )
                 inserted += 1
+                if inserted % 500 == 0:
+                    print(f"[LOAD] {LAYER_KEY}: inserted {inserted}/{len(features)}", flush=True)
         conn.commit()
     finally:
         conn.close()
@@ -150,9 +154,10 @@ def main() -> None:
     print("[INFO] downloading OSM Roman-road candidates for Bavaria")
     raw = fetch_overpass()
     elements = raw.get("elements") or []
+    print(f"[INFO] source elements: {len(elements)}", flush=True)
     seen = set()
     features = []
-    for element in elements:
+    for index, element in enumerate(elements, start=1):
         feature = element_to_geojson(element)
         if not feature:
             continue
@@ -161,6 +166,9 @@ def main() -> None:
             continue
         seen.add(key)
         features.append(feature)
+        if index % 10000 == 0:
+            print(f"[PARSE] {LAYER_KEY}: scanned {index}/{len(elements)} elements, features={len(features)}", flush=True)
+    print(f"[INFO] parsed OSM Roman-road features: {len(features)}", flush=True)
     count = load_features(features)
     print(f"[DONE] loaded {count} OSM Roman-road features into layer '{LAYER_KEY}'")
 

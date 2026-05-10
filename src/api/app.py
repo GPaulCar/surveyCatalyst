@@ -16,6 +16,7 @@ from fastapi.responses import HTMLResponse, JSONResponse, Response, FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from core.db import build_backend
+from map.identify_service import LayerIdentifyService
 from map.live_db_map_service import LiveDBMapService
 from management.admin_runtime_service import AdminRuntimeService
 from survey.edit_service import SurveyEditService
@@ -618,6 +619,36 @@ def layer_geojson(layer_key: str, bbox: str | None = None, limit: int = Query(de
     bounds = parse_bbox(bbox)
     service = LiveDBMapService()
     return service.get_layer_geojson(layer_key=layer_key, bounds=bounds, limit=limit)
+
+
+@app.post("/api/layers/identify")
+def identify_layers(payload: dict):
+    layer_keys = payload.get("layer_keys") or []
+    bbox_raw = payload.get("bbox") or []
+    size_raw = payload.get("size") or []
+    pixel_raw = payload.get("pixel") or []
+    limit_raw = payload.get("limit") or 5
+
+    if len(bbox_raw) != 4:
+        raise HTTPException(status_code=400, detail="bbox must contain four numbers")
+    if len(size_raw) != 2:
+        raise HTTPException(status_code=400, detail="size must contain width and height")
+    if len(pixel_raw) != 2:
+        raise HTTPException(status_code=400, detail="pixel must contain x and y")
+
+    try:
+        bbox = tuple(float(v) for v in bbox_raw)
+        size = tuple(int(v) for v in size_raw)
+        pixel = tuple(int(v) for v in pixel_raw)
+        limit = int(limit_raw)
+    except (TypeError, ValueError) as exc:
+        raise HTTPException(status_code=400, detail=f"invalid identify payload: {exc}") from exc
+
+    if not isinstance(layer_keys, list):
+        raise HTTPException(status_code=400, detail="layer_keys must be a list")
+
+    service = LayerIdentifyService()
+    return service.identify(layer_keys=[str(key) for key in layer_keys], bbox=bbox, size=size, pixel=pixel, limit=limit)
 
 
 @app.get("/api/layers/{layer_key}/tiles/{z}/{x}/{y}.mvt")

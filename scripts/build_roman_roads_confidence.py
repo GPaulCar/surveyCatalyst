@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import sys
+import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -17,25 +18,11 @@ SQL = r"""
 WITH
 curated AS (
     SELECT id, geom, properties
-    FROM external_features
-    WHERE layer = 'roman_roads_curated'
+    FROM tmp_roman_roads_curated
 ),
 osm AS (
     SELECT id, geom, properties
-    FROM external_features
-    WHERE layer = 'roman_roads_osm'
-),
-paired_curated AS (
-    SELECT DISTINCT c.id
-    FROM curated c
-    JOIN osm o
-      ON ST_DWithin(c.geom::geography, o.geom::geography, 50.0)
-),
-paired_osm AS (
-    SELECT DISTINCT o.id
-    FROM osm o
-    JOIN curated c
-      ON ST_DWithin(c.geom::geography, o.geom::geography, 50.0)
+    FROM tmp_roman_roads_osm
 ),
 confidence_rows AS (
     SELECT
@@ -51,7 +38,11 @@ confidence_rows AS (
         'derived_roman_roads_confidence'::text AS source_table,
         ('curated_' || c.id::text) AS source_id
     FROM curated c
-    WHERE c.id IN (SELECT id FROM paired_curated)
+    WHERE EXISTS (
+        SELECT 1
+        FROM tmp_roman_roads_paired_curated pc
+        WHERE pc.id = c.id
+    )
 
     UNION ALL
 
@@ -67,7 +58,11 @@ confidence_rows AS (
         'derived_roman_roads_confidence'::text AS source_table,
         ('curated_' || c.id::text) AS source_id
     FROM curated c
-    WHERE c.id NOT IN (SELECT id FROM paired_curated)
+    WHERE NOT EXISTS (
+        SELECT 1
+        FROM tmp_roman_roads_paired_curated pc
+        WHERE pc.id = c.id
+    )
 
     UNION ALL
 
@@ -83,7 +78,11 @@ confidence_rows AS (
         'derived_roman_roads_confidence'::text AS source_table,
         ('osm_' || o.id::text) AS source_id
     FROM osm o
-    WHERE o.id NOT IN (SELECT id FROM paired_osm)
+    WHERE NOT EXISTS (
+        SELECT 1
+        FROM tmp_roman_roads_paired_osm po
+        WHERE po.id = o.id
+    )
 )
 INSERT INTO external_features (layer, geom, properties, source_table, source_id)
 SELECT
@@ -131,14 +130,118 @@ def ensure_registry(cur) -> None:
         ),
     )
 
+def prepare_work_tables(cur) -> tuple[int, int]:
+    print("[INFO] preparing projected Roman roads work tables", flush=True)
+    cur.execute("DROP TABLE IF EXISTS tmp_roman_roads_curated")
+    cur.execute("DROP TABLE IF EXISTS tmp_roman_roads_osm")
+    cur.execute(
+        """
+        CREATE TEMP TABLE tmp_roman_roads_curated ON COMMIT DROP AS
+        WITH normalized AS (
+            SELECT
+                id,
+                CASE
+                    WHEN ST_XMin(geom) < -180
+                      OR ST_XMax(geom) > 180
+                      OR ST_YMin(geom) < -90
+                      OR ST_YMax(geom) > 90
+                    THEN ST_Transform(ST_SetSRID(geom, 3857), 4326)
+                    ELSE geom
+                END AS geom,
+                properties
+            FROM external_features
+            WHERE layer = 'roman_roads_curated'
+              AND geom IS NOT NULL
+        )
+        SELECT
+            id,
+            geom,
+            ST_Transform(geom, 25832) AS geom_m,
+            properties
+        FROM normalized
+        WHERE ST_XMin(geom) >= -180
+          AND ST_XMax(geom) <= 180
+          AND ST_YMin(geom) >= -90
+          AND ST_YMax(geom) <= 90
+        """
+    )
+    cur.execute(
+        """
+        CREATE TEMP TABLE tmp_roman_roads_osm ON COMMIT DROP AS
+        SELECT
+            id,
+            geom,
+            ST_Transform(geom, 25832) AS geom_m,
+            properties
+        FROM external_features
+        WHERE layer = 'roman_roads_osm'
+          AND geom IS NOT NULL
+          AND ST_XMin(geom) >= -180
+          AND ST_XMax(geom) <= 180
+          AND ST_YMin(geom) >= -90
+          AND ST_YMax(geom) <= 90
+        """
+    )
+    cur.execute("CREATE INDEX tmp_roman_roads_curated_geom_m_idx ON tmp_roman_roads_curated USING GIST (geom_m)")
+    cur.execute("CREATE INDEX tmp_roman_roads_osm_geom_m_idx ON tmp_roman_roads_osm USING GIST (geom_m)")
+    cur.execute("ANALYZE tmp_roman_roads_curated")
+    cur.execute("ANALYZE tmp_roman_roads_osm")
+    cur.execute("SELECT COUNT(*) FROM tmp_roman_roads_curated")
+    curated_count = int(cur.fetchone()[0] or 0)
+    cur.execute("SELECT COUNT(*) FROM tmp_roman_roads_osm")
+    osm_count = int(cur.fetchone()[0] or 0)
+    print(f"[INFO] roman roads work tables: curated={curated_count} osm={osm_count}", flush=True)
+    return curated_count, osm_count
+
+def prepare_pair_tables(cur) -> tuple[int, int]:
+    print("[INFO] matching Roman roads within 50m using projected indexes", flush=True)
+    cur.execute("DROP TABLE IF EXISTS tmp_roman_roads_paired_curated")
+    cur.execute("DROP TABLE IF EXISTS tmp_roman_roads_paired_osm")
+    cur.execute(
+        """
+        CREATE TEMP TABLE tmp_roman_roads_paired_curated ON COMMIT DROP AS
+        SELECT DISTINCT c.id
+        FROM tmp_roman_roads_curated c
+        JOIN tmp_roman_roads_osm o
+          ON c.geom_m && ST_Expand(o.geom_m, 50.0)
+         AND ST_DWithin(c.geom_m, o.geom_m, 50.0)
+        """
+    )
+    cur.execute(
+        """
+        CREATE TEMP TABLE tmp_roman_roads_paired_osm ON COMMIT DROP AS
+        SELECT DISTINCT o.id
+        FROM tmp_roman_roads_osm o
+        JOIN tmp_roman_roads_curated c
+          ON o.geom_m && ST_Expand(c.geom_m, 50.0)
+         AND ST_DWithin(o.geom_m, c.geom_m, 50.0)
+        """
+    )
+    cur.execute("CREATE INDEX tmp_roman_roads_paired_curated_id_idx ON tmp_roman_roads_paired_curated (id)")
+    cur.execute("CREATE INDEX tmp_roman_roads_paired_osm_id_idx ON tmp_roman_roads_paired_osm (id)")
+    cur.execute("ANALYZE tmp_roman_roads_paired_curated")
+    cur.execute("ANALYZE tmp_roman_roads_paired_osm")
+    cur.execute("SELECT COUNT(*) FROM tmp_roman_roads_paired_curated")
+    paired_curated = int(cur.fetchone()[0] or 0)
+    cur.execute("SELECT COUNT(*) FROM tmp_roman_roads_paired_osm")
+    paired_osm = int(cur.fetchone()[0] or 0)
+    print(f"[INFO] Roman roads matched within 50m: curated={paired_curated} osm={paired_osm}", flush=True)
+    return paired_curated, paired_osm
+
 def main() -> int:
+    started = time.monotonic()
     backend = build_backend()
     conn = backend.connect()
     try:
         with conn.cursor() as cur:
             ensure_registry(cur)
+            curated_count, osm_count = prepare_work_tables(cur)
+            prepare_pair_tables(cur)
             cur.execute("DELETE FROM external_features WHERE layer = %s", (LAYER_KEY,))
+            print("[INFO] rebuilding Roman roads confidence rows", flush=True)
             cur.execute(SQL, (LAYER_KEY,))
+            inserted = cur.rowcount
+            print(f"[INFO] inserted {inserted} confidence rows", flush=True)
             cur.execute(
                 """
                 SELECT
@@ -156,7 +259,7 @@ def main() -> int:
     finally:
         conn.close()
 
-    print("[DONE] rebuilt Roman roads confidence layer")
+    print(f"[DONE] rebuilt Roman roads confidence layer in {time.monotonic() - started:.1f}s")
     if not rows:
         print("[INFO] no confidence features were created")
     else:

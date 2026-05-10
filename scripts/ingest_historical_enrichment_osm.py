@@ -174,7 +174,8 @@ def load_features(layer_key: str, source_table: str, kind: str, features: list[d
     try:
         with conn.cursor() as cur:
             cur.execute("DELETE FROM external_features WHERE layer = %s", (layer_key,))
-            for feat in features:
+            print(f"[INFO] loading {len(features)} {layer_key} features into PostGIS", flush=True)
+            for index, feat in enumerate(features, start=1):
                 props = feat["properties"]
                 source_id = str(props.get("osm_id") or "")
 
@@ -202,6 +203,8 @@ def load_features(layer_key: str, source_table: str, kind: str, features: list[d
                     ),
                 )
                 inserted += 1
+                if inserted % 1000 == 0:
+                    print(f"[LOAD] {layer_key}: inserted {inserted}/{len(features)}", flush=True)
         conn.commit()
     finally:
         conn.close()
@@ -220,8 +223,9 @@ def ingest_layer(layer_key: str, cfg: dict) -> None:
     seen = set()
     features = []
     elements = payload.get("elements") or []
+    print(f"[INFO] {layer_key}: source elements={len(elements)}", flush=True)
 
-    for element in elements:
+    for index, element in enumerate(elements, start=1):
         feature = element_to_feature(element, cfg["kind"])
         if not feature:
             continue
@@ -230,7 +234,10 @@ def ingest_layer(layer_key: str, cfg: dict) -> None:
             continue
         seen.add(key)
         features.append(feature)
+        if index % 10000 == 0:
+            print(f"[PARSE] {layer_key}: scanned {index}/{len(elements)} elements, features={len(features)}", flush=True)
 
+    print(f"[INFO] {layer_key}: parsed features={len(features)}", flush=True)
     inserted = load_features(layer_key, cfg["source_table"], cfg["kind"], features)
     print(f"[DONE] {layer_key}: source={len(elements)} loaded={inserted}")
 
