@@ -1330,14 +1330,9 @@ function compactReadableValue(value) {
 
 function topbarSelectionSummary(selection = state.selection) {
   if (!hasSelection()) return t("none");
-  const typeLabel = selectionTypeLabel(selection?.type);
   const id = compactReadableValue(selectionRecordId(selection));
-  const title = compactReadableValue(selectionTitle(selection));
-
-  if (id && title && title !== id) return `${typeLabel} ${id} - ${title}`;
-  if (id) return `${typeLabel} ${id}`;
-  if (title) return `${typeLabel} - ${title}`;
-  return typeLabel || t("none");
+  if (id) return id;
+  return t("none");
 }
 
 function selectionLayerKey(selection = state.selection) {
@@ -3591,10 +3586,9 @@ function detailsLookupBody() {
       ${lookup?.pending ? `<div class="hint">${esc(t("lookup_pending"))}</div>` : ""}
       ${lookup?.error ? `<div class="hint">${esc(t("request_failed"))}: ${esc(lookup.error)}</div>` : ""}
       <div class="row"><span>${esc(t("lookup_location"))}</span><strong>${esc(coordText)}</strong></div>
-      ${lookup?.wiki?.url || lookup?.osm?.url ? `
+      ${lookup?.wiki?.url ? `
       <div class="lookup-links">
         ${lookup?.wiki?.url ? `<a href="${esc(lookup.wiki.url)}" target="_blank" rel="noopener noreferrer">${esc(t("lookup_open_wikipedia"))}</a>` : ""}
-        ${lookup?.osm?.url ? `<a href="${esc(lookup.osm.url)}" target="_blank" rel="noopener noreferrer">${esc(t("lookup_open_osm"))}</a>` : ""}
       </div>` : ""}
     </div>
     ${lookup?.wiki ? `
