@@ -184,6 +184,8 @@ const I18N = {
     lookup_open_osm: "Open OSM",
     lookup_sources: "Sources",
     lookup_location: "Location",
+    lookup_wikipedia: "Wikipedia",
+    lookup_osm: "OSM / Nominatim",
     identify_results: "Identify results",
     no_identify_results: "No identify results.",
     identify_pending: "Identifying visible layers...",
@@ -512,6 +514,8 @@ const I18N = {
     lookup_open_osm: "OSM öffnen",
     lookup_sources: "Quellen",
     lookup_location: "Ort",
+    lookup_wikipedia: "Wikipedia",
+    lookup_osm: "OSM / Nominatim",
     identify_results: "Identifizierung",
     no_identify_results: "Keine Identifizierungsergebnisse.",
     identify_pending: "Sichtbare Ebenen werden identifiziert...",
@@ -1315,6 +1319,25 @@ function selectionTitle(selection = state.selection) {
     p.id ||
     t("feature")
   );
+}
+
+function compactReadableValue(value) {
+  const text = String(value || "").trim();
+  if (!text) return "";
+  if (/^https?:\/\//i.test(text)) return "";
+  return text.length > 56 ? `${text.slice(0, 53)}...` : text;
+}
+
+function topbarSelectionSummary(selection = state.selection) {
+  if (!hasSelection()) return t("none");
+  const typeLabel = selectionTypeLabel(selection?.type);
+  const id = compactReadableValue(selectionRecordId(selection));
+  const title = compactReadableValue(selectionTitle(selection));
+
+  if (id && title && title !== id) return `${typeLabel} ${id} - ${title}`;
+  if (id) return `${typeLabel} ${id}`;
+  if (title) return `${typeLabel} - ${title}`;
+  return typeLabel || t("none");
 }
 
 function selectionLayerKey(selection = state.selection) {
@@ -2969,7 +2992,7 @@ function topbar() {
         <span>${esc(t("db"))} ${esc(state.system.db ? t("on") : t("off"))}</span>
         <span>${esc(titleFor("left", state.activeLeft))} / ${esc(titleFor("right", state.activeRight))}</span>
         <span>${esc(t("survey"))}: ${esc(survey?.title || state.activeSurveyId || t("none"))}</span>
-        <span>${esc(t("selection"))}: ${esc(hasSelection() ? selectionTitle() : t("none"))}</span>
+        <span>${esc(t("selection"))}: ${esc(topbarSelectionSummary())}</span>
         <span class="eff">${esc(layerEfficiencyText())}</span>
       </div>
     </div>
@@ -3576,13 +3599,13 @@ function detailsLookupBody() {
     </div>
     ${lookup?.wiki ? `
     <div class="section">
-      <div class="section-title">Wikipedia</div>
+      <div class="section-title">${esc(t("lookup_wikipedia"))}</div>
       <div class="row"><span>${esc(t("title"))}</span><strong>${esc(lookup.wiki.title || "-")}</strong></div>
       <div class="hint">${esc(lookup.wiki.extract || "-")}</div>
     </div>` : ""}
     ${lookup?.osm ? `
     <div class="section">
-      <div class="section-title">OSM / Nominatim</div>
+      <div class="section-title">${esc(t("lookup_osm"))}</div>
       <div class="hint">${esc(lookup.osm.displayName || "-")}</div>
     </div>` : ""}
     ${!lookup ? `<div class="section"><div class="hint">${esc(t("lookup_none"))}</div></div>` : ""}
