@@ -165,7 +165,7 @@ class MasterRegistryDataLoader:
             return "tile_service_registered_only"
         if record.ingestion_method == "external":
             return "external_service_registered_only"
-        if record.ingestion_method == "postgis_derived":
+        if record.ingestion_method in {"postgis_derived", "raster_derived"}:
             return "derived_layer_requires_base_layers"
         if record.geometry_type == "raster":
             return "raster_layer_not_loaded_to_external_features"

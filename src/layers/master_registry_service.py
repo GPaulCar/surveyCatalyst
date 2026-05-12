@@ -31,7 +31,7 @@ REQUIRED_COLUMNS = [
 
 VALID_GEOMETRY_TYPES = {"point", "line", "polygon", "raster"}
 VALID_SOURCE_TYPES = {"WFS", "WMS", "WMTS", "XYZ", "REST", "OSM", "FILE"}
-VALID_INGESTION_METHODS = {"postgis", "tile", "external", "postgis_derived"}
+VALID_INGESTION_METHODS = {"postgis", "tile", "external", "postgis_derived", "raster_derived"}
 VALID_PRIORITIES = {"critical", "high", "medium", "low"}
 VALID_REGION_SCOPES = {"local", "regional", "eu", "global"}
 
@@ -57,7 +57,7 @@ class MasterLayerRecord:
 
     @property
     def source_table(self) -> str:
-        if self.ingestion_method in {"postgis", "postgis_derived"}:
+        if self.ingestion_method in {"postgis", "postgis_derived", "raster_derived"}:
             return "external_features"
         return self.endpoint_url
 

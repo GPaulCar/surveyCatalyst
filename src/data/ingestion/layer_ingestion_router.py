@@ -118,6 +118,17 @@ class LayerIngestionRouter:
                 message="derived_layer_requires_builder",
             )
 
+        if record.ingestion_method == "raster_derived":
+            self._register_placeholder_raster_layer(record)
+            return LayerRoutingResult(
+                layer_name=record.layer_name,
+                route="derived",
+                status="registered",
+                source_type=record.source_type,
+                ingestion_method=record.ingestion_method,
+                message="registered_as_raster_derived_placeholder",
+            )
+
         if record.source_type in TILE_SOURCE_TYPES or record.ingestion_method == "tile" or record.geometry_type == "raster":
             self._register_tile_layer(record)
             return LayerRoutingResult(
@@ -300,6 +311,50 @@ class LayerIngestionRouter:
                             "region_scope": record.region_scope,
                             "routing": "vector",
                             "loaded_records": loaded,
+                        }),
+                    ),
+                )
+            conn.commit()
+        finally:
+            conn.close()
+
+    def _register_placeholder_raster_layer(self, record: MasterLayerRecord) -> None:
+        conn = self.backend.connect()
+        try:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    INSERT INTO layers_registry (
+                        layer_key, layer_name, layer_group, source_table, geometry_type,
+                        is_user_selectable, is_visible, opacity, sort_order, metadata
+                    )
+                    VALUES (
+                        %s, %s, %s, 'external_features', 'RASTER',
+                        TRUE, TRUE, 1.0, 500,
+                        %s::jsonb
+                    )
+                    ON CONFLICT (layer_key) DO UPDATE
+                    SET layer_name = EXCLUDED.layer_name,
+                        layer_group = EXCLUDED.layer_group,
+                        source_table = EXCLUDED.source_table,
+                        geometry_type = EXCLUDED.geometry_type,
+                        metadata = EXCLUDED.metadata,
+                        updated_at = NOW()
+                    """,
+                    (
+                        record.layer_name,
+                        record.layer_name,
+                        record.layer_group,
+                        json.dumps({
+                            "category": record.category,
+                            "subcategory": record.subcategory,
+                            "source_provider": record.source_provider,
+                            "source_type": record.source_type,
+                            "endpoint_url": record.endpoint_url,
+                            "ingestion_method": record.ingestion_method,
+                            "region_scope": record.region_scope,
+                            "routing": "raster_derived",
+                            "source_available": False,
                         }),
                     ),
                 )

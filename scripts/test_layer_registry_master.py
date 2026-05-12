@@ -15,6 +15,6 @@ print(
         "layers": len(records),
         "categories": sorted({record.category for record in records}),
         "source_types": sorted({record.source_type for record in records}),
-        "derived_layers": sum(1 for record in records if record.ingestion_method == "postgis_derived"),
+        "derived_layers": sum(1 for record in records if record.ingestion_method in {"postgis_derived", "raster_derived"}),
     }
 )
