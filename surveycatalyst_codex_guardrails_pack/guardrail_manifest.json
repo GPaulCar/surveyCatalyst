@@ -1,0 +1,9 @@
+{
+  "generated_at": "2026-05-12T13:41:50.792462+00:00",
+  "purpose": "Convert SurveyCatalyst Codex tickets from literal edit instructions into governed outcome-based tasks.",
+  "files": [
+    "CODEX_EXECUTION_GUARDRAILS.md",
+    "CODEX_MASTER_INSTRUCTION.md",
+    "UPDATED_CODEX_USAGE.md"
+  ]
+}

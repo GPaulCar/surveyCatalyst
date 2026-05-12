@@ -1,0 +1,156 @@
+{
+  "generated_at": "2026-05-12T13:35:30.928219Z",
+  "ticket_count": 15,
+  "tickets": [
+    {
+      "id": "SC-001",
+      "title": "Stabilise core API and survey edit service",
+      "priority": "Critical",
+      "labels": [
+        "stabilisation",
+        "backend",
+        "critical"
+      ]
+    },
+    {
+      "id": "SC-002",
+      "title": "Stabilise frontend survey/object selection pipeline and edit panel",
+      "priority": "Critical",
+      "labels": [
+        "frontend",
+        "ui",
+        "stabilisation"
+      ]
+    },
+    {
+      "id": "SC-003",
+      "title": "Add basemap registry and Basemap tab",
+      "priority": "High",
+      "labels": [
+        "frontend",
+        "basemaps",
+        "openlayers"
+      ]
+    },
+    {
+      "id": "SC-004",
+      "title": "Create layer registry master spreadsheet",
+      "priority": "High",
+      "labels": [
+        "data",
+        "registry",
+        "spreadsheet"
+      ]
+    },
+    {
+      "id": "SC-005",
+      "title": "Implement layer registry DB table and CSV loader",
+      "priority": "High",
+      "labels": [
+        "data",
+        "backend",
+        "postgres"
+      ]
+    },
+    {
+      "id": "SC-006",
+      "title": "Implement automatic layer ingestion router",
+      "priority": "High",
+      "labels": [
+        "data",
+        "ingestion",
+        "backend"
+      ]
+    },
+    {
+      "id": "SC-007",
+      "title": "Add BKG administrative boundary layers",
+      "priority": "High",
+      "labels": [
+        "data",
+        "bkg",
+        "administrative"
+      ]
+    },
+    {
+      "id": "SC-008",
+      "title": "Add Bavaria DGM LiDAR terrain layer support",
+      "priority": "Critical",
+      "labels": [
+        "data",
+        "terrain",
+        "lidar"
+      ]
+    },
+    {
+      "id": "SC-009",
+      "title": "Add Geofabrik OSM Germany curated ingestion",
+      "priority": "High",
+      "labels": [
+        "data",
+        "osm",
+        "ingestion"
+      ]
+    },
+    {
+      "id": "SC-010",
+      "title": "Add Destatis Regionalatlas support",
+      "priority": "Medium",
+      "labels": [
+        "data",
+        "statistics",
+        "regionalatlas"
+      ]
+    },
+    {
+      "id": "SC-011",
+      "title": "Add HGIS Germany historical GIS support",
+      "priority": "High",
+      "labels": [
+        "data",
+        "historical",
+        "hgis"
+      ]
+    },
+    {
+      "id": "SC-012",
+      "title": "Add ArkeoGIS archaeological dataset support",
+      "priority": "High",
+      "labels": [
+        "data",
+        "archaeology",
+        "arkeogis"
+      ]
+    },
+    {
+      "id": "SC-013",
+      "title": "Add Lorscher Codex georeferenced places",
+      "priority": "Medium",
+      "labels": [
+        "data",
+        "historical",
+        "medieval"
+      ]
+    },
+    {
+      "id": "SC-014",
+      "title": "Add Bavaria orthophoto overlay support",
+      "priority": "High",
+      "labels": [
+        "data",
+        "imagery",
+        "wms"
+      ]
+    },
+    {
+      "id": "SC-015",
+      "title": "Add derived survey intelligence layer framework",
+      "priority": "High",
+      "labels": [
+        "analytics",
+        "postgis",
+        "derived-layers"
+      ]
+    }
+  ]
+}
