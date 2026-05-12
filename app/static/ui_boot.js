@@ -4232,8 +4232,8 @@ async function archiveSelection() {
   toast(t("object_archived"));
 }
 
-function downloadText(name, content) {
-  const blob = new Blob([content], {type:"application/json"});
+function downloadText(name, content, mimeType = "application/json") {
+  const blob = new Blob([content], {type:mimeType});
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
@@ -4242,6 +4242,16 @@ function downloadText(name, content) {
   a.click();
   a.remove();
   URL.revokeObjectURL(url);
+}
+
+function getCurrentMapImageDataUrl() {
+  try {
+    const canvas = map.getViewport().querySelector("canvas");
+    if (!canvas) return null;
+    return canvas.toDataURL("image/png");
+  } catch {
+    return null;
+  }
 }
 
 async function exportLayer() {
@@ -4254,10 +4264,28 @@ async function exportData() {
   const d = await fetchJson(`/api/surveys/${state.activeSurveyId}/export/data.json`);
   downloadText(`survey_${state.activeSurveyId}_data.json`, JSON.stringify(d,null,2));
 }
+
+function buildPrintableDocumentHtml(doc, mapImageDataUrl) {
+  const survey = doc.survey || {};
+  const objects = Array.isArray(doc.objects) ? doc.objects : [];
+  const rows = objects.map(obj => {
+    const properties = obj.properties ? `<pre>${esc(JSON.stringify(obj.properties, null, 2))}</pre>` : "";
+    const details = [
+      obj.details ? `<div><strong>${esc(t("details"))}:</strong> ${esc(obj.details)}</div>` : "",
+      obj.annotation ? `<div><strong>${esc(t("annotation"))}:</strong> ${esc(obj.annotation)}</div>` : "",
+      properties,
+    ].filter(Boolean).join("");
+    return `<tr><td>${esc(obj.id)}</td><td>${esc(obj.type || "")}</td><td>${esc(obj.title || "")}</td><td>${esc(obj.is_active ? t("active") : t("archived"))}</td><td>${details}</td></tr>`;
+  }).join("");
+  const mapSection = mapImageDataUrl ? `<h2>${esc(t("map"))}</h2><img src="${mapImageDataUrl}" style="max-width:100%;border:1px solid #ccc;">` : "";
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Survey ${esc(survey.id)} ${esc(t("document"))}</title><style>body{font-family:Arial,sans-serif;margin:24px;line-height:1.4;} table{width:100%;border-collapse:collapse;} th,td{border:1px solid #ccc;padding:8px;vertical-align:top;} h1,h2{margin:16px 0 8px;} pre{white-space:pre-wrap;word-break:break-word;}</style></head><body><h1>${esc(t("survey"))} ${esc(survey.id)} - ${esc(survey.title || "")}</h1><p><strong>${esc(t("status"))}:</strong> ${esc(survey.status || "")}<br><strong>${esc(t("layer_key"))}:</strong> ${esc(survey.layer_key || "")}<br><strong>${esc(t("expedition"))}:</strong> ${esc(survey.expedition_id || "")}</p><h2>${esc(t("summary"))}</h2><p><strong>${esc(t("total_objects"))}:</strong> ${esc(doc.summary?.object_count || 0)}<br><strong>${esc(t("active_objects"))}:</strong> ${esc(doc.summary?.active_count || 0)}<br><strong>${esc(t("archived_objects"))}:</strong> ${esc(doc.summary?.archived_count || 0)}</p>${mapSection}<h2>${esc(t("survey_metadata"))}</h2><pre>${esc(JSON.stringify(survey.metadata || {}, null, 2))}</pre><h2>${esc(t("objects"))}</h2><table><thead><tr><th>${esc(t("id"))}</th><th>${esc(t("type"))}</th><th>${esc(t("title"))}</th><th>${esc(t("status"))}</th><th>${esc(t("details"))}</th></tr></thead><tbody>${rows}</tbody></table></body></html>`;
+}
+
 async function exportDocument() {
   if (!state.activeSurveyId) return alert(t("set_active_survey_first"));
-  const d = await fetchJson(`/api/surveys/${state.activeSurveyId}/export/document.json`);
-  downloadText(`survey_${state.activeSurveyId}_document.json`, JSON.stringify(d,null,2));
+  const d = await fetchJson(`/api/surveys/${state.activeSurveyId}/export/document.json?include_geometry=false&include_properties=true`);
+  const html = buildPrintableDocumentHtml(d, getCurrentMapImageDataUrl());
+  downloadText(`survey_${state.activeSurveyId}_document.html`, html, "text/html");
 }
 async function exportPermission() {
   if (!hasSelection()) return alert(t("select_feature_first"));
