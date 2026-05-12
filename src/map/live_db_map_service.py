@@ -9,55 +9,33 @@ class LiveDBMapService:
 
     def list_layers(self):
         conn = self.backend.connect()
-        with conn.cursor() as cur:
-            cur.execute(
-                '''
-                WITH external_counts AS (
-                    SELECT layer AS layer_key, COUNT(*) AS object_count
-                    FROM external_features
-                    GROUP BY layer
-                ),
-                survey_counts AS (
-                    SELECT
-                        s.layer_key AS layer_key,
-                        COUNT(so.id) FILTER (WHERE so.is_active = TRUE)
-                            + CASE WHEN BOOL_OR(s.geom IS NOT NULL) THEN 1 ELSE 0 END AS object_count
-                    FROM surveys s
-                    LEFT JOIN survey_objects so ON so.survey_id = s.id
-                    WHERE s.layer_key IS NOT NULL
-                    GROUP BY s.layer_key
-                ),
-                survey_total_count AS (
-                    SELECT 'surveys'::text AS layer_key, COUNT(*) AS object_count
-                    FROM surveys
-                ),
-                survey_object_total_count AS (
-                    SELECT 'survey_objects'::text AS layer_key, COUNT(*) AS object_count
-                    FROM survey_objects
-                    WHERE is_active = TRUE
+        try:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    SELECT layer_key,
+                           layer_name,
+                           layer_group,
+                           source_table,
+                           geometry_type,
+                           is_visible,
+                           opacity,
+                           sort_order,
+                           metadata
+                    FROM layers_registry
+                    ORDER BY layer_group, sort_order, layer_name
+                    """
                 )
-                SELECT lr.layer_key,
-                       lr.layer_name,
-                       lr.layer_group,
-                       lr.source_table,
-                       lr.geometry_type,
-                       lr.is_visible,
-                       lr.opacity,
-                       lr.sort_order,
-                       lr.metadata,
-                       COALESCE(sc.object_count, ec.object_count, st.object_count, sot.object_count, 0) AS object_count
-                FROM layers_registry lr
-                LEFT JOIN survey_counts sc ON sc.layer_key = lr.layer_key
-                LEFT JOIN external_counts ec ON ec.layer_key = lr.layer_key
-                LEFT JOIN survey_total_count st ON st.layer_key = lr.layer_key
-                LEFT JOIN survey_object_total_count sot ON sot.layer_key = lr.layer_key
-                WHERE lr.layer_group <> 'context'
-                   OR COALESCE(sc.object_count, ec.object_count, st.object_count, sot.object_count, 0) > 0
-                   OR lower(COALESCE(lr.metadata->>'always_show', 'false')) IN ('true', '1', 'yes')
-                ORDER BY layer_group, sort_order, layer_name
-                '''
-            )
-            return cur.fetchall()
+                rows = cur.fetchall()
+                out = []
+                for row in rows:
+                    object_count = self._layer_object_count(cur, row[0], row[2], row[3])
+                    if row[2] == "context" and object_count <= 0 and not self._always_show(row[8]):
+                        continue
+                    out.append((*row, object_count))
+                return out
+        finally:
+            conn.close()
 
     def list_survey_layers(self):
         conn = self.backend.connect()
@@ -89,7 +67,46 @@ class LiveDBMapService:
             return self._survey_layer_geojson(layer_key, bounds=bounds, limit=limit)
         if layer_key == "survey_objects":
             return self._survey_objects_geojson(layer_key, bounds=bounds, limit=limit)
+        source_table = self._layer_source_table(layer_key)
+        if source_table and source_table.startswith("data_layers."):
+            return self._data_layer_geojson(source_table, layer_key, bounds=bounds, limit=limit)
         return self._external_features_geojson(layer_key, bounds=bounds, limit=limit)
+
+    def _always_show(self, metadata) -> bool:
+        if not isinstance(metadata, dict):
+            return False
+        return str(metadata.get("always_show", "")).lower() in {"true", "1", "yes"}
+
+    def _layer_source_table(self, layer_key: str) -> str | None:
+        conn = self.backend.connect()
+        try:
+            with conn.cursor() as cur:
+                cur.execute("SELECT source_table FROM layers_registry WHERE layer_key = %s", (layer_key,))
+                row = cur.fetchone()
+                return str(row[0]) if row and row[0] else None
+        finally:
+            conn.close()
+
+    def _layer_object_count(self, cur, layer_key: str, layer_group: str, source_table: str | None) -> int:
+        if layer_key == "surveys":
+            cur.execute("SELECT COUNT(*) FROM surveys")
+            return int((cur.fetchone() or [0])[0] or 0)
+        if layer_key == "survey_objects":
+            cur.execute("SELECT COUNT(*) FROM survey_objects WHERE is_active = TRUE")
+            return int((cur.fetchone() or [0])[0] or 0)
+        if layer_key.startswith("survey_"):
+            cur.execute(
+                "SELECT COUNT(*) FROM survey_objects WHERE layer_key = %s AND is_active = TRUE",
+                (layer_key,),
+            )
+            return int((cur.fetchone() or [0])[0] or 0)
+        if source_table and source_table.startswith("data_layers."):
+            cur.execute(f"SELECT COUNT(*) FROM {source_table} WHERE geom IS NOT NULL")
+            return int((cur.fetchone() or [0])[0] or 0)
+        if layer_group == "context":
+            cur.execute("SELECT COUNT(*) FROM external_features WHERE layer = %s AND geom IS NOT NULL", (layer_key,))
+            return int((cur.fetchone() or [0])[0] or 0)
+        return 0
 
     def get_survey_layer_geojson(self, layer_key: str, bounds: tuple[float, float, float, float] | None = None, limit: int = 5000):
         return self._survey_layer_geojson(layer_key, bounds=bounds, limit=limit)
@@ -443,5 +460,74 @@ class LiveDBMapService:
                     ) q
                     ''',
                     (layer_key, limit),
+            )
+            return cur.fetchone()[0]
+
+    def _data_layer_geojson(self, source_table: str, layer_key: str, bounds=None, limit: int = 5000):
+        conn = self.backend.connect()
+        with conn.cursor() as cur:
+            if bounds:
+                minx, miny, maxx, maxy = bounds
+                cur.execute(
+                    f'''
+                    WITH env AS (
+                        SELECT ST_MakeEnvelope(%s, %s, %s, %s, 4326) AS bbox
+                    )
+                    SELECT jsonb_build_object(
+                        'type', 'FeatureCollection',
+                        'features', COALESCE(
+                            jsonb_agg(
+                                jsonb_build_object(
+                                    'type', 'Feature',
+                                    'geometry', ST_AsGeoJSON(geom)::jsonb,
+                                    'properties', COALESCE(properties, '{{}}'::jsonb) || jsonb_build_object(
+                                        'id', id,
+                                        'layer', %s,
+                                        'source_table', %s
+                                    )
+                                )
+                            ),
+                            '[]'::jsonb
+                        )
+                    )
+                    FROM (
+                        SELECT id, geom, properties
+                        FROM {source_table}, env
+                        WHERE geom IS NOT NULL
+                          AND geom && env.bbox
+                          AND ST_Intersects(geom, env.bbox)
+                        LIMIT %s
+                    ) q
+                    ''',
+                    (minx, miny, maxx, maxy, layer_key, source_table, limit),
+                )
+            else:
+                cur.execute(
+                    f'''
+                    SELECT jsonb_build_object(
+                        'type', 'FeatureCollection',
+                        'features', COALESCE(
+                            jsonb_agg(
+                                jsonb_build_object(
+                                    'type', 'Feature',
+                                    'geometry', ST_AsGeoJSON(geom)::jsonb,
+                                    'properties', COALESCE(properties, '{{}}'::jsonb) || jsonb_build_object(
+                                        'id', id,
+                                        'layer', %s,
+                                        'source_table', %s
+                                    )
+                                )
+                            ),
+                            '[]'::jsonb
+                        )
+                    )
+                    FROM (
+                        SELECT id, geom, properties
+                        FROM {source_table}
+                        WHERE geom IS NOT NULL
+                        LIMIT %s
+                    ) q
+                    ''',
+                    (layer_key, source_table, limit),
                 )
             return cur.fetchone()[0]

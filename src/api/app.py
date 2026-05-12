@@ -128,6 +128,14 @@ def _get_object_survey_layer_key(object_id: int) -> str | None:
     return str(value) if value else None
 
 
+def _get_layer_source_table(layer_key: str) -> str | None:
+    value = _fetch_one_value(
+        "SELECT source_table FROM layers_registry WHERE layer_key = %s",
+        (layer_key,),
+    )
+    return str(value) if value else None
+
+
 def _clear_tile_cache_for_layers(layer_keys: list[str] | tuple[str, ...]) -> dict[str, Any]:
     unique_layer_keys: list[str] = []
     for key in layer_keys:
@@ -678,6 +686,8 @@ def layer_tiles(layer_key: str, z: int, x: int, y: int):
     if cached is not None:
         return Response(content=cached, media_type="application/vnd.mapbox-vector-tile", headers={"X-Tile-Cache": "HIT"})
 
+    source_table = _get_layer_source_table(layer_key) or "external_features"
+    table_sql = source_table if source_table.startswith("data_layers.") else "external_features"
     backend = build_backend()
     conn = backend.connect()
     try:
@@ -685,8 +695,7 @@ def layer_tiles(layer_key: str, z: int, x: int, y: int):
             simplify_tolerance = _tile_simplification_tolerance(layer_key, z)
             mvt_extent, mvt_buffer, mvt_clip = _tile_mvt_params(layer_key)
 
-            cur.execute(
-                """
+            query = """
                 WITH tile AS (
                     SELECT ST_TileEnvelope(%s, %s, %s) AS geom
                 ),
@@ -697,14 +706,17 @@ def layer_tiles(layer_key: str, z: int, x: int, y: int):
                             ELSE ST_Transform(f.geom, 3857)
                         END AS geom,
                         f.id,
-                        f.layer,
-                        f.source_table,
-                        f.source_id,
+                        %s AS layer,
+                        %s AS source_table,
+                        NULL::text AS source_id,
                         COALESCE(f.properties, '{}'::jsonb) AS properties
-                    FROM external_features f
+                    FROM (
+                        SELECT id, geom, properties
+                        FROM __TABLE__
+                        WHERE geom IS NOT NULL
+                    ) f
                     CROSS JOIN tile
-                    WHERE f.layer = %s
-                      AND f.geom IS NOT NULL
+                    WHERE 1=1
                       AND ST_Intersects(ST_Transform(f.geom, 3857), tile.geom)
                 ),
                 mvtgeom AS (
@@ -726,11 +738,14 @@ def layer_tiles(layer_key: str, z: int, x: int, y: int):
                 SELECT ST_AsMVT(mvtgeom, %s, %s)
                 FROM mvtgeom
                 WHERE mvtgeom.geom IS NOT NULL
-                """,
+                """
+            query = query.replace("__TABLE__", table_sql)
+            cur.execute(
+                query,
                 (
                     z, x, y,
                     simplify_tolerance, simplify_tolerance,
-                    layer_key,
+                    layer_key, source_table,
                     mvt_extent, mvt_buffer, mvt_clip,
                     layer_key, mvt_extent
                 ),

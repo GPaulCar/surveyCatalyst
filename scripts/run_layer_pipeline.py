@@ -25,6 +25,14 @@ LAYER_SPECS: dict[str, LayerSpec] = {
             "visualize": [["run_api.py"]],
         },
     ),
+    "bkg_administrative_boundaries": LayerSpec(
+        key="bkg_administrative_boundaries",
+        group="reference",
+        ops={
+            "acquire": [["ingest_bkg_administrative_boundaries.py"]],
+            "visualize": [["run_api.py"]],
+        },
+    ),
     "parcel_boundaries": LayerSpec(
         key="parcel_boundaries",
         group="legal_permission",
