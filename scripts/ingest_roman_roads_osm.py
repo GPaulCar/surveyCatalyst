@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import json
 import sys
+import time
 import urllib.parse
 import urllib.request
+import urllib.error
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -31,7 +33,7 @@ QUERY = f"""
 out tags geom;
 """
 
-def fetch_overpass() -> dict:
+def fetch_overpass(retries: int = 7, base_delay: float = 3.0) -> dict:
     from datetime import datetime
     data = urllib.parse.urlencode({"data": QUERY}).encode("utf-8")
     req = urllib.request.Request(
@@ -40,8 +42,35 @@ def fetch_overpass() -> dict:
         headers={"User-Agent": "surveyCatalyst/phase2-dual-roman-roads"},
         method="POST",
     )
-    with urllib.request.urlopen(req, timeout=300) as resp:
-        payload = json.loads(resp.read().decode("utf-8"))
+    payload = None
+    for attempt in range(1, retries + 1):
+        try:
+            with urllib.request.urlopen(req, timeout=300) as resp:
+                payload = json.loads(resp.read().decode("utf-8"))
+            break
+        except urllib.error.HTTPError as exc:
+            status = getattr(exc, "code", None)
+            retryable = status in (429, 500, 502, 503, 504)
+            if attempt >= retries or not retryable:
+                raise
+            retry_after = 0.0
+            header = exc.headers.get("Retry-After") if getattr(exc, "headers", None) else None
+            if header:
+                try:
+                    retry_after = float(header)
+                except ValueError:
+                    retry_after = 0.0
+            delay = max(retry_after, base_delay * (2 ** (attempt - 1)))
+            print(f"[RETRY] overpass roman_roads status={status} attempt={attempt}/{retries} delay={delay:.1f}s", flush=True)
+            time.sleep(delay)
+        except urllib.error.URLError:
+            if attempt >= retries:
+                raise
+            delay = base_delay * (2 ** (attempt - 1))
+            print(f"[RETRY] overpass roman_roads network attempt={attempt}/{retries} delay={delay:.1f}s", flush=True)
+            time.sleep(delay)
+    if payload is None:
+        raise RuntimeError("failed to fetch roman roads from overpass after retries")
     stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     raw_file = RAW_OUTPUT_DIR / f"roman_roads_osm_{stamp}.json"
     raw_file.write_text(json.dumps(payload), encoding="utf-8")

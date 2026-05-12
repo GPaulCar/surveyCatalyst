@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import time
 import shutil
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -47,14 +48,44 @@ class BaseProvider:
             cur.execute(f"CREATE SCHEMA IF NOT EXISTS {self.schema_name}")
         conn.commit()
 
-    def download_file(self, url: str, destination: Path) -> Path:
+    def download_file(self, url: str, destination: Path, retries: int = 6, base_delay: float = 2.0) -> Path:
         destination.parent.mkdir(parents=True, exist_ok=True)
-        with requests.get(url, stream=True, timeout=300) as response:
-            response.raise_for_status()
-            with destination.open("wb") as handle:
-                for chunk in response.iter_content(chunk_size=1024 * 1024):
-                    if chunk:
-                        handle.write(chunk)
+        last_error: Exception | None = None
+        for attempt in range(1, retries + 1):
+            try:
+                with requests.get(url, stream=True, timeout=300) as response:
+                    response.raise_for_status()
+                    with destination.open("wb") as handle:
+                        for chunk in response.iter_content(chunk_size=1024 * 1024):
+                            if chunk:
+                                handle.write(chunk)
+                return destination
+            except requests.HTTPError as exc:
+                last_error = exc
+                status = getattr(exc.response, "status_code", None)
+                retryable = status in (429, 500, 502, 503, 504)
+                if attempt >= retries or not retryable:
+                    raise
+                retry_after = 0.0
+                if exc.response is not None:
+                    header = exc.response.headers.get("Retry-After")
+                    if header:
+                        try:
+                            retry_after = float(header)
+                        except ValueError:
+                            retry_after = 0.0
+                delay = max(retry_after, base_delay * (2 ** (attempt - 1)))
+                print(f"[RETRY] download_file status={status} attempt={attempt}/{retries} delay={delay:.1f}s url={url}", flush=True)
+                time.sleep(delay)
+            except requests.RequestException as exc:
+                last_error = exc
+                if attempt >= retries:
+                    raise
+                delay = base_delay * (2 ** (attempt - 1))
+                print(f"[RETRY] download_file network attempt={attempt}/{retries} delay={delay:.1f}s url={url}", flush=True)
+                time.sleep(delay)
+        if last_error:
+            raise last_error
         return destination
 
     def extract_zip(self, zip_path: Path, destination: Path) -> Path:

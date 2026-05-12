@@ -334,6 +334,27 @@ def _write_cached_tile(layer_key: str, z: int, x: int, y: int, payload: bytes) -
     _cache_file_for_tile(layer_key, z, x, y).write_bytes(payload)
 
 
+def _tile_simplification_tolerance(layer_key: str, z: int) -> float:
+    # Parcel boundaries must stay stable across zoom levels for planning/permission workflows.
+    if layer_key == "parcel_boundaries":
+        return 0.0
+    if z <= 8:
+        return 50.0
+    if z <= 10:
+        return 10.0
+    if z <= 12:
+        return 2.0
+    return 0.0
+
+
+def _tile_mvt_params(layer_key: str) -> tuple[int, int, bool]:
+    # Parcels are thin/complex polygon boundaries; use denser quantization and bigger buffer
+    # to reduce feature dropouts near tile edges across zoom transitions.
+    if layer_key == "parcel_boundaries":
+        return 8192, 256, True
+    return MVT_EXTENT, MVT_BUFFER, True
+
+
 def _bbox_simplification_tolerance(bounds: tuple[float, float, float, float] | None) -> float:
     if not bounds:
         return 0.0
@@ -661,13 +682,8 @@ def layer_tiles(layer_key: str, z: int, x: int, y: int):
     conn = backend.connect()
     try:
         with conn.cursor() as cur:
-            simplify_tolerance = 0
-            if z <= 8:
-                simplify_tolerance = 50
-            elif z <= 10:
-                simplify_tolerance = 10
-            elif z <= 12:
-                simplify_tolerance = 2
+            simplify_tolerance = _tile_simplification_tolerance(layer_key, z)
+            mvt_extent, mvt_buffer, mvt_clip = _tile_mvt_params(layer_key)
 
             cur.execute(
                 """
@@ -697,7 +713,7 @@ def layer_tiles(layer_key: str, z: int, x: int, y: int):
                         tile.geom,
                         %s,
                         %s,
-                        TRUE
+                        %s
                     ) AS geom,
                     id,
                     layer,
@@ -711,7 +727,13 @@ def layer_tiles(layer_key: str, z: int, x: int, y: int):
                 FROM mvtgeom
                 WHERE mvtgeom.geom IS NOT NULL
                 """,
-                (z, x, y, simplify_tolerance, simplify_tolerance, layer_key, MVT_EXTENT, MVT_BUFFER, layer_key, MVT_EXTENT),
+                (
+                    z, x, y,
+                    simplify_tolerance, simplify_tolerance,
+                    layer_key,
+                    mvt_extent, mvt_buffer, mvt_clip,
+                    layer_key, mvt_extent
+                ),
             )
             row = cur.fetchone()
             payload = bytes(row[0] or b"") if row else b""

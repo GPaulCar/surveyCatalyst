@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import json
 import sys
+import time
 import urllib.parse
 import urllib.request
+import urllib.error
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -16,37 +18,101 @@ from core.db import build_backend
 LAYER_KEY = "parcel_boundaries"
 OVERPASS_URL = "https://overpass-api.de/api/interpreter"
 
-# Start with a smaller reliable test area around Upper Bavaria / Munich region.
-# Expand later once confirmed working.
-BBOX = (48.00, 11.00, 48.50, 11.80)  # south, west, north, east
+# Bavaria extent: south, west, north, east
+BAVARIA_BBOX = (47.20, 8.95, 50.65, 13.95)
 
 RAW_DIR = ROOT / "workspace" / "downloads" / "raw" / "osm"
 RAW_DIR.mkdir(parents=True, exist_ok=True)
+STATE_FILE = RAW_DIR / "parcel_boundaries_osm_bavaria_state.json"
 
-QUERY = f"""
-[out:json][timeout:180];
+def bbox_tiles(bbox: tuple[float, float, float, float], lat_step: float = 0.5, lon_step: float = 0.5) -> list[tuple[float, float, float, float]]:
+    min_lat, min_lon, max_lat, max_lon = bbox
+    tiles: list[tuple[float, float, float, float]] = []
+    lat = min_lat
+    while lat < max_lat:
+        next_lat = min(lat + lat_step, max_lat)
+        lon = min_lon
+        while lon < max_lon:
+            next_lon = min(lon + lon_step, max_lon)
+            tiles.append((lat, lon, next_lat, next_lon))
+            lon = next_lon
+        lat = next_lat
+    return tiles
+
+
+def overpass_query(bbox: tuple[float, float, float, float]) -> str:
+    south, west, north, east = bbox
+    return f"""
+[out:json][timeout:240];
 (
-  way["landuse"~"farmland|meadow|grass|orchard|vineyard"]({BBOX[0]},{BBOX[1]},{BBOX[2]},{BBOX[3]});
+  way["landuse"~"farmland|meadow|grass|orchard|vineyard"]({south},{west},{north},{east});
 );
 out tags geom;
 """
 
-def fetch_overpass() -> tuple[dict, Path]:
+
+def fetch_overpass_tile(bbox: tuple[float, float, float, float], retries: int = 7, base_delay: float = 3.0) -> tuple[dict, Path]:
     from datetime import datetime
 
-    data = urllib.parse.urlencode({"data": QUERY}).encode("utf-8")
+    data = urllib.parse.urlencode({"data": overpass_query(bbox)}).encode("utf-8")
     req = urllib.request.Request(
         OVERPASS_URL,
         data=data,
         headers={"User-Agent": "surveyCatalyst/phase3-auto-parcels"},
         method="POST",
     )
-    with urllib.request.urlopen(req, timeout=300) as resp:
-        payload = json.loads(resp.read().decode("utf-8"))
+    payload = None
+    for attempt in range(1, retries + 1):
+        try:
+            with urllib.request.urlopen(req, timeout=300) as resp:
+                payload = json.loads(resp.read().decode("utf-8"))
+            break
+        except urllib.error.HTTPError as exc:
+            status = getattr(exc, "code", None)
+            retryable = status in (429, 500, 502, 503, 504)
+            if attempt >= retries or not retryable:
+                raise
+            retry_after = 0.0
+            header = exc.headers.get("Retry-After") if getattr(exc, "headers", None) else None
+            if header:
+                try:
+                    retry_after = float(header)
+                except ValueError:
+                    retry_after = 0.0
+            delay = max(retry_after, base_delay * (2 ** (attempt - 1)))
+            print(f"[RETRY] overpass tile={bbox} status={status} attempt={attempt}/{retries} delay={delay:.1f}s", flush=True)
+            time.sleep(delay)
+        except urllib.error.URLError:
+            if attempt >= retries:
+                raise
+            delay = base_delay * (2 ** (attempt - 1))
+            print(f"[RETRY] overpass tile={bbox} network attempt={attempt}/{retries} delay={delay:.1f}s", flush=True)
+            time.sleep(delay)
+    if payload is None:
+        raise RuntimeError(f"failed to fetch overpass tile after retries: {bbox}")
 
-    out = RAW_DIR / f"parcel_boundaries_osm_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+    south, west, north, east = bbox
+    tile_tag = f"{south:.2f}_{west:.2f}_{north:.2f}_{east:.2f}".replace(".", "p")
+    out = RAW_DIR / f"parcel_boundaries_osm_{tile_tag}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
     out.write_text(json.dumps(payload), encoding="utf-8")
     return payload, out
+
+
+def tile_tag_for_bbox(bbox: tuple[float, float, float, float]) -> str:
+    south, west, north, east = bbox
+    return f"{south:.2f}_{west:.2f}_{north:.2f}_{east:.2f}".replace(".", "p")
+
+
+def load_cached_tile_elements(tile_tag: str) -> list[dict]:
+    candidates = sorted(RAW_DIR.glob(f"parcel_boundaries_osm_{tile_tag}_*.json"))
+    if not candidates:
+        return []
+    latest = candidates[-1]
+    try:
+        payload = json.loads(latest.read_text(encoding="utf-8"))
+    except Exception:
+        return []
+    return payload.get("elements") or []
 
 def close_ring(coords: list[list[float]]) -> list[list[float]]:
     if coords and coords[0] != coords[-1]:
@@ -101,13 +167,13 @@ def ensure_registry(cur) -> None:
         """,
         (
             LAYER_KEY,
-            "Parcel boundaries (OSM proxy)",
+            "Parcel boundaries (Bavaria)",
             json.dumps({
                 "subgroup": "legal_permission",
                 "phase": "phase_3_1",
-                "description": "OSM proxy parcel-like boundaries for workflow testing",
+                "description": "OSM parcel-like boundary proxy coverage for Bavaria",
                 "source_quality": "proxy_not_official_cadastral",
-                "bbox_test": BBOX,
+                "coverage_bbox": BAVARIA_BBOX,
             }),
         ),
     )
@@ -120,7 +186,7 @@ def load_features(features: list[dict]) -> int:
         with conn.cursor() as cur:
             ensure_registry(cur)
             cur.execute("DELETE FROM external_features WHERE layer = %s", (LAYER_KEY,))
-            print(f"[INFO] loading {len(features)} parcel proxy features into PostGIS", flush=True)
+            print(f"[INFO] loading {len(features)} parcel boundary features into PostGIS", flush=True)
             for index, feat in enumerate(features, start=1):
                 props = feat["properties"]
                 source_id = str(props.get("osm_id") or "")
@@ -152,12 +218,35 @@ def load_features(features: list[dict]) -> int:
     return inserted
 
 def main() -> int:
-    print("[INFO] downloading OSM parcel-like proxy features for test area")
-    payload, saved = fetch_overpass()
-    print(f"[INFO] raw download saved to {saved}")
+    tiles = bbox_tiles(BAVARIA_BBOX, lat_step=0.5, lon_step=0.5)
+    print(f"[INFO] downloading OSM parcel-like boundary data for Bavaria ({len(tiles)} tiles)")
+    state = {"completed_tiles": []}
+    if STATE_FILE.exists():
+        try:
+            state = json.loads(STATE_FILE.read_text(encoding="utf-8"))
+        except Exception:
+            state = {"completed_tiles": []}
+    completed = set(state.get("completed_tiles") or [])
+    elements: list[dict] = []
+    for idx, tile in enumerate(tiles, start=1):
+      tile_key = ",".join(f"{value:.5f}" for value in tile)
+      tile_tag = tile_tag_for_bbox(tile)
+      if tile_key in completed:
+          cached = load_cached_tile_elements(tile_tag)
+          elements.extend(cached)
+          print(f"[SKIP] tile {idx}/{len(tiles)} already completed: {tile}", flush=True)
+          print(f"[INFO] cached tile elements: {len(cached)} (running total: {len(elements)})", flush=True)
+          continue
+      print(f"[FETCH] tile {idx}/{len(tiles)}: {tile}", flush=True)
+      payload, saved = fetch_overpass_tile(tile)
+      print(f"[INFO] raw download saved to {saved}")
+      chunk = payload.get("elements") or []
+      elements.extend(chunk)
+      completed.add(tile_key)
+      STATE_FILE.write_text(json.dumps({"completed_tiles": sorted(completed)}, indent=2), encoding="utf-8")
+      print(f"[INFO] tile elements: {len(chunk)} (running total: {len(elements)})", flush=True)
 
-    elements = payload.get("elements") or []
-    print(f"[INFO] source elements: {len(elements)}", flush=True)
+    print(f"[INFO] source elements total: {len(elements)}", flush=True)
     features = []
     seen = set()
 
@@ -173,9 +262,9 @@ def main() -> int:
         if index % 10000 == 0:
             print(f"[PARSE] {LAYER_KEY}: scanned {index}/{len(elements)} elements, features={len(features)}", flush=True)
 
-    print(f"[INFO] parsed parcel proxy features: {len(features)}", flush=True)
+    print(f"[INFO] parsed parcel boundary features: {len(features)}", flush=True)
     inserted = load_features(features)
-    print(f"[DONE] loaded {inserted} parcel proxy features into layer '{LAYER_KEY}'")
+    print(f"[DONE] loaded {inserted} parcel boundary features into layer '{LAYER_KEY}'")
     return 0
 
 if __name__ == "__main__":
