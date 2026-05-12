@@ -100,6 +100,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--skip-master-load", action="store_true")
     parser.add_argument("--skip-provider-loads", action="store_true")
     parser.add_argument("--skip-special-loads", action="store_true")
+    parser.add_argument("--skip-bavaria-dgm-loads", action="store_true")
     parser.add_argument("--skip-derived-loads", action="store_true")
     parser.add_argument("--skip-geojson-loads", action="store_true")
     parser.add_argument("--field-names")
@@ -155,6 +156,9 @@ def main() -> int:
             "restore_legal_restricted_layer.py",
         ):
             results.append(run_step(script_name, []))
+
+    if not args.skip_bavaria_dgm_loads:
+        results.append(run_step("acquire_bavaria_dgm.py", ["--product", "dgm1", "--product", "dgm5"], optional=True))
 
     if not args.skip_derived_loads:
         for script_name in (

@@ -33,6 +33,14 @@ LAYER_SPECS: dict[str, LayerSpec] = {
             "visualize": [["run_api.py"]],
         },
     ),
+    "bavaria_dgm": LayerSpec(
+        key="bavaria_dgm",
+        group="terrain",
+        ops={
+            "acquire": [["acquire_bavaria_dgm.py", "--product", "dgm1", "--product", "dgm5"]],
+            "visualize": [["run_api.py"]],
+        },
+    ),
     "parcel_boundaries": LayerSpec(
         key="parcel_boundaries",
         group="legal_permission",
