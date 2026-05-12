@@ -1126,6 +1126,7 @@ const STATE_VIEW_EXTENTS = [
   {id:"de_sn", minLon:11.85, minLat:50.10, maxLon:15.10, maxLat:51.70},
   {id:"de_by", minLon:8.85, minLat:47.20, maxLon:13.90, maxLat:50.65}
 ];
+const STATE_BOUNDARY_LAYER_KEY = "state_boundaries_de";
 
 const LAYER_GROUP_ORDER = [
   "survey",
@@ -1163,9 +1164,51 @@ function intersectsExtent(a, b) {
 
 function stateIdsFromExtent4326(extent4326) {
   if (!extent4326) return ["de_by"];
+  if (stateBoundarySource && map) {
+    const projection = map.getView().getProjection();
+    const extentProj = ol.proj.transformExtent(extent4326, "EPSG:4326", projection);
+    const states = new Set();
+    stateBoundarySource.forEachFeatureIntersectingExtent(extentProj, feature => {
+      const id = normalizeStateId(feature.get("state_id"));
+      if (id) states.add(id);
+    });
+    if (states.size) return Array.from(states);
+  }
   const box = {minLon: extent4326[0], minLat: extent4326[1], maxLon: extent4326[2], maxLat: extent4326[3]};
   const ids = STATE_VIEW_EXTENTS.filter(ext => intersectsExtent(ext, box)).map(ext => ext.id);
   return ids.length ? ids : ["de_by"];
+}
+
+function normalizeStateId(value) {
+  const text = String(value || "").toLowerCase().trim();
+  if (!text) return "";
+  if (text === "de-by" || text === "by" || text.includes("bayern") || text.includes("bavaria")) return "de_by";
+  if (text === "de-bw" || text === "bw" || text.includes("baden")) return "de_bw";
+  if (text === "de-he" || text === "he" || text.includes("hessen") || text.includes("hesse")) return "de_he";
+  if (text === "de-th" || text === "th" || text.includes("thüringen") || text.includes("thuringia")) return "de_th";
+  if (text === "de-sn" || text === "sn" || text.includes("sachsen") || text.includes("saxony")) return "de_sn";
+  return text;
+}
+
+async function loadStateBoundaryLayer() {
+  if (!map || !stateBoundarySource) return;
+  try {
+    const payload = await fetchJson(`/api/layers/${STATE_BOUNDARY_LAYER_KEY}/geojson?limit=500`);
+    const fmt = new ol.format.GeoJSON();
+    const features = fmt.readFeatures(payload, {featureProjection: map.getView().getProjection()});
+    stateBoundarySource.clear();
+    features.forEach(feature => {
+      const p = feature.getProperties() || {};
+      const mapped = normalizeStateId(
+        p.state_id || p.state || p.state_code || p.iso || p.iso_code || p.name || p.NAME_1 || p.admin
+      );
+      if (mapped) feature.set("state_id", mapped);
+    });
+    stateBoundarySource.addFeatures(features);
+  } catch (error) {
+    console.warn("state boundary layer unavailable", error);
+    stateBoundarySource.clear();
+  }
 }
 
 function currentMapStates() {
@@ -2613,20 +2656,6 @@ function initMap() {
   });
   stateBoundaryLayer.setZIndex(5);
 
-  const boundaryFeatures = STATE_VIEW_EXTENTS.map(ext => {
-    const ring = [
-      [ext.minLon, ext.minLat],
-      [ext.maxLon, ext.minLat],
-      [ext.maxLon, ext.maxLat],
-      [ext.minLon, ext.maxLat],
-      [ext.minLon, ext.minLat]
-    ].map(coord => ol.proj.fromLonLat(coord));
-    const feature = new ol.Feature(new ol.geom.Polygon([ring]));
-    feature.set("state_id", ext.id);
-    return feature;
-  });
-  stateBoundarySource.addFeatures(boundaryFeatures);
-
   map.addLayer(surveyLayer);
   map.addLayer(stateBoundaryLayer);
   map.addLayer(drawLayer);
@@ -2635,6 +2664,7 @@ function initMap() {
   map.addLayer(selectionLayer);
   setBasemap(state.activeBasemap);
   syncAutoLayerRegion();
+  loadStateBoundaryLayer();
 
   map.on("singleclick", async e => {
     if (state.measure.active) return;
@@ -3032,6 +3062,7 @@ async function loadLayers() {
   state.layers = Array.isArray(layers) ? layers : [];
   state.layerIndex = new Map(state.layers.map(l => [l.layer_key, l]));
   syncContextLayers();
+  await loadStateBoundaryLayer();
   state.layerEfficiency = computeLayerEfficiency();
   render();
 }

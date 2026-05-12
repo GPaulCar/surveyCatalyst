@@ -17,6 +17,14 @@ class LayerSpec:
 
 
 LAYER_SPECS: dict[str, LayerSpec] = {
+    "state_boundaries_de": LayerSpec(
+        key="state_boundaries_de",
+        group="reference",
+        ops={
+            "acquire": [["ingest_state_boundaries_de.py"]],
+            "visualize": [["run_api.py"]],
+        },
+    ),
     "parcel_boundaries": LayerSpec(
         key="parcel_boundaries",
         group="legal_permission",
@@ -129,4 +137,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-
