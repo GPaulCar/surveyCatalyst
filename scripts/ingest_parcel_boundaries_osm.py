@@ -14,6 +14,7 @@ if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
 from core.db import build_backend
+import psycopg
 
 LAYER_KEY = "parcel_boundaries"
 OVERPASS_URL = "https://overpass-api.de/api/interpreter"
@@ -182,39 +183,90 @@ def load_features(features: list[dict]) -> int:
     backend = build_backend()
     conn = backend.connect()
     inserted = 0
+    skipped_invalid = 0
     try:
         with conn.cursor() as cur:
             ensure_registry(cur)
             cur.execute("DELETE FROM external_features WHERE layer = %s", (LAYER_KEY,))
+            cur.execute(
+                """
+                SELECT ST_UnaryUnion(ST_Collect(geom))
+                FROM external_features
+                WHERE layer = 'state_boundaries_de'
+                  AND (
+                    (properties->>'state_id') = 'de_by'
+                    OR lower(coalesce(properties->>'name','')) LIKE '%bayern%'
+                    OR lower(coalesce(properties->>'name','')) LIKE '%bavaria%'
+                  )
+                """
+            )
+            bavaria_geom = cur.fetchone()[0]
+            if not bavaria_geom:
+                print("[WARN] Bavaria boundary geometry missing; falling back to Bavaria bbox clip.", flush=True)
+                cur.execute(
+                    """
+                    SELECT ST_MakeEnvelope(%s, %s, %s, %s, 4326)
+                    """,
+                    (BAVARIA_BBOX[1], BAVARIA_BBOX[0], BAVARIA_BBOX[3], BAVARIA_BBOX[2]),
+                )
+                bavaria_geom = cur.fetchone()[0]
             print(f"[INFO] loading {len(features)} parcel boundary features into PostGIS", flush=True)
             for index, feat in enumerate(features, start=1):
                 props = feat["properties"]
                 source_id = str(props.get("osm_id") or "")
-                cur.execute(
-                    """
-                    INSERT INTO external_features (layer, geom, properties, source_table, source_id)
-                    VALUES (
-                        %s,
-                        ST_Multi(ST_Force2D(ST_SetSRID(ST_GeomFromGeoJSON(%s), 4326))),
-                        %s::jsonb,
-                        %s,
-                        %s
+                try:
+                    cur.execute(
+                        """
+                        WITH src AS (
+                          SELECT ST_MakeValid(ST_SetSRID(ST_GeomFromGeoJSON(%s), 4326)) AS g
+                        ),
+                        bayern AS (
+                          SELECT ST_MakeValid(%s::geometry) AS g
+                        ),
+                        clipped AS (
+                          SELECT ST_CollectionExtract(
+                                   ST_MakeValid(
+                                     ST_Intersection(
+                                       ST_Buffer(src.g, 0),
+                                       ST_Buffer(bayern.g, 0)
+                                     )
+                                   ),
+                                   3
+                                 ) AS g
+                          FROM src
+                          CROSS JOIN bayern
+                          WHERE ST_Intersects(src.g, bayern.g)
+                        )
+                        INSERT INTO external_features (layer, geom, properties, source_table, source_id)
+                        SELECT
+                          %s,
+                          ST_Multi(ST_Force2D(g)),
+                          %s::jsonb,
+                          %s,
+                          %s
+                        FROM clipped
+                        WHERE g IS NOT NULL AND NOT ST_IsEmpty(g)
+                        """,
+                        (
+                            json.dumps(feat["geometry"]),
+                            bavaria_geom,
+                            LAYER_KEY,
+                            json.dumps(props),
+                            "osm_parcel_proxy",
+                            source_id,
+                        ),
                     )
-                    """,
-                    (
-                        LAYER_KEY,
-                        json.dumps(feat["geometry"]),
-                        json.dumps(props),
-                        "osm_parcel_proxy",
-                        source_id,
-                    ),
-                )
-                inserted += 1
+                    inserted += cur.rowcount
+                except psycopg.Error:
+                    skipped_invalid += 1
+                    continue
                 if inserted % 1000 == 0:
                     print(f"[LOAD] {LAYER_KEY}: inserted {inserted}/{len(features)}", flush=True)
         conn.commit()
     finally:
         conn.close()
+    if skipped_invalid:
+        print(f"[WARN] skipped invalid geometries: {skipped_invalid}", flush=True)
     return inserted
 
 def main() -> int:

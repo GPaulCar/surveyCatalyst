@@ -81,6 +81,16 @@ def ring_from_nodes(nodes: list[dict]) -> list[list[float]]:
 
 def normalize_state(name: str) -> str:
     text = (name or "").strip().lower()
+    if "bayern" in text or "bavaria" in text:
+        return "de_by"
+    if "baden" in text:
+        return "de_bw"
+    if "hessen" in text or "hesse" in text:
+        return "de_he"
+    if "thüringen" in text or "thueringen" in text or "thuringia" in text:
+        return "de_th"
+    if "sachsen" in text or "saxony" in text:
+        return "de_sn"
     return STATE_NAME_MAP.get(text, "")
 
 
@@ -91,8 +101,14 @@ def relation_to_feature(element: dict) -> dict | None:
     state_id = normalize_state(tags.get("name", ""))
     if not state_id:
         return None
-    members = element.get("members") or []
     polygons = []
+    # Some Overpass responses include direct relation geometry in `geometry`.
+    rel_geom = element.get("geometry") or []
+    rel_ring = ring_from_nodes(rel_geom)
+    if len(rel_ring) >= 4:
+        polygons.append([rel_ring])
+
+    members = element.get("members") or []
     for member in members:
         if member.get("type") != "way":
             continue
@@ -195,4 +211,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-
