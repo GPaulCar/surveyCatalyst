@@ -35,6 +35,17 @@ const state = {
   autoLayerRegion: "global",
   layerEfficiency: null,
   lookupData: null,
+  measure: {
+    active: false,
+    meters: 0
+  },
+  grid: {
+    enabled: false,
+    cellMeters: 100
+  },
+  focusMode: "viewport",
+  activeStatesViewport: ["de_by"],
+  activeStatesSurvey: [],
   identifyRequestSeq: 0,
   permissionCandidates: [],
   permissionRequests: [],
@@ -51,6 +62,10 @@ let map;
 let surveySource, surveyLayer;
 let selectionSource, selectionLayer;
 let drawSource, drawLayer, drawInteraction;
+let measureSource, measureLayer, measureInteraction;
+let gridSource, gridLayer;
+let stateBoundarySource, stateBoundaryLayer;
+let measureGeomListener = null;
 let contextTileLayers = {};
 let baseLayer = null;
 let layerEfficiencyTimer = null;
@@ -80,6 +95,16 @@ const I18N = {
     show_surveys: "Show Surveys",
     hide_layers: "Hide Layers",
     show_layers: "Show Layers",
+    measure: "Measure",
+    clear_measure: "Clear",
+    measure_hint: "Click to add points. Double-click to finish.",
+    measure_distance: "Distance",
+    focus: "Focus",
+    focus_viewport: "Viewport",
+    focus_survey: "Survey",
+    active_states: "Active states",
+    grid: "Grid",
+    grid_size_m: "m",
     lang_en: "EN",
     lang_de: "DE",
     active_survey: "Active survey",
@@ -282,9 +307,10 @@ const I18N = {
       all: "All regions",
       global: "General / Global",
       de_by: "Bavaria",
-      de_be: "Berlin",
+      de_bw: "Baden-Württemberg",
       de_he: "Hesse",
-      de_nw: "North Rhine-Westphalia",
+      de_th: "Thuringia",
+      de_sn: "Saxony",
       eu: "Europe",
       international: "International",
       derived: "Analysis / Derived"
@@ -410,6 +436,16 @@ const I18N = {
     show_surveys: "Umfragen anzeigen",
     hide_layers: "Ebenen ausblenden",
     show_layers: "Ebenen anzeigen",
+    measure: "Messen",
+    clear_measure: "Zurücksetzen",
+    measure_hint: "Klicken um Punkte zu setzen. Doppelklick zum Beenden.",
+    measure_distance: "Distanz",
+    focus: "Fokus",
+    focus_viewport: "Viewport",
+    focus_survey: "Umfrage",
+    active_states: "Aktive Regionen",
+    grid: "Raster",
+    grid_size_m: "m",
     lang_en: "EN",
     lang_de: "DE",
     active_survey: "Aktive Umfrage",
@@ -612,9 +648,10 @@ const I18N = {
       all: "Alle Regionen",
       global: "Allgemein / Global",
       de_by: "Bayern",
-      de_be: "Berlin",
+      de_bw: "Baden-Württemberg",
       de_he: "Hessen",
-      de_nw: "Nordrhein-Westfalen",
+      de_th: "Thüringen",
+      de_sn: "Sachsen",
       eu: "Europa",
       international: "International",
       derived: "Analyse / Abgeleitet"
@@ -1073,18 +1110,20 @@ const LAYER_REGIONS = [
   {id:"all", label:"All regions"},
   {id:"global", label:"General / Global"},
   {id:"de_by", label:"Bavaria"},
-  {id:"de_be", label:"Berlin"},
+  {id:"de_bw", label:"Baden-Württemberg"},
   {id:"de_he", label:"Hesse"},
-  {id:"de_nw", label:"North Rhine-Westphalia"},
+  {id:"de_th", label:"Thuringia"},
+  {id:"de_sn", label:"Saxony"},
   {id:"eu", label:"Europe"},
   {id:"international", label:"International"},
   {id:"derived", label:"Analysis / Derived"}
 ];
 
 const STATE_VIEW_EXTENTS = [
-  {id:"de_be", minLon:13.05, minLat:52.30, maxLon:13.80, maxLat:52.70},
-  {id:"de_nw", minLon:5.80, minLat:50.25, maxLon:9.55, maxLat:52.65},
-  {id:"de_he", minLon:7.70, minLat:49.35, maxLon:10.30, maxLat:51.70},
+  {id:"de_bw", minLon:7.45, minLat:47.50, maxLon:10.55, maxLat:49.80},
+  {id:"de_he", minLon:7.75, minLat:49.35, maxLon:10.30, maxLat:51.70},
+  {id:"de_th", minLon:9.85, minLat:50.20, maxLon:12.70, maxLat:51.65},
+  {id:"de_sn", minLon:11.85, minLat:50.10, maxLon:15.10, maxLat:51.70},
   {id:"de_by", minLon:8.85, minLat:47.20, maxLon:13.90, maxLat:50.65}
 ];
 
@@ -1118,26 +1157,81 @@ function layerRegionLabel(id) {
   return tLayerRegion(id);
 }
 
-function currentMapRegion() {
-  if (!map) return "global";
-  const center = map.getView()?.getCenter?.();
-  if (!center) return "global";
-  const [lon, lat] = ol.proj.toLonLat(center);
-  const match = STATE_VIEW_EXTENTS.find(ext =>
-    lon >= ext.minLon && lon <= ext.maxLon && lat >= ext.minLat && lat <= ext.maxLat
-  );
-  return match?.id || "global";
+function intersectsExtent(a, b) {
+  return a.minLon <= b.maxLon && a.maxLon >= b.minLon && a.minLat <= b.maxLat && a.maxLat >= b.minLat;
+}
+
+function stateIdsFromExtent4326(extent4326) {
+  if (!extent4326) return ["de_by"];
+  const box = {minLon: extent4326[0], minLat: extent4326[1], maxLon: extent4326[2], maxLat: extent4326[3]};
+  const ids = STATE_VIEW_EXTENTS.filter(ext => intersectsExtent(ext, box)).map(ext => ext.id);
+  return ids.length ? ids : ["de_by"];
+}
+
+function currentMapStates() {
+  if (!map) return ["de_by"];
+  const view = map.getView();
+  const size = map.getSize();
+  if (!view || !size) return ["de_by"];
+  const extent = view.calculateExtent(size);
+  const extent4326 = ol.proj.transformExtent(extent, view.getProjection(), "EPSG:4326");
+  return stateIdsFromExtent4326(extent4326);
 }
 
 function effectiveLayerRegion() {
-  return state.activeLayerRegion === "auto" ? state.autoLayerRegion : state.activeLayerRegion;
+  const ids = activeFocusStateIds();
+  return ids[0] || "de_by";
+}
+
+function activeFocusStateIds() {
+  if (state.focusMode === "survey" && state.activeStatesSurvey.length) return state.activeStatesSurvey;
+  if (state.activeLayerRegion === "all") return ["all"];
+  if (state.activeLayerRegion === "auto") return state.activeStatesViewport.length ? state.activeStatesViewport : ["de_by"];
+  return [state.activeLayerRegion];
+}
+
+function activeFocusStateLabel() {
+  const ids = activeFocusStateIds();
+  if (ids.includes("all")) return tLayerRegion("all");
+  return ids.map(layerRegionLabel).join(", ");
 }
 
 function syncAutoLayerRegion() {
-  const next = currentMapRegion();
-  if (state.autoLayerRegion === next) return;
-  state.autoLayerRegion = next;
+  const nextStates = currentMapStates();
+  const nextPrimary = nextStates[0] || "de_by";
+  const changed = JSON.stringify(nextStates) !== JSON.stringify(state.activeStatesViewport);
+  state.activeStatesViewport = nextStates;
+  if (state.autoLayerRegion === nextPrimary && !changed) return;
+  state.autoLayerRegion = nextPrimary;
   if (state.activeLayerRegion === "auto" && state.activeRight === "layers") render();
+}
+
+function surveyBoundaryFeatureForActiveSurvey() {
+  if (!surveySource || !state.activeSurveyId) return null;
+  const features = surveySource.getFeatures();
+  return features.find(feature => {
+    const props = plainFeatureProperties(feature);
+    return props.feature_role === "survey_boundary" && String(props.survey_id ?? props.id ?? "") === String(state.activeSurveyId);
+  }) || null;
+}
+
+function syncSurveyFocusStates() {
+  if (!state.activeSurveyId) {
+    state.activeStatesSurvey = [];
+    if (state.focusMode === "survey") state.focusMode = "viewport";
+    return;
+  }
+  const feature = surveyBoundaryFeatureForActiveSurvey();
+  if (!feature) return;
+  const geometry = feature.getGeometry?.();
+  if (!geometry) return;
+  const extent4326 = ol.proj.transformExtent(
+    geometry.getExtent(),
+    map.getView().getProjection(),
+    "EPSG:4326"
+  );
+  state.activeStatesSurvey = stateIdsFromExtent4326(extent4326);
+  state.focusMode = "survey";
 }
 
 function layerText(layer) {
@@ -1162,9 +1256,10 @@ function layerRegion(layer) {
   const text = layerText(layer);
 
   if (text.includes("bavaria") || text.includes("bayern") || text.includes("de_by") || text.includes("gdiserv.bayern")) return "de_by";
-  if (text.includes("berlin") || text.includes("gdi.berlin")) return "de_be";
+  if (text.includes("baden") || text.includes("wuerttemberg") || text.includes("württemberg") || text.includes("de_bw")) return "de_bw";
   if (text.includes("hessen") || text.includes("geoportal.hessen")) return "de_he";
-  if (text.includes("nrw") || text.includes("nordrhein") || text.includes("north rhine") || text.includes("wms.nrw")) return "de_nw";
+  if (text.includes("thuringia") || text.includes("thüringen") || text.includes("thueringen") || text.includes("de_th")) return "de_th";
+  if (text.includes("saxony") || text.includes("sachsen") || text.includes("de_sn")) return "de_sn";
   if (String(md.region_scope || "").toLowerCase() === "eu" || text.includes("european") || text.includes("copernicus")) return "eu";
   if (text.includes("derived") || String(md.region_scope || "").toLowerCase() === "local") return "derived";
   if (text.includes("dainst") || text.includes("jazira") || text.includes("gadara") || text.includes("yemen") || text.includes("rome")) return "international";
@@ -1177,6 +1272,12 @@ function layerVisibleForRegion(layer, region) {
   if (ownRegion === "survey") return true;
   if (region === "global") return ownRegion === "global" || ownRegion === "eu" || ownRegion === "derived";
   return ownRegion === region || ownRegion === "global" || ownRegion === "eu" || ownRegion === "derived";
+}
+
+function layerVisibleForFocus(layer, regions) {
+  const regionIds = Array.isArray(regions) ? regions : [regions];
+  if (regionIds.includes("all")) return true;
+  return regionIds.some(region => layerVisibleForRegion(layer, region));
 }
 
 function visibleContextLayers() {
@@ -1219,6 +1320,16 @@ function layerEfficiencyText() {
   const info = state.layerEfficiency;
   if (!info || info.pending) return t("layer_efficiency_pending");
   return `${t("layer_efficiency")}: ${t(`layer_efficiency_${info.bucket}`)} z${info.zoom} (${info.visible}/${info.total})`;
+}
+
+function formatMeasureDistance(meters) {
+  const value = Number(meters) || 0;
+  return value >= 1000 ? `${(value / 1000).toFixed(2)} km` : `${Math.round(value)} m`;
+}
+
+function measureText() {
+  if (!state.measure?.meters) return t("measure");
+  return `${t("measure_distance")}: ${formatMeasureDistance(state.measure.meters)}`;
 }
 
 function scheduleLayerEfficiencyUpdate() {
@@ -1455,6 +1566,8 @@ function setSelectionState(selection, options = {}) {
 
   if (next.surveyId) {
     state.activeSurveyId = String(next.surveyId);
+    state.focusMode = "survey";
+    syncSurveyFocusStates();
   }
   if (options.switchTabs !== false) {
     syncTabsForSelection();
@@ -1824,7 +1937,8 @@ function css() {
       flex:0 0 auto;
     }
     .topbar-actions button,
-    .topbar-actions select {
+    .topbar-actions select,
+    .topbar-actions input {
       height:23px;
       padding:0 8px;
       border-radius:4px;
@@ -1838,6 +1952,12 @@ function css() {
       min-width:92px;
       width:auto;
       padding-right:8px;
+    }
+    .topbar-actions input {
+      width:76px;
+      min-width:76px;
+      margin:0;
+      font-size:11px;
     }
     .topbar-actions .tab {
       height:23px;
@@ -2457,20 +2577,75 @@ function initMap() {
     })
   });
 
+  measureSource = new ol.source.Vector();
+  measureLayer = new ol.layer.Vector({
+    source: measureSource,
+    style: [
+      new ol.style.Style({
+        stroke: new ol.style.Stroke({color: "#0ea5e9", width: 3, lineDash: [8, 6]})
+      }),
+      new ol.style.Style({
+        image: new ol.style.Circle({
+          radius: 4,
+          fill: new ol.style.Fill({color: "#0ea5e9"}),
+          stroke: new ol.style.Stroke({color: "#fff", width: 1})
+        })
+      })
+    ]
+  });
+
+  gridSource = new ol.source.Vector();
+  gridLayer = new ol.layer.Vector({
+    source: gridSource,
+    style: new ol.style.Style({
+      stroke: new ol.style.Stroke({color: "rgba(15,23,42,0.28)", width: 1})
+    })
+  });
+  gridLayer.setZIndex(19);
+
+  stateBoundarySource = new ol.source.Vector();
+  stateBoundaryLayer = new ol.layer.Vector({
+    source: stateBoundarySource,
+    style: new ol.style.Style({
+      stroke: new ol.style.Stroke({color: "rgba(100,116,139,0.75)", width: 2}),
+      fill: new ol.style.Fill({color: "rgba(100,116,139,0.03)"})
+    })
+  });
+  stateBoundaryLayer.setZIndex(5);
+
+  const boundaryFeatures = STATE_VIEW_EXTENTS.map(ext => {
+    const ring = [
+      [ext.minLon, ext.minLat],
+      [ext.maxLon, ext.minLat],
+      [ext.maxLon, ext.maxLat],
+      [ext.minLon, ext.maxLat],
+      [ext.minLon, ext.minLat]
+    ].map(coord => ol.proj.fromLonLat(coord));
+    const feature = new ol.Feature(new ol.geom.Polygon([ring]));
+    feature.set("state_id", ext.id);
+    return feature;
+  });
+  stateBoundarySource.addFeatures(boundaryFeatures);
+
   map.addLayer(surveyLayer);
+  map.addLayer(stateBoundaryLayer);
   map.addLayer(drawLayer);
+  map.addLayer(measureLayer);
+  map.addLayer(gridLayer);
   map.addLayer(selectionLayer);
   setBasemap(state.activeBasemap);
-  state.autoLayerRegion = currentMapRegion();
+  syncAutoLayerRegion();
 
   map.on("singleclick", async e => {
+    if (state.measure.active) return;
     const seq = ++state.identifyRequestSeq;
     let hit = null;
     map.forEachFeatureAtPixel(e.pixel, f => {
       hit = f;
       return true;
     }, {
-      layerFilter: layer => layer !== selectionLayer && layer !== drawLayer
+      hitTolerance: 6,
+      layerFilter: layer => layer !== selectionLayer && layer !== drawLayer && layer !== measureLayer && layer !== gridLayer && layer !== stateBoundaryLayer
     });
     if (hit) {
       setSelection(hit);
@@ -2501,6 +2676,7 @@ function initMap() {
   map.on("moveend", () => {
     syncAutoLayerRegion();
     scheduleLayerEfficiencyUpdate();
+    updateGridLayer();
   });
 }
 
@@ -2957,6 +3133,9 @@ async function loadSurveyFeatures(id, zoom=false) {
   surveySource.clear();
   surveySource.addFeatures(fs);
   syncSelectionFeatureFromSurveySource({clearMissingForSurveyId:id});
+  if (state.activeSurveyId && String(state.activeSurveyId) === String(id)) {
+    syncSurveyFocusStates();
+  }
 
   if (zoom && fs.length) {
     const ext = ol.extent.createEmpty();
@@ -2976,6 +3155,10 @@ function topbar() {
         <div class="topbar-actions">
           <button class="tab" onclick="toggleLeft()">${esc(state.leftOpen ? t("hide_surveys") : t("show_surveys"))}</button>
           <button class="tab" onclick="toggleRight()">${esc(state.rightOpen ? t("hide_layers") : t("show_layers"))}</button>
+          <button class="tab ${state.measure.active ? "active" : ""}" onclick="toggleMeasure()" title="${esc(t("measure_hint"))}">${esc(t("measure"))}</button>
+          ${state.measure.meters > 0 ? `<button class="tab" onclick="clearMeasure()">${esc(t("clear_measure"))}</button>` : ""}
+          <button class="tab ${state.grid.enabled ? "active" : ""}" onclick="toggleGrid()">${esc(t("grid"))}</button>
+          <input type="number" min="10" step="10" value="${esc(state.grid.cellMeters)}" onchange="setGridSizeMeters(this.value)" aria-label="${esc(t("grid"))}" title="${esc(t("grid"))}">
           <select id="languageSelect" onchange="setLanguage(this.value)" aria-label="${esc(t("language"))}" title="${esc(t("language"))}">
             <option value="en" ${state.lang === "en" ? "selected" : ""}>${esc(t("language_english"))}</option>
             <option value="de" ${state.lang === "de" ? "selected" : ""}>${esc(t("language_german"))}</option>
@@ -2986,8 +3169,12 @@ function topbar() {
         <span><span class="status-dot ${state.system.api ? "on" : ""}"></span>${esc(t("api"))}</span>
         <span>${esc(t("db"))} ${esc(state.system.db ? t("on") : t("off"))}</span>
         <span>${esc(titleFor("left", state.activeLeft))} / ${esc(titleFor("right", state.activeRight))}</span>
+        <span>${esc(t("focus"))}: ${esc(state.focusMode === "survey" ? t("focus_survey") : t("focus_viewport"))}</span>
+        <span>${esc(t("active_states"))}: ${esc(activeFocusStateLabel())}</span>
         <span>${esc(t("survey"))}: ${esc(survey?.title || state.activeSurveyId || t("none"))}</span>
         <span>${esc(t("selection"))}: ${esc(topbarSelectionSummary())}</span>
+        <span>${esc(measureText())}</span>
+        <span>${esc(t("grid"))}: ${esc(state.grid.enabled ? `${state.grid.cellMeters}${t("grid_size_m")}` : t("off"))}</span>
         <span class="eff">${esc(layerEfficiencyText())}</span>
       </div>
     </div>
@@ -3505,12 +3692,12 @@ function exportBody() {
 
 function layersBody() {
   const groups = {};
-  const region = effectiveLayerRegion();
-  const visibleLayers = state.layers.filter(layer => layerVisibleForRegion(layer, region));
+  const activeRegions = activeFocusStateIds();
+  const visibleLayers = state.layers.filter(layer => layerVisibleForFocus(layer, activeRegions));
   const regionOptions = LAYER_REGIONS.map(regionOption => {
     const selected = regionOption.id === state.activeLayerRegion ? "selected" : "";
     const label = regionOption.id === "auto"
-      ? `${tLayerRegion(regionOption.id)}: ${layerRegionLabel(state.autoLayerRegion)}`
+      ? `${tLayerRegion(regionOption.id)}: ${activeFocusStateLabel()}`
       : tLayerRegion(regionOption.id);
     return `<option value="${esc(regionOption.id)}" ${selected}>${esc(label)}</option>`;
   }).join("");
@@ -3632,6 +3819,8 @@ function regionBody() {
     <div class="section"><div class="section-title">${esc(t("region"))}</div>
       <div class="row"><span>${esc(t("layers"))}</span><strong>${state.layers.length}</strong></div>
       <div class="row"><span>${esc(t("survey"))}</span><strong>${esc(state.activeSurveyId || t("none"))}</strong></div>
+      <div class="row"><span>${esc(t("focus"))}</span><strong>${esc(state.focusMode === "survey" ? t("focus_survey") : t("focus_viewport"))}</strong></div>
+      <div class="row"><span>${esc(t("active_states"))}</span><strong>${esc(activeFocusStateLabel())}</strong></div>
       <div class="row"><span>${esc(t("selection"))}</span><strong>${hasSelection() ? esc(t("yes")) : esc(t("no"))}</strong></div>
     </div>
   `;
@@ -3685,8 +3874,12 @@ function setActiveSurveyContext(value) {
   const survey = activeSurveyRecord();
   toast(survey ? `${t("survey_set")}: ${surveyName(survey)}` : t("no_survey_selected"));
   if (state.activeSurveyId) {
+    state.focusMode = "survey";
     selectSurveyById(state.activeSurveyId);
+    syncSurveyFocusStates();
   } else {
+    state.focusMode = "viewport";
+    state.activeStatesSurvey = [];
     clearSelection();
   }
 }
@@ -3700,6 +3893,7 @@ function setActiveSurvey() {
 async function loadSelectedSurvey(zoom) {
   if (!state.activeSurveyId) return alert(t("select_survey_first"));
   await loadSurveyFeatures(state.activeSurveyId, zoom);
+  syncSurveyFocusStates();
   if (state.selection?.type === "survey" && String(state.selection.surveyId) === String(state.activeSurveyId)) {
     render();
   }
@@ -3714,6 +3908,8 @@ async function archiveActiveSurvey() {
   surveySource.clear();
   clearSelection({switchTabs:false, render:false});
   state.activeSurveyId = null;
+  state.focusMode = "viewport";
+  state.activeStatesSurvey = [];
   state.permissionCandidates = [];
   state.permissionRequests = [];
   state.permissionStatus = "";
@@ -3733,6 +3929,8 @@ async function deleteActiveSurvey() {
   drawSource.clear();
   clearSelection({switchTabs:false, render:false});
   state.activeSurveyId = null;
+  state.focusMode = "viewport";
+  state.activeStatesSurvey = [];
   state.permissionCandidates = [];
   state.permissionRequests = [];
   state.permissionStatus = "";
@@ -3770,7 +3968,115 @@ function setBasemap(key) {
   render();
 }
 
+function stopMeasureInteraction() {
+  if (measureInteraction) {
+    map.removeInteraction(measureInteraction);
+    measureInteraction = null;
+  }
+  if (measureGeomListener) {
+    ol.Observable.unByKey(measureGeomListener);
+    measureGeomListener = null;
+  }
+}
+
+function clearMeasure() {
+  stopMeasureInteraction();
+  if (measureSource) measureSource.clear();
+  state.measure.active = false;
+  state.measure.meters = 0;
+  render();
+}
+
+function setMeasureDistance(geometry) {
+  if (!geometry) {
+    state.measure.meters = 0;
+    render();
+    return;
+  }
+  state.measure.meters = ol.sphere.getLength(geometry, {projection: map.getView().getProjection()}) || 0;
+  render();
+}
+
+function toggleMeasure() {
+  if (!map || !measureSource) return;
+  if (state.measure.active) {
+    clearMeasure();
+    return;
+  }
+
+  clearMeasure();
+  state.measure.active = true;
+  measureInteraction = new ol.interaction.Draw({source: measureSource, type: "LineString"});
+  measureInteraction.on("drawstart", evt => {
+    if (measureGeomListener) {
+      ol.Observable.unByKey(measureGeomListener);
+      measureGeomListener = null;
+    }
+    measureGeomListener = evt.feature.getGeometry().on("change", e => setMeasureDistance(e.target));
+  });
+  measureInteraction.on("drawend", evt => {
+    setMeasureDistance(evt.feature.getGeometry());
+    stopMeasureInteraction();
+    state.measure.active = false;
+    render();
+  });
+  map.addInteraction(measureInteraction);
+  toast(t("measure_hint"));
+  render();
+}
+
+function clampGridSize(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return 100;
+  return Math.max(10, Math.min(50000, Math.round(n)));
+}
+
+function updateGridLayer() {
+  if (!map || !gridSource) return;
+  gridSource.clear();
+  if (!state.grid.enabled) return;
+
+  const view = map.getView();
+  const size = map.getSize();
+  if (!view || !size) return;
+  const extent = view.calculateExtent(size);
+  if (!extent) return;
+
+  const cell = clampGridSize(state.grid.cellMeters);
+  state.grid.cellMeters = cell;
+
+  const minX = extent[0], minY = extent[1], maxX = extent[2], maxY = extent[3];
+  const startX = Math.floor(minX / cell) * cell;
+  const startY = Math.floor(minY / cell) * cell;
+  const cols = Math.ceil((maxX - startX) / cell);
+  const rows = Math.ceil((maxY - startY) / cell);
+  const maxLines = 450;
+  if ((cols + rows) > maxLines) return;
+
+  const features = [];
+  for (let x = startX; x <= maxX + cell; x += cell) {
+    features.push(new ol.Feature(new ol.geom.LineString([[x, minY], [x, maxY]])));
+  }
+  for (let y = startY; y <= maxY + cell; y += cell) {
+    features.push(new ol.Feature(new ol.geom.LineString([[minX, y], [maxX, y]])));
+  }
+  gridSource.addFeatures(features);
+}
+
+function setGridSizeMeters(value) {
+  state.grid.cellMeters = clampGridSize(value);
+  render();
+  updateGridLayer();
+}
+
+function toggleGrid() {
+  state.grid.enabled = !state.grid.enabled;
+  render();
+  updateGridLayer();
+}
+
 function startDraw(type) {
+  if (state.measure.active || state.measure.meters > 0) clearMeasure();
   if (drawInteraction) map.removeInteraction(drawInteraction);
   drawSource.clear();
   const olType = type === "point" ? "Point" : type === "line" ? "LineString" : "Polygon";
@@ -4019,6 +4325,7 @@ async function start() {
 
 Object.assign(window, {
   startGeometryEdit,stopGeometryEdit,saveGeometryEdit,resetSelectedGeometry,zoomToSelection,
+  toggleMeasure,clearMeasure,toggleGrid,setGridSizeMeters,
   detailsChildTab,loadLookupData,
   setLanguage,setLeft,setRight,toggleLeft,toggleRight,refreshSystem,setActiveSurvey,setActiveSurveyContext,loadSelectedSurvey,loadSurveys,loadLayers,loadSurveyFeatures,
   controlAdminService,loadAdminLogs,readAdminLogControls,viewAdminLog,clearAdminLogOutput,
