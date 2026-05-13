@@ -30,6 +30,7 @@ RUNTIME_PATHS = [
     "VERSION",
     "scripts/bootstrap_python_env.py",
     "scripts/bootstrap_python_env.ps1",
+    "scripts/bootstrap_deployment_site.py",
     "scripts/build_release_manifest.py",
     "scripts/enable_postgis.py",
     "scripts/install_release.py",
