@@ -53,10 +53,13 @@ class MasterRegistryDataLoader:
         self,
         include_osm: bool = False,
         bbox: tuple[float, float, float, float] | None = None,
+        bavaria: bool = False,
         layer_names: set[str] | None = None,
         source_types: set[str] | None = None,
     ) -> dict[str, Any]:
         records = self.registry.load_records()
+        if bbox is None and bavaria:
+            bbox = self._resolve_bavaria_bbox()
         loadable = []
         skipped = []
         for record in records:
@@ -83,11 +86,14 @@ class MasterRegistryDataLoader:
         force: bool = False,
         include_osm: bool = False,
         bbox: tuple[float, float, float, float] | None = None,
+        bavaria: bool = False,
         max_records_per_layer: int = 5000,
         layer_names: set[str] | None = None,
         source_types: set[str] | None = None,
     ) -> dict[str, Any]:
         records = self.registry.load_records()
+        if bbox is None and bavaria:
+            bbox = self._resolve_bavaria_bbox()
         selected_records = [
             record for record in records
             if not layer_names or record.layer_name in layer_names
@@ -178,6 +184,57 @@ class MasterRegistryDataLoader:
         if record.source_type not in {"WFS", "REST", "OSM", "FILE"}:
             return f"unsupported_source_type_{record.source_type}"
         return None
+
+    def _resolve_bavaria_bbox(self) -> tuple[float, float, float, float]:
+        candidates = [
+            ("external_features", ("state_boundaries_de", "de_state_boundaries_bkg", "bkg_vg250_boundaries", "bkg_vg25_boundaries")),
+            ("data_layers.bkg_vg250_boundaries", ()),
+            ("data_layers.bkg_vg25_boundaries", ()),
+        ]
+        conn = self.backend.connect()
+        try:
+            with conn.cursor() as cur:
+                for table_name, layer_keys in candidates:
+                    if table_name.startswith("external_features"):
+                        cur.execute(
+                            """
+                            SELECT
+                                ST_XMin(ST_Extent(geom)),
+                                ST_YMin(ST_Extent(geom)),
+                                ST_XMax(ST_Extent(geom)),
+                                ST_YMax(ST_Extent(geom))
+                            FROM external_features
+                            WHERE layer = ANY(%s)
+                              AND geom IS NOT NULL
+                              AND (
+                                  COALESCE(properties->>'state_id', '') IN ('de_by', 'BY')
+                                  OR COALESCE(properties->>'name', '') ILIKE '%%Bayern%%'
+                                  OR layer = ANY(%s)
+                              )
+                            """,
+                            (list(layer_keys), list(layer_keys)),
+                        )
+                    else:
+                        cur.execute(
+                            f"""
+                            SELECT
+                                ST_XMin(ST_Extent(geom)),
+                                ST_YMin(ST_Extent(geom)),
+                                ST_XMax(ST_Extent(geom)),
+                                ST_YMax(ST_Extent(geom))
+                            FROM {table_name}
+                            WHERE geom IS NOT NULL
+                            """
+                        )
+                    row = cur.fetchone()
+                    if row and all(value is not None for value in row):
+                        return tuple(float(value) for value in row)  # type: ignore[return-value]
+        finally:
+            conn.close()
+        raise RuntimeError(
+            "Could not resolve Bavaria boundary extent from loaded boundary layers. "
+            "Run scripts/ingest_state_boundaries_de.py or scripts/ingest_bkg_administrative_boundaries.py first."
+        )
 
     def _load_record(
         self,

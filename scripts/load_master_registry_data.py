@@ -49,7 +49,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--bavaria",
         action="store_true",
-        help=f"Use Bavaria bbox ({BAVARIA_BBOX}) when --bbox is not provided.",
+        default=True,
+        help="Use Bavaria state boundary context when --bbox is not provided.",
     )
     parser.add_argument(
         "--max-records-per-layer",
@@ -88,7 +89,7 @@ def main() -> int:
     loader = MasterRegistryDataLoader()
     layer_names = set(args.layers or []) or None
     source_types = set(args.source_types or []) or None
-    bbox = args.bbox or (parse_bbox(BAVARIA_BBOX) if args.bavaria else None)
+    bbox = args.bbox if args.bbox else None
     max_records_per_layer = 0 if args.all_records else args.max_records_per_layer
     if max_records_per_layer < 0:
         raise SystemExit("--max-records-per-layer must be 0 or greater")
@@ -97,6 +98,7 @@ def main() -> int:
         result = loader.plan(
             include_osm=args.include_osm,
             bbox=bbox,
+            bavaria=args.bavaria,
             layer_names=layer_names,
             source_types=source_types,
         )
@@ -105,6 +107,7 @@ def main() -> int:
             force=args.force,
             include_osm=args.include_osm,
             bbox=bbox,
+            bavaria=args.bavaria,
             max_records_per_layer=max_records_per_layer,
             layer_names=layer_names,
             source_types=source_types,
