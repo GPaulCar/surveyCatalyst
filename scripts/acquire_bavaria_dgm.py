@@ -131,15 +131,14 @@ def parse_metalink(manifest_bytes: bytes) -> tuple[list[dict[str, Any]], int]:
     return files, total_bytes
 
 
-def run_aria2(aria2c: str, metalink_url: str, asset_dir: Path) -> None:
+def run_aria2(aria2c: str, metalink_path: Path, asset_dir: Path) -> None:
     asset_dir.mkdir(parents=True, exist_ok=True)
     cmd = [
         aria2c,
         "-V",
-        "--follow-metalink=mem",
         "--dir",
         str(asset_dir),
-        metalink_url,
+        str(metalink_path),
     ]
     print("[RUN] " + " ".join(cmd), flush=True)
     proc = subprocess.run(cmd, cwd=str(ROOT), check=False)
@@ -266,7 +265,7 @@ def acquire_product(product: str, args: argparse.Namespace) -> AcquisitionResult
 
         if args.download_assets:
             aria2c = shutil.which(args.aria2c) or args.aria2c
-            run_aria2(aria2c, info["metalink_url"], asset_dir)
+            run_aria2(aria2c, manifest_path, asset_dir)
             info["source_available"] = True
             info["status"] = "downloaded"
             info["message"] = "manifest_and_assets_downloaded"
