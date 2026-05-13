@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from core.db import build_backend
+from core.config.loader import load_settings
 from layers.layer_usage_service import LayerUsageService
 
 
@@ -9,11 +10,21 @@ class LiveDBMapService:
         self.backend = build_backend()
         self.layer_usage = LayerUsageService()
 
+    def _is_release_mode(self) -> bool:
+        try:
+            return str(load_settings().app.env).lower() == "release"
+        except Exception:
+            return False
+
     def list_layers(self):
         rows = self.layer_usage.list_layers()
+        release_mode = self._is_release_mode()
         out = []
         for row in rows:
             object_count = row.get("object_count")
+            count_kind = row.get("count_kind")
+            if release_mode and count_kind != "service_backed" and (object_count is None or object_count <= 0):
+                continue
             if row["layer_group"] == "context" and (object_count is None or object_count <= 0) and not self._always_show(row["metadata"]):
                 continue
             out.append(
@@ -28,7 +39,7 @@ class LiveDBMapService:
                     row["sort_order"],
                     row["metadata"],
                     row.get("object_count"),
-                    row.get("count_kind"),
+                    count_kind,
                     row.get("count_label"),
                 )
             )

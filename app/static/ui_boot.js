@@ -3850,10 +3850,18 @@ function regionBody() {
 }
 
 function render() {
+  const leftScroll = document.getElementById("left-panel")?.querySelector(".panel-body")?.scrollTop ?? 0;
+  const rightScroll = document.getElementById("right-panel")?.querySelector(".panel-body")?.scrollTop ?? 0;
   css();
   topbar();
   panel("left-panel", "left", titleFor("left", state.activeLeft), subtitleFor(state.activeLeft), leftBody());
   panel("right-panel", "right", titleFor("right", state.activeRight), subtitleFor(state.activeRight), rightBody());
+  requestAnimationFrame(() => {
+    const leftBody = document.getElementById("left-panel")?.querySelector(".panel-body");
+    const rightBody = document.getElementById("right-panel")?.querySelector(".panel-body");
+    if (leftBody) leftBody.scrollTop = leftScroll;
+    if (rightBody) rightBody.scrollTop = rightScroll;
+  });
 }
 
 function titleFor(side, id) {
