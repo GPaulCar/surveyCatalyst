@@ -1,41 +1,38 @@
 from __future__ import annotations
 
 from core.db import build_backend
+from layers.layer_usage_service import LayerUsageService
 
 
 class LiveDBMapService:
     def __init__(self):
         self.backend = build_backend()
+        self.layer_usage = LayerUsageService()
 
     def list_layers(self):
-        conn = self.backend.connect()
-        try:
-            with conn.cursor() as cur:
-                cur.execute(
-                    """
-                    SELECT layer_key,
-                           layer_name,
-                           layer_group,
-                           source_table,
-                           geometry_type,
-                           is_visible,
-                           opacity,
-                           sort_order,
-                           metadata
-                    FROM layers_registry
-                    ORDER BY layer_group, sort_order, layer_name
-                    """
+        rows = self.layer_usage.list_layers()
+        out = []
+        for row in rows:
+            object_count = row.get("object_count")
+            if row["layer_group"] == "context" and (object_count is None or object_count <= 0) and not self._always_show(row["metadata"]):
+                continue
+            out.append(
+                (
+                    row["layer_key"],
+                    row["layer_name"],
+                    row["layer_group"],
+                    row["source_table"],
+                    row["geometry_type"],
+                    row["is_visible"],
+                    row["opacity"],
+                    row["sort_order"],
+                    row["metadata"],
+                    row.get("object_count"),
+                    row.get("count_kind"),
+                    row.get("count_label"),
                 )
-                rows = cur.fetchall()
-                out = []
-                for row in rows:
-                    object_count = self._layer_object_count(cur, row[0], row[2], row[3])
-                    if row[2] == "context" and object_count <= 0 and not self._always_show(row[8]):
-                        continue
-                    out.append((*row, object_count))
-                return out
-        finally:
-            conn.close()
+            )
+        return out
 
     def list_survey_layers(self):
         conn = self.backend.connect()
@@ -86,27 +83,6 @@ class LiveDBMapService:
                 return str(row[0]) if row and row[0] else None
         finally:
             conn.close()
-
-    def _layer_object_count(self, cur, layer_key: str, layer_group: str, source_table: str | None) -> int:
-        if layer_key == "surveys":
-            cur.execute("SELECT COUNT(*) FROM surveys")
-            return int((cur.fetchone() or [0])[0] or 0)
-        if layer_key == "survey_objects":
-            cur.execute("SELECT COUNT(*) FROM survey_objects WHERE is_active = TRUE")
-            return int((cur.fetchone() or [0])[0] or 0)
-        if layer_key.startswith("survey_"):
-            cur.execute(
-                "SELECT COUNT(*) FROM survey_objects WHERE layer_key = %s AND is_active = TRUE",
-                (layer_key,),
-            )
-            return int((cur.fetchone() or [0])[0] or 0)
-        if source_table and source_table.startswith("data_layers."):
-            cur.execute(f"SELECT COUNT(*) FROM {source_table} WHERE geom IS NOT NULL")
-            return int((cur.fetchone() or [0])[0] or 0)
-        if layer_group == "context":
-            cur.execute("SELECT COUNT(*) FROM external_features WHERE layer = %s AND geom IS NOT NULL", (layer_key,))
-            return int((cur.fetchone() or [0])[0] or 0)
-        return 0
 
     def get_survey_layer_geojson(self, layer_key: str, bounds: tuple[float, float, float, float] | None = None, limit: int = 5000):
         return self._survey_layer_geojson(layer_key, bounds=bounds, limit=limit)

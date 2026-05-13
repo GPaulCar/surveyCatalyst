@@ -632,6 +632,8 @@ def list_layers():
             "metadata": row[8] or {},
             "object_count": row[9] if len(row) > 9 else None,
             "feature_count": row[9] if len(row) > 9 else None,
+            "count_kind": row[10] if len(row) > 10 else None,
+            "count_label": row[11] if len(row) > 11 else None,
         }
         for row in rows
     ]

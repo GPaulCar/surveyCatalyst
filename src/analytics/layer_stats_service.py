@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from core.db import build_backend
+from layers.layer_usage_service import LayerUsageService
 
 
 class LayerStatsService:
@@ -8,17 +9,7 @@ class LayerStatsService:
         self.backend = build_backend()
 
     def feature_counts(self):
-        conn = self.backend.connect()
-        with conn.cursor() as cur:
-            cur.execute(
-                '''
-                SELECT layer, COUNT(*)
-                FROM external_features
-                GROUP BY layer
-                ORDER BY layer
-                '''
-            )
-            return cur.fetchall()
+        return LayerUsageService().list_layers()
 
     def survey_object_counts(self):
         conn = self.backend.connect()

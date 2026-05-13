@@ -284,6 +284,9 @@ const I18N = {
     layer_efficiency_light: "light",
     layer_efficiency_medium: "medium",
     layer_efficiency_heavy: "heavy",
+    count_service_backed: "service",
+    count_registry_only: "registry",
+    count_not_loaded: "not loaded",
     region_state: "Region / state",
     loaded_features: "feature(s) loaded",
     unnamed_survey: "Unnamed survey",
@@ -625,6 +628,9 @@ const I18N = {
     layer_efficiency_light: "gering",
     layer_efficiency_medium: "mittel",
     layer_efficiency_heavy: "hoch",
+    count_service_backed: "Dienst",
+    count_registry_only: "Registrierung",
+    count_not_loaded: "nicht geladen",
     region_state: "Region / Bundesland",
     loaded_features: "Objekt(e) geladen",
     unnamed_survey: "Unbenannte Umfrage",
@@ -3259,6 +3265,12 @@ function surveyStatus(survey) {
 }
 
 function layerObjectCount(layer) {
+  const kind = String(layer?.count_kind ?? layer?.metadata?.count_kind ?? "");
+  if (kind === "service_backed") return t("count_service_backed");
+  if (kind === "registry_only") return t("count_registry_only");
+  if (kind === "not_loaded") return t("count_not_loaded");
+  const label = layer?.count_label ?? layer?.metadata?.count_label;
+  if (label !== undefined && label !== null && label !== "") return label;
   const direct = layer?.object_count ?? layer?.feature_count ?? layer?.metadata?.object_count ?? layer?.metadata?.feature_count;
   if (direct !== undefined && direct !== null && direct !== "") return direct;
   const key = String(layer?.layer_key || "");
@@ -3744,7 +3756,7 @@ function layersBody() {
             <input type="checkbox" ${l.is_visible ? "checked" : ""} onchange="toggleLayer('${esc(l.layer_key)}', this.checked)">
             <div class="layer-row-main">
               <span class="layer-name">${esc(tLayerName(l))}</span>
-              <span class="layer-count">${esc(layerObjectCount(l) ?? 0)}</span>
+              <span class="layer-count">${esc(layerObjectCount(l) ?? "registry")}</span>
             </div>
           </label>
         `).join("")}
