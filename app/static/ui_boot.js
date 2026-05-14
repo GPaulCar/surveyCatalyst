@@ -2255,6 +2255,23 @@ function css() {
       background:#eef2f7;
       border-color:#94a3b8;
     }
+    button:disabled,
+    .tab:disabled,
+    select:disabled,
+    input:disabled,
+    textarea:disabled {
+      opacity:.5;
+      cursor:not-allowed;
+      background:#f1f5f9 !important;
+      border-color:#d0d7e2 !important;
+      color:#94a3b8 !important;
+      box-shadow:none !important;
+    }
+    button:disabled:hover,
+    .tab:disabled:hover {
+      background:#f1f5f9 !important;
+      border-color:#d0d7e2 !important;
+    }
     .panel-head button {
       margin:0;
     }
