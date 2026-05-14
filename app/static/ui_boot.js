@@ -155,6 +155,10 @@ const I18N = {
     draw_boundary: "Draw boundary",
     create: "Create",
     survey_hint: "Creates a new survey from the drawn boundary, then makes it active.",
+    create_workflow_hint: "Workflow: 1) Enter survey name. 2) Draw boundary. 3) Create survey. 4) Add objects inside active survey.",
+    create_survey_locked_hint: "Boundary creation is disabled while a survey is active. Clear active survey first in the Survey tab.",
+    draw_survey_boundary_blocked: "Clear active survey before drawing a new survey boundary",
+    draw_object_requires_active_survey: "Set an active survey before drawing objects",
     object: "Object",
     object_title: "Object title",
     notes: "Notes",
@@ -499,6 +503,10 @@ const I18N = {
     draw_boundary: "Grenze zeichnen",
     create: "Erstellen",
     survey_hint: "Erstellt eine neue Umfrage aus der gezeichneten Grenze und setzt sie danach aktiv.",
+    create_workflow_hint: "Ablauf: 1) Umfragename eingeben. 2) Grenze zeichnen. 3) Umfrage erstellen. 4) Objekte innerhalb der aktiven Umfrage hinzufügen.",
+    create_survey_locked_hint: "Grenzenerstellung ist deaktiviert, solange eine Umfrage aktiv ist. Aktive Umfrage zuerst im Tab Umfrage aufheben.",
+    draw_survey_boundary_blocked: "Aktive Umfrage aufheben, bevor eine neue Umfragegrenze gezeichnet wird",
+    draw_object_requires_active_survey: "Aktive Umfrage festlegen, bevor Objekte gezeichnet werden",
     object: "Objekt",
     object_title: "Objekttitel",
     notes: "Notizen",
@@ -3509,14 +3517,18 @@ function adminServiceCard(target, title, running, detail) {
 
 function createBody() {
   const active = activeSurveyRecord();
+  const hasActiveSurvey = !!state.activeSurveyId;
+  const surveyBoundaryDisabled = hasActiveSurvey ? "disabled" : "";
   return `
     <div class="section">
       <div class="section-title">${esc(t("survey"))}</div>
       <input id="createSurveyTitle" placeholder="${esc(t("title"))}">
       <input id="createSurveyStatus" value="active" placeholder="${esc(t("status"))}">
-      <button onclick="startDraw('polygon')">${esc(t("draw_boundary"))}</button>
+      <button ${surveyBoundaryDisabled} onclick="startSurveyBoundaryDraw()">${esc(t("draw_boundary"))}</button>
       <button class="primary" onclick="createSurvey()">${esc(t("create"))}</button>
       <div class="hint">${esc(t("survey_hint"))}</div>
+      <div class="hint">${esc(t("create_workflow_hint"))}</div>
+      ${hasActiveSurvey ? `<div class="hint">${esc(t("create_survey_locked_hint"))}</div>` : ""}
     </div>
     <div class="section">
       <div class="section-title">${esc(t("active_survey"))}</div>
@@ -3534,9 +3546,9 @@ function createBody() {
       </select>
       <input id="createObjectTitle" placeholder="${esc(t("object_title"))}">
       <textarea id="createObjectNote" placeholder="${esc(t("notes"))}"></textarea>
-      <button onclick="startDraw('point')">${esc(t("point"))}</button>
-      <button onclick="startDraw('line')">${esc(t("line"))}</button>
-      <button onclick="startDraw('polygon')">${esc(t("polygon"))}</button>
+      <button onclick="startObjectDraw('point')">${esc(t("point"))}</button>
+      <button onclick="startObjectDraw('line')">${esc(t("line"))}</button>
+      <button onclick="startObjectDraw('polygon')">${esc(t("polygon"))}</button>
       <button class="primary" onclick="createObject()">${esc(t("create"))}</button>
     </div>
   `;
@@ -4106,6 +4118,16 @@ function toggleGrid() {
   updateGridLayer();
 }
 
+function startSurveyBoundaryDraw() {
+  if (state.activeSurveyId) return alert(t("draw_survey_boundary_blocked"));
+  startDraw("polygon");
+}
+
+function startObjectDraw(type) {
+  if (!state.activeSurveyId) return alert(t("draw_object_requires_active_survey"));
+  startDraw(type);
+}
+
 function startDraw(type) {
   if (state.measure.active || state.measure.meters > 0) clearMeasure();
   if (drawInteraction) map.removeInteraction(drawInteraction);
@@ -4130,6 +4152,7 @@ function toGeoJSONGeometry(feature) {
 }
 
 async function createSurvey() {
+  if (state.activeSurveyId) return alert(t("draw_survey_boundary_blocked"));
   const title = document.getElementById("createSurveyTitle")?.value?.trim();
   const status = document.getElementById("createSurveyStatus")?.value?.trim() || "active";
   const f = drawnFeature();
@@ -4388,7 +4411,7 @@ Object.assign(window, {
   detailsChildTab,loadLookupData,
   setLanguage,setLeft,setRight,toggleLeft,toggleRight,refreshSystem,setActiveSurvey,setActiveSurveyContext,loadSelectedSurvey,loadSurveys,loadLayers,loadSurveyFeatures,
   controlAdminService,loadAdminLogs,readAdminLogControls,viewAdminLog,clearAdminLogOutput,
-  toggleLayer,toggleLabels,setLayerRegion,startDraw,setBasemap,createSurvey,createObject,saveSelection,archiveSelection,deleteSelection,archiveActiveSurvey,deleteActiveSurvey,
+  toggleLayer,toggleLabels,setLayerRegion,startDraw,startSurveyBoundaryDraw,startObjectDraw,setBasemap,createSurvey,createObject,saveSelection,archiveSelection,deleteSelection,archiveActiveSurvey,deleteActiveSurvey,
   exportLayer,exportData,exportDocument,exportPermission,loadPermissionCandidates,loadPermissionRequests,createPermissionRequest
 });
 

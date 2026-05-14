@@ -959,16 +959,28 @@ def archive_survey(survey_id: int):
 
 @app.post("/api/surveys/{survey_id}/objects")
 def create_survey_object(survey_id: int, payload: SurveyObjectCreate):
-    object_id = SurveyEditService().create_survey_object(
-        survey_id=survey_id,
-        expedition_id=payload.expedition_id,
-        obj_type=payload.type,
-        geometry=payload.geometry,
-        properties=payload.properties,
-        title=payload.title,
-        annotation=payload.annotation,
-        details=payload.details,
-    )
+    try:
+        object_id = SurveyEditService().create_survey_object(
+            survey_id=survey_id,
+            expedition_id=payload.expedition_id,
+            obj_type=payload.type,
+            geometry=payload.geometry,
+            properties=payload.properties,
+            title=payload.title,
+            annotation=payload.annotation,
+            details=payload.details,
+        )
+    except RuntimeError as exc:
+        status_code = 404 if "not found" in str(exc).lower() else 400
+        raise HTTPException(
+            status_code=status_code,
+            detail=_structured_error(
+                status_code,
+                "survey_object_create_failed",
+                str(exc),
+                {"survey_id": survey_id},
+            ),
+        ) from exc
     layer_key = _get_survey_layer_key(survey_id)
     invalidation = _clear_tile_cache_for_layers([layer_key] if layer_key else [])
     return {"object_id": object_id, "cache_invalidation": invalidation}

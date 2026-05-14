@@ -260,6 +260,23 @@ class SurveyEditService:
 
                 if normalised_geometry is None:
                     raise RuntimeError("Survey object geometry is required")
+
+                cur.execute(
+                    """
+                    SELECT ST_Covers(
+                        ST_Force2D(s.geom),
+                        ST_Force2D(ST_SetSRID(ST_GeomFromGeoJSON(%s), 4326))
+                    )
+                    FROM surveys s
+                    WHERE s.id = %s
+                    """,
+                    (normalised_geometry, survey_id),
+                )
+                inside_row = cur.fetchone()
+                inside = bool(inside_row and inside_row[0])
+                if not inside:
+                    raise RuntimeError("Survey object geometry must be inside the active survey boundary")
+
                 cur.execute(
                     f"""
                     INSERT INTO survey_objects (survey_id, expedition_id, layer_key, type, geom, properties, is_active)
