@@ -3605,13 +3605,14 @@ function createBody() {
   const active = activeSurveyRecord();
   const hasActiveSurvey = !!state.activeSurveyId;
   const surveyBoundaryDisabled = hasActiveSurvey ? "disabled" : "";
+  const objectCreateDisabled = hasActiveSurvey ? "" : "disabled";
   const draftTitle = String(state.createDraft?.surveyTitle || "");
   const draftStatus = String(state.createDraft?.surveyStatus || "active");
   return `
     <div class="section">
       <div class="section-title">${esc(t("survey"))}</div>
-      <input id="createSurveyTitle" value="${esc(draftTitle)}" placeholder="${esc(t("title"))}" onchange="setCreateSurveyDraftTitle(this.value)">
-      <input id="createSurveyStatus" value="${esc(draftStatus)}" placeholder="${esc(t("status"))}" onchange="setCreateSurveyDraftStatus(this.value)">
+      <input id="createSurveyTitle" value="${esc(draftTitle)}" placeholder="${esc(t("title"))}" oninput="setCreateSurveyDraftTitle(this.value)">
+      <input id="createSurveyStatus" value="${esc(draftStatus)}" placeholder="${esc(t("status"))}" oninput="setCreateSurveyDraftStatus(this.value)">
       <button ${surveyBoundaryDisabled} onclick="startSurveyBoundaryDraw()">${esc(t("draw_boundary"))}</button>
       <button class="primary" onclick="createSurvey()">${esc(t("create"))}</button>
       <div class="hint">${esc(t("survey_hint"))}</div>
@@ -3634,10 +3635,10 @@ function createBody() {
       </select>
       <input id="createObjectTitle" placeholder="${esc(t("object_title"))}">
       <textarea id="createObjectNote" placeholder="${esc(t("notes"))}"></textarea>
-      <button onclick="startObjectDraw('point')">${esc(t("point"))}</button>
-      <button onclick="startObjectDraw('line')">${esc(t("line"))}</button>
-      <button onclick="startObjectDraw('polygon')">${esc(t("polygon"))}</button>
-      <button class="primary" onclick="createObject()">${esc(t("create"))}</button>
+      <button ${objectCreateDisabled} onclick="startObjectDraw('point')">${esc(t("point"))}</button>
+      <button ${objectCreateDisabled} onclick="startObjectDraw('line')">${esc(t("line"))}</button>
+      <button ${objectCreateDisabled} onclick="startObjectDraw('polygon')">${esc(t("polygon"))}</button>
+      <button ${objectCreateDisabled} class="primary" onclick="createObject()">${esc(t("create"))}</button>
     </div>
   `;
 }
