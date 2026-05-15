@@ -10,7 +10,7 @@ import time
 import zipfile
 from pathlib import Path
 from typing import Any
-from urllib.parse import urljoin
+from urllib.parse import unquote, urljoin, urlsplit
 from xml.etree import ElementTree as ET
 
 import requests
@@ -75,6 +75,26 @@ def download(url: str, destination: Path) -> Path:
                 if chunk:
                     handle.write(chunk)
     return destination
+
+
+def filename_from_url(url: str, fallback: str) -> str:
+    parsed = urlsplit(url)
+    name = Path(unquote(parsed.path)).name
+    if not name or "." not in name:
+        return fallback
+    lowered = name.lower()
+    if lowered in {"getfile.jsp", "download", "index.php"}:
+        return fallback
+    return name
+
+
+def assert_writable(path: Path) -> None:
+    path.mkdir(parents=True, exist_ok=True)
+    probe = path / ".write_probe"
+    try:
+        probe.write_text("ok", encoding="utf-8")
+    finally:
+        probe.unlink(missing_ok=True)
 
 
 def extract_zip(zip_path: Path, destination: Path) -> None:
@@ -146,6 +166,9 @@ def install_python(install_root: Path, downloads: Path, python_version: str) -> 
     ]
     run(cmd, cwd=install_root)
     if not python_exe.exists():
+        alt = sorted(python_root.rglob("python.exe"))
+        if alt:
+            return alt[0]
         raise RuntimeError(f"Python install did not produce {python_exe}")
     return python_exe
 
@@ -155,7 +178,10 @@ def install_postgres(install_root: Path, downloads: Path, postgres_url: str, pos
     postgres_exe = postgres_root / "bin" / "postgres.exe"
 
     if not postgres_exe.exists():
-        postgres_zip = download(postgres_url, downloads / Path(postgres_url).name)
+        postgres_zip = download(
+            postgres_url,
+            downloads / filename_from_url(postgres_url, "postgresql-18-windows-x64-binaries.zip"),
+        )
         unpack_dir = downloads / "postgres_unpack"
         if unpack_dir.exists():
             shutil.rmtree(unpack_dir, ignore_errors=True)
@@ -173,7 +199,10 @@ def install_postgres(install_root: Path, downloads: Path, postgres_url: str, pos
                     destination.unlink(missing_ok=True)
             shutil.move(str(item), str(destination))
 
-    postgis_zip = download(postgis_url, downloads / Path(postgis_url).name)
+    postgis_zip = download(
+        postgis_url,
+        downloads / filename_from_url(postgis_url, "postgis-bundle-pg18-runtime.zip"),
+    )
     postgis_unpack = downloads / "postgis_unpack"
     if postgis_unpack.exists():
         shutil.rmtree(postgis_unpack, ignore_errors=True)
@@ -427,6 +456,7 @@ def main() -> int:
     repo_url = args.repo_url or prompt("Git repository URL")
     repo_dir = install_root / args.repo_name
     downloads = install_root / "downloads"
+    assert_writable(install_root)
     downloads.mkdir(parents=True, exist_ok=True)
     install_root.mkdir(parents=True, exist_ok=True)
 
