@@ -1877,7 +1877,7 @@ async function loadLookupData() {
     if (wikiTitle) {
       const summaryUrl = `https://${wikiHost}/api/rest_v1/page/summary/${encodeURIComponent(wikiTitle)}`;
       const summary = await fetch(summaryUrl, {cache: "no-store"}).then(r => r.json());
-      if (bestScore > 0) {
+      if (bestScore >= 2) {
         wiki = {
           title: summary?.title || wikiTitle,
           extract: summary?.extract || "",
