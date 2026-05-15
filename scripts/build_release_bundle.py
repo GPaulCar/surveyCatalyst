@@ -9,6 +9,7 @@ import sys
 import tempfile
 import zipfile
 from pathlib import Path
+from urllib.parse import unquote, urlsplit
 
 import requests
 
@@ -35,7 +36,9 @@ RUNTIME_PATHS = [
     "scripts/enable_postgis.py",
     "scripts/install_release.py",
     "scripts/run_api.py",
+    "scripts/run_ingestion_source.py",
     "scripts/run_migrations.py",
+    "scripts/restore_legal_restricted_layer.py",
     "scripts/reset_install_runtime_end_to_end_fix2.py",
     "scripts/setup_postgres_runtime.py",
     "scripts/start_api_managed.py",
@@ -75,6 +78,14 @@ def download(url: str, dest: Path) -> Path:
                 if chunk:
                     handle.write(chunk)
     return dest
+
+
+def filename_from_url(url: str, fallback: str) -> str:
+    parsed = urlsplit(url)
+    name = Path(unquote(parsed.path)).name
+    if not name or "." not in name:
+        return fallback
+    return name
 
 
 def git_worktree_checkout(ref: str, worktree_dir: Path) -> None:
@@ -159,8 +170,16 @@ def main() -> int:
 
         downloads_dir = staging_root / "downloads"
         download_python_installer(args.python_version, downloads_dir)
-        download(args.postgres_url, downloads_dir / Path(args.postgres_url).name)
-        download(args.postgis_url, downloads_dir / Path(args.postgis_url).name)
+        postgres_name = filename_from_url(
+            args.postgres_url,
+            "postgresql-18-windows-x64-binaries.zip",
+        )
+        postgis_name = filename_from_url(
+            args.postgis_url,
+            "postgis-bundle-pg18-runtime.zip",
+        )
+        download(args.postgres_url, downloads_dir / postgres_name)
+        download(args.postgis_url, downloads_dir / postgis_name)
 
         commit = subprocess.run(
             ["git", "rev-parse", args.tag],
