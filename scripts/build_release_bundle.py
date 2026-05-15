@@ -32,6 +32,9 @@ RUNTIME_PATHS = [
     "scripts/bootstrap_python_env.py",
     "scripts/bootstrap_python_env.ps1",
     "scripts/bootstrap_deployment_site.py",
+    "scripts/bootstrap_portable.py",
+    "scripts/bootstrap_portable.cmd",
+    "scripts/bootstrap_portable.sh",
     "scripts/build_release_manifest.py",
     "scripts/enable_postgis.py",
     "scripts/install_release.py",
@@ -43,6 +46,8 @@ RUNTIME_PATHS = [
     "scripts/setup_postgres_runtime.py",
     "scripts/start_api_managed.py",
     "scripts/system_control.py",
+    "scripts/update_from_git.py",
+    "scripts/update_from_git.cmd",
     "scripts/verify_python_env.py",
     "src",
 ]
@@ -84,6 +89,9 @@ def filename_from_url(url: str, fallback: str) -> str:
     parsed = urlsplit(url)
     name = Path(unquote(parsed.path)).name
     if not name or "." not in name:
+        return fallback
+    lowered = name.lower()
+    if lowered in {"getfile.jsp", "download", "index.php"}:
         return fallback
     return name
 
