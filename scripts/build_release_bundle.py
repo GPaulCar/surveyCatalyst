@@ -31,6 +31,7 @@ RUNTIME_PATHS = [
     "VERSION",
     "scripts/bootstrap_python_env.py",
     "scripts/bootstrap_python_env.ps1",
+    "scripts/bootstrap_release.cmd",
     "scripts/bootstrap_deployment_site.py",
     "scripts/bootstrap_portable.py",
     "scripts/bootstrap_portable.cmd",
