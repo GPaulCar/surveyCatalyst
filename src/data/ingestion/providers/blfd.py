@@ -308,6 +308,7 @@ class BLfDProvider(BaseProvider):
                     )
                 FROM {self.schema_name}.restricted_areas
                 WHERE geom IS NOT NULL
+                  AND source = 'blfd_wfs'
                 ''',
                 ("legal_restricted_areas", f"{self.schema_name}.restricted_areas"),
             )
