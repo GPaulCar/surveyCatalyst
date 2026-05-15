@@ -35,6 +35,11 @@ const state = {
   autoLayerRegion: "global",
   layerEfficiency: null,
   lookupData: null,
+  createDraft: {
+    surveyTitle: "",
+    surveyStatus: "active"
+  },
+  drawContext: null,
   measure: {
     active: false,
     meters: 0
@@ -1582,6 +1587,7 @@ function identifySelectionFromResults(results, context = {}) {
 
 function syncTabsForSelection() {
   if (!hasSelection()) return;
+  if (state.activeLeft === "create" && (state.drawContext === "survey_boundary" || !!drawInteraction)) return;
   state.activeLeft = "edit";
   state.activeRight = "details";
   state.leftOpen = true;
@@ -2741,6 +2747,7 @@ function initMap() {
 
   map.on("singleclick", async e => {
     if (state.measure.active) return;
+    if (drawInteraction) return;
     const seq = ++state.identifyRequestSeq;
     let hit = null;
     map.forEachFeatureAtPixel(e.pixel, f => {
@@ -3598,11 +3605,13 @@ function createBody() {
   const active = activeSurveyRecord();
   const hasActiveSurvey = !!state.activeSurveyId;
   const surveyBoundaryDisabled = hasActiveSurvey ? "disabled" : "";
+  const draftTitle = String(state.createDraft?.surveyTitle || "");
+  const draftStatus = String(state.createDraft?.surveyStatus || "active");
   return `
     <div class="section">
       <div class="section-title">${esc(t("survey"))}</div>
-      <input id="createSurveyTitle" placeholder="${esc(t("title"))}">
-      <input id="createSurveyStatus" value="active" placeholder="${esc(t("status"))}">
+      <input id="createSurveyTitle" value="${esc(draftTitle)}" placeholder="${esc(t("title"))}" onchange="setCreateSurveyDraftTitle(this.value)">
+      <input id="createSurveyStatus" value="${esc(draftStatus)}" placeholder="${esc(t("status"))}" onchange="setCreateSurveyDraftStatus(this.value)">
       <button ${surveyBoundaryDisabled} onclick="startSurveyBoundaryDraw()">${esc(t("draw_boundary"))}</button>
       <button class="primary" onclick="createSurvey()">${esc(t("create"))}</button>
       <div class="hint">${esc(t("survey_hint"))}</div>
@@ -4199,12 +4208,24 @@ function toggleGrid() {
 
 function startSurveyBoundaryDraw() {
   if (state.activeSurveyId) return alert(t("draw_survey_boundary_blocked"));
+  state.drawContext = "survey_boundary";
+  state.activeLeft = "create";
   startDraw("polygon");
 }
 
 function startObjectDraw(type) {
   if (!state.activeSurveyId) return alert(t("draw_object_requires_active_survey"));
+  state.drawContext = "object";
   startDraw(type);
+}
+
+function setCreateSurveyDraftTitle(value) {
+  state.createDraft.surveyTitle = String(value || "");
+}
+
+function setCreateSurveyDraftStatus(value) {
+  const next = String(value || "").trim();
+  state.createDraft.surveyStatus = next || "active";
 }
 
 function startDraw(type) {
@@ -4216,6 +4237,7 @@ function startDraw(type) {
   drawInteraction.on("drawend", () => {
     map.removeInteraction(drawInteraction);
     drawInteraction = null;
+    state.drawContext = null;
     toast(t("geometry_captured"));
   });
   map.addInteraction(drawInteraction);
@@ -4232,8 +4254,8 @@ function toGeoJSONGeometry(feature) {
 
 async function createSurvey() {
   if (state.activeSurveyId) return alert(t("draw_survey_boundary_blocked"));
-  const title = document.getElementById("createSurveyTitle")?.value?.trim();
-  const status = document.getElementById("createSurveyStatus")?.value?.trim() || "active";
+  const title = String(state.createDraft?.surveyTitle || "").trim();
+  const status = String(state.createDraft?.surveyStatus || "active").trim() || "active";
   const f = drawnFeature();
   if (!title) return alert(t("enter_title"));
   if (!f) return alert(t("draw_boundary_first"));
@@ -4242,6 +4264,8 @@ async function createSurvey() {
   await loadSurveys();
   if (result?.survey_id) {
     state.activeSurveyId = String(result.survey_id);
+    state.createDraft.surveyTitle = "";
+    state.createDraft.surveyStatus = "active";
     await loadSurveyFeatures(state.activeSurveyId, true);
     selectSurveyById(state.activeSurveyId, {render:false});
   }
@@ -4489,6 +4513,7 @@ Object.assign(window, {
   toggleMeasure,clearMeasure,toggleGrid,setGridSizeMeters,
   detailsChildTab,loadLookupData,
   setLanguage,setLeft,setRight,toggleLeft,toggleRight,refreshSystem,setActiveSurvey,setActiveSurveyContext,loadSelectedSurvey,loadSurveys,loadLayers,loadSurveyFeatures,
+  setCreateSurveyDraftTitle,setCreateSurveyDraftStatus,
   controlAdminService,loadAdminLogs,readAdminLogControls,viewAdminLog,clearAdminLogOutput,
   toggleLayer,toggleLabels,setLayerRegion,startDraw,startSurveyBoundaryDraw,startObjectDraw,setBasemap,createSurvey,createObject,saveSelection,archiveSelection,deleteSelection,archiveActiveSurvey,deleteActiveSurvey,
   exportLayer,exportData,exportDocument,exportPermission,loadPermissionCandidates,loadPermissionRequests,createPermissionRequest
