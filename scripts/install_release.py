@@ -103,18 +103,27 @@ def ensure_python_runtime() -> Path:
         f"TargetDir={PYTHON_DIR}",
     ]
     run(cmd, cwd=ROOT)
-    if not RUNTIME_PYTHON_EXE.exists():
-        raise RuntimeError(f"Python runtime was not created at {RUNTIME_PYTHON_EXE}")
-    return RUNTIME_PYTHON_EXE
+    if RUNTIME_PYTHON_EXE.exists():
+        return RUNTIME_PYTHON_EXE
+    alt_local = sorted(PYTHON_DIR.rglob("python.exe"))
+    if alt_local:
+        return alt_local[0]
+    local_appdata = Path.home() / "AppData" / "Local" / "Programs" / "Python"
+    if local_appdata.exists():
+        alt_existing = sorted(local_appdata.rglob("python.exe"))
+        if alt_existing:
+            log(f"[WARN] using existing Python runtime: {alt_existing[0]}")
+            return alt_existing[0]
+    raise RuntimeError(f"Python runtime was not created at {RUNTIME_PYTHON_EXE}")
 
 
-def ensure_venv() -> None:
-    if RUNTIME_PYTHON_EXE.exists() and not VENV_DIR.exists():
-        run([str(RUNTIME_PYTHON_EXE), "-m", "venv", str(VENV_DIR)], cwd=ROOT)
-    if not RUNTIME_PYTHON_EXE.exists():
+def ensure_venv(runtime_python: Path) -> None:
+    if not runtime_python.exists():
         raise RuntimeError("Python runtime is missing; cannot create venv")
+    if not VENV_DIR.exists():
+        run([str(runtime_python), "-m", "venv", str(VENV_DIR)], cwd=ROOT)
     if not VENV_PYTHON_EXE.exists():
-        run([str(RUNTIME_PYTHON_EXE), "-m", "venv", str(VENV_DIR)], cwd=ROOT)
+        run([str(runtime_python), "-m", "venv", str(VENV_DIR)], cwd=ROOT)
 
 
 def bootstrap_python_deps() -> None:
@@ -266,8 +275,8 @@ def main() -> int:
     if not DOWNLOADS_DIR.exists():
         raise RuntimeError(f"Downloads directory missing: {DOWNLOADS_DIR}")
     write_config()
-    ensure_python_runtime()
-    ensure_venv()
+    runtime_python = ensure_python_runtime()
+    ensure_venv(runtime_python)
     bootstrap_python_deps()
     install_postgres_runtime(select_single(POSTGRES_ARCHIVE_GLOB))
     install_postgis_bundle(select_single(POSTGIS_ARCHIVE_GLOB))
