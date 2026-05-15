@@ -1779,6 +1779,28 @@ function selectionLookupContext(selection = state.selection) {
   };
 }
 
+function tokeniseLookupText(text) {
+  return String(text || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9\u00c0-\u024f]+/g, " ")
+    .split(" ")
+    .map(s => s.trim())
+    .filter(Boolean)
+    .filter(s => s.length >= 3)
+    .filter(s => !["und", "der", "die", "das", "for", "and", "the", "von", "bei", "mit"].includes(s));
+}
+
+function scoreWikiCandidateTitle(title, referenceText) {
+  const titleTokens = new Set(tokeniseLookupText(title));
+  const refTokens = new Set(tokeniseLookupText(referenceText));
+  if (!titleTokens.size || !refTokens.size) return 0;
+  let score = 0;
+  titleTokens.forEach(tok => {
+    if (refTokens.has(tok)) score += 1;
+  });
+  return score;
+}
+
 async function loadLookupData() {
   if (!hasSelection()) return alert(t("select_feature_first"));
   const context = selectionLookupContext();
@@ -1802,35 +1824,6 @@ async function loadLookupData() {
     : null;
 
   try {
-    let wiki = null;
-    let wikiTitle = null;
-
-    if (wikiGeoSearchUrl) {
-      const geoSearch = await fetch(wikiGeoSearchUrl, {cache: "no-store"}).then(r => r.json());
-      const nearby = Array.isArray(geoSearch?.query?.geosearch) ? geoSearch.query.geosearch : [];
-      if (nearby.length) {
-        wikiTitle = nearby[0]?.title || null;
-      }
-    }
-
-    if (!wikiTitle && wikiTitleSearchUrl) {
-      const titleSearch = await fetch(wikiTitleSearchUrl, {cache: "no-store"}).then(r => r.json());
-      const matches = Array.isArray(titleSearch?.query?.search) ? titleSearch.query.search : [];
-      if (matches.length) {
-        wikiTitle = matches[0]?.title || null;
-      }
-    }
-
-    if (wikiTitle) {
-      const summaryUrl = `https://${wikiHost}/api/rest_v1/page/summary/${encodeURIComponent(wikiTitle)}`;
-      const summary = await fetch(summaryUrl, {cache: "no-store"}).then(r => r.json());
-      wiki = {
-        title: summary?.title || wikiTitle,
-        extract: summary?.extract || "",
-        url: summary?.content_urls?.desktop?.page || `https://${wikiHost}/wiki/${encodeURIComponent(wikiTitle)}`
-      };
-    }
-
     let osm = null;
     if (osmUrl) {
       const reverse = await fetch(osmUrl, {cache: "no-store"}).then(r => r.json());
@@ -1840,6 +1833,57 @@ async function loadLookupData() {
           ? `https://www.openstreetmap.org/?mlat=${encodeURIComponent(String(context.lat))}&mlon=${encodeURIComponent(String(context.lon))}#map=16/${encodeURIComponent(String(context.lat))}/${encodeURIComponent(String(context.lon))}`
           : ""
       };
+    }
+
+    let wiki = null;
+    const candidates = [];
+
+    if (wikiGeoSearchUrl) {
+      const geoSearch = await fetch(wikiGeoSearchUrl, {cache: "no-store"}).then(r => r.json());
+      const nearby = Array.isArray(geoSearch?.query?.geosearch) ? geoSearch.query.geosearch : [];
+      nearby.forEach(item => {
+        const title = String(item?.title || "").trim();
+        if (title) candidates.push(title);
+      });
+    }
+
+    if (wikiTitleSearchUrl) {
+      const titleSearch = await fetch(wikiTitleSearchUrl, {cache: "no-store"}).then(r => r.json());
+      const matches = Array.isArray(titleSearch?.query?.search) ? titleSearch.query.search : [];
+      matches.forEach(item => {
+        const title = String(item?.title || "").trim();
+        if (title) candidates.push(title);
+      });
+    }
+
+    const seen = new Set();
+    const uniqueCandidates = candidates.filter(title => {
+      const key = title.toLowerCase();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+    const referenceText = `${context.title || ""} ${osm?.displayName || ""}`;
+    let wikiTitle = null;
+    let bestScore = 0;
+    uniqueCandidates.forEach(title => {
+      const score = scoreWikiCandidateTitle(title, referenceText);
+      if (score > bestScore) {
+        bestScore = score;
+        wikiTitle = title;
+      }
+    });
+
+    if (wikiTitle) {
+      const summaryUrl = `https://${wikiHost}/api/rest_v1/page/summary/${encodeURIComponent(wikiTitle)}`;
+      const summary = await fetch(summaryUrl, {cache: "no-store"}).then(r => r.json());
+      if (bestScore > 0) {
+        wiki = {
+          title: summary?.title || wikiTitle,
+          extract: summary?.extract || "",
+          url: summary?.content_urls?.desktop?.page || `https://${wikiHost}/wiki/${encodeURIComponent(wikiTitle)}`
+        };
+      }
     }
 
     state.lookupData = {pending: false, context, wiki, osm};
