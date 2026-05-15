@@ -697,9 +697,15 @@ def layer_tiles(layer_key: str, z: int, x: int, y: int):
             simplify_tolerance = _tile_simplification_tolerance(layer_key, z)
             mvt_extent, mvt_buffer, mvt_clip = _tile_mvt_params(layer_key)
 
+            is_external_features = table_sql == "external_features"
+            layer_clause = "AND layer = %s" if is_external_features else ""
             query = """
                 WITH tile AS (
                     SELECT ST_TileEnvelope(%s, %s, %s) AS geom
+                ),
+                tile_wgs84 AS (
+                    SELECT ST_Transform(geom, 4326) AS geom
+                    FROM tile
                 ),
                 candidate AS (
                     SELECT
@@ -716,10 +722,12 @@ def layer_tiles(layer_key: str, z: int, x: int, y: int):
                         SELECT id, geom, properties
                         FROM __TABLE__
                         WHERE geom IS NOT NULL
+                          __LAYER_FILTER__
                     ) f
                     CROSS JOIN tile
-                    WHERE 1=1
-                      AND ST_Intersects(ST_Transform(f.geom, 3857), tile.geom)
+                    CROSS JOIN tile_wgs84
+                    WHERE f.geom && tile_wgs84.geom
+                      AND ST_Intersects(f.geom, tile_wgs84.geom)
                 ),
                 mvtgeom AS (
                     SELECT ST_AsMVTGeom(
@@ -742,15 +750,21 @@ def layer_tiles(layer_key: str, z: int, x: int, y: int):
                 WHERE mvtgeom.geom IS NOT NULL
                 """
             query = query.replace("__TABLE__", table_sql)
+            query = query.replace("__LAYER_FILTER__", layer_clause)
+            params: list[Any] = [
+                z, x, y,
+                simplify_tolerance, simplify_tolerance,
+                layer_key, source_table,
+            ]
+            if is_external_features:
+                params.append(layer_key)
+            params.extend([
+                mvt_extent, mvt_buffer, mvt_clip,
+                layer_key, mvt_extent,
+            ])
             cur.execute(
                 query,
-                (
-                    z, x, y,
-                    simplify_tolerance, simplify_tolerance,
-                    layer_key, source_table,
-                    mvt_extent, mvt_buffer, mvt_clip,
-                    layer_key, mvt_extent
-                ),
+                tuple(params),
             )
             row = cur.fetchone()
             payload = bytes(row[0] or b"") if row else b""

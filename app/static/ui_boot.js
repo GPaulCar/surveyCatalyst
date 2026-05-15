@@ -2898,9 +2898,18 @@ function syncContextLayers() {
   }
 
   for (const layer of state.layers) {
+    const isVisible = !!layer.is_visible;
+    if (!isVisible) {
+      if (contextTileLayers[layer.layer_key]) {
+        map.removeLayer(contextTileLayers[layer.layer_key]);
+        delete contextTileLayers[layer.layer_key];
+      }
+      continue;
+    }
+
     if (!contextTileLayers[layer.layer_key]) {
       const vt = new ol.layer.VectorTile({
-        visible:!!layer.is_visible,
+        visible:true,
         declutter:true,
         source:new ol.source.VectorTile({
           format:new ol.format.MVT(),
@@ -2912,7 +2921,7 @@ function syncContextLayers() {
       contextTileLayers[layer.layer_key] = vt;
       map.addLayer(vt);
     } else {
-      contextTileLayers[layer.layer_key].setVisible(!!layer.is_visible);
+      contextTileLayers[layer.layer_key].setVisible(true);
       contextTileLayers[layer.layer_key].setStyle(makeStyle(layer));
     }
   }
@@ -4075,7 +4084,7 @@ async function deleteActiveSurvey() {
 function toggleLayer(key, value) {
   const l = state.layerIndex.get(key);
   if (l) l.is_visible = !!value;
-  if (contextTileLayers[key]) contextTileLayers[key].setVisible(!!value);
+  syncContextLayers();
   scheduleLayerEfficiencyUpdate();
   toast(value ? t("layer_shown") : t("layer_hidden"));
 }
