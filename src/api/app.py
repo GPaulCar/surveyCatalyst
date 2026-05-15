@@ -28,6 +28,7 @@ MVT_EXTENT = 4096
 MVT_BUFFER = 64
 TILE_CACHE_DIR = BASE_DIR / ".cache" / "mvt"
 TILE_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+TILE_CACHE_VERSION_FILE = TILE_CACHE_DIR / ".cache_version"
 
 
 logger = logging.getLogger(__name__)
@@ -96,6 +97,30 @@ def _tile_cache_status() -> dict[str, Any]:
         "layer_buckets": len(entries),
         "total_tiles": total_tiles,
     }
+
+
+def _runtime_version() -> str:
+    version_file = BASE_DIR / "VERSION"
+    if version_file.exists():
+        return version_file.read_text(encoding="utf-8").strip() or "unknown"
+    return "unknown"
+
+
+def _sync_tile_cache_version() -> None:
+    current_version = _runtime_version()
+    previous_version = ""
+    if TILE_CACHE_VERSION_FILE.exists():
+        previous_version = TILE_CACHE_VERSION_FILE.read_text(encoding="utf-8").strip()
+    if previous_version and previous_version == current_version:
+        return
+
+    _clear_tile_cache()
+    TILE_CACHE_VERSION_FILE.write_text(current_version + "\n", encoding="utf-8")
+    logger.info(
+        "Tile cache reset on version change: previous=%s current=%s",
+        previous_version or "none",
+        current_version,
+    )
 
 
 def _fetch_one_value(query: str, params: tuple[Any, ...]) -> Any | None:
@@ -1184,6 +1209,10 @@ def export_survey_document_data(
 
 @app.on_event("startup")
 def startup_index_check() -> None:
+    try:
+        _sync_tile_cache_version()
+    except Exception as exc:
+        logger.warning("Skipping tile cache version sync during startup: %s", exc)
     try:
         statuses = _get_spatial_index_status()
     except Exception as exc:
