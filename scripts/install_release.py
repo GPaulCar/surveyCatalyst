@@ -21,7 +21,8 @@ VENV_DIR = ROOT / ".surveyCatalyst_venv"
 DB_PORT = 55433
 DB_NAME = "survey_catalyst"
 DB_USER = "sc_user"
-PYTHON_EXE = VENV_DIR / "Scripts" / "python.exe"
+RUNTIME_PYTHON_EXE = PYTHON_DIR / "python.exe"
+VENV_PYTHON_EXE = VENV_DIR / "Scripts" / "python.exe"
 POSTGRES_ARCHIVE_GLOB = "postgresql-*-windows-x64-binaries.zip"
 POSTGIS_ARCHIVE_GLOB = "postgis-bundle-pg18-*.zip"
 PYTHON_INSTALLER_GLOB = "python-*-amd64.exe"
@@ -87,8 +88,8 @@ def write_config() -> None:
 
 
 def ensure_python_runtime() -> Path:
-    if PYTHON_EXE.exists():
-        return PYTHON_EXE
+    if RUNTIME_PYTHON_EXE.exists():
+        return RUNTIME_PYTHON_EXE
 
     installer = select_single(PYTHON_INSTALLER_GLOB)
     PYTHON_DIR.mkdir(parents=True, exist_ok=True)
@@ -102,22 +103,22 @@ def ensure_python_runtime() -> Path:
         f"TargetDir={PYTHON_DIR}",
     ]
     run(cmd, cwd=ROOT)
-    if not PYTHON_EXE.exists():
-        raise RuntimeError(f"Python runtime was not created at {PYTHON_EXE}")
-    return PYTHON_EXE
+    if not RUNTIME_PYTHON_EXE.exists():
+        raise RuntimeError(f"Python runtime was not created at {RUNTIME_PYTHON_EXE}")
+    return RUNTIME_PYTHON_EXE
 
 
 def ensure_venv() -> None:
-    if PYTHON_EXE.exists() and not VENV_DIR.exists():
-        run([str(PYTHON_EXE), "-m", "venv", str(VENV_DIR)], cwd=ROOT)
-    if not PYTHON_EXE.exists():
+    if RUNTIME_PYTHON_EXE.exists() and not VENV_DIR.exists():
+        run([str(RUNTIME_PYTHON_EXE), "-m", "venv", str(VENV_DIR)], cwd=ROOT)
+    if not RUNTIME_PYTHON_EXE.exists():
         raise RuntimeError("Python runtime is missing; cannot create venv")
-    if not (VENV_DIR / "Scripts" / "python.exe").exists():
-        run([str(PYTHON_EXE), "-m", "venv", str(VENV_DIR)], cwd=ROOT)
+    if not VENV_PYTHON_EXE.exists():
+        run([str(RUNTIME_PYTHON_EXE), "-m", "venv", str(VENV_DIR)], cwd=ROOT)
 
 
 def bootstrap_python_deps() -> None:
-    python_exe = VENV_DIR / "Scripts" / "python.exe"
+    python_exe = VENV_PYTHON_EXE
     if not python_exe.exists():
         raise RuntimeError(f"Missing virtualenv python at {python_exe}")
     run([str(python_exe), "-m", "pip", "install", "--upgrade", "pip"], cwd=ROOT)

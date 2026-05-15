@@ -20,9 +20,9 @@ def main():
         str(ROOT / "app"),
     ] if reload_enabled else None
     reload_excludes = [
-        str(ROOT / "runtime"),
-        str(ROOT / ".cache"),
-        str(ROOT / "workspace"),
+        "runtime/*",
+        ".cache/*",
+        "workspace/*",
     ] if reload_enabled else None
     uvicorn.run(
         "api.app:app",

@@ -35,6 +35,8 @@ class DBSettings:
 class PathSettings:
     assets: str
     logs: str
+    tools: str = ""
+    postgres: str = ""
 
 
 @dataclass
@@ -45,6 +47,7 @@ class Settings:
 
     @staticmethod
     def from_dict(data: Dict[str, Any]) -> "Settings":
+        path_data = dict(data.get("paths", {}))
         return Settings(
             app=AppSettings(**data["app"]),
             db=DBSettings(
@@ -52,5 +55,10 @@ class Settings:
                 local=DBLocalSettings(**data["db"]["local"]),
                 external=DBExternalSettings(**data["db"]["external"]),
             ),
-            paths=PathSettings(**data["paths"]),
+            paths=PathSettings(
+                assets=path_data.get("assets", ""),
+                logs=path_data.get("logs", ""),
+                tools=path_data.get("tools", ""),
+                postgres=path_data.get("postgres", ""),
+            ),
         )
