@@ -8,6 +8,7 @@ set "PY_INSTALLER=%ROOT%\downloads\python-3.13.13-amd64.exe"
 set "PY_DIR=%ROOT%\tools\python"
 set "PY_EXE=%PY_DIR%\python.exe"
 set "VENV_EXE=%ROOT%\.surveyCatalyst_venv\Scripts\python.exe"
+set "FALLBACK_PY_EXE="
 
 if not exist "%PY_INSTALLER%" (
   echo [ERROR] Missing bundled Python installer: "%PY_INSTALLER%"
@@ -21,11 +22,24 @@ if not exist "%PY_EXE%" (
 )
 
 if not exist "%PY_EXE%" (
+  for /f "delims=" %%I in ('dir /b /s "%LocalAppData%\Programs\Python\Python3*\python.exe" 2^>nul') do (
+    set "FALLBACK_PY_EXE=%%I"
+    goto :found_fallback_python
+  )
   echo [ERROR] Bundled Python runtime was not created at "%PY_EXE%"
+  echo [ERROR] No fallback Python runtime detected under "%%LocalAppData%%\Programs\Python".
   popd >nul
   exit /b 1
 )
 
+goto :python_ready
+
+:found_fallback_python
+echo [WARN] Bundled Python path was not created. Using existing local Python:
+echo        "%FALLBACK_PY_EXE%"
+set "PY_EXE=%FALLBACK_PY_EXE%"
+
+:python_ready
 if not exist "%VENV_EXE%" (
   echo [INFO] Creating local virtual environment...
   "%PY_EXE%" -m venv "%ROOT%\.surveyCatalyst_venv"
