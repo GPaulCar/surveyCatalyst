@@ -61,6 +61,7 @@ python scripts/system_control.py stop
 - `scripts/run_api.py` launches the API.
 - `app/static/ui_boot.js` contains the frontend runtime, including the bilingual UI.
 - `src/api/app.py` serves the HTTP API.
+- Cross-host assessment/tuning workflow is documented in `docs/ops_assessment_workflow.md`.
 
 ## If installation fails
 
@@ -72,3 +73,14 @@ Check these first:
 
 If Python imports fail, rerun the bootstrap script and then re-run the verification script.
 
+## Assessment and tuning workflow
+
+For reproducible multi-host PostgreSQL/PostGIS assessment and tuning:
+
+```powershell
+python assessment\scripts\run_assessment_block.py --dotenv assessment\.env.example
+python assessment\scripts\apply_approved_fixes.py --dry-run
+python assessment\scripts\validate_and_monitor.py
+```
+
+Then commit/push `assessment/` artifacts and use `scripts/tag_phase.ps1` for phase tags.

@@ -38,6 +38,7 @@ The UI supports English and German, with the translation table in `app/static/ui
 Core workflow and stability notes:
 
 - [Installation guide](INSTALLATION.md)
+- [Operations assessment workflow](docs/ops_assessment_workflow.md)
 - [Survey workflow stability](docs/survey_workflow_stability.md)
 - [FastAPI / OpenLayers migration notes](docs/fastapi_openlayers_migration.md)
 - [Python environment setup](docs/python_environment_setup.md)
