@@ -1,0 +1,40 @@
+{
+  "generated_at_utc": "2026-05-16T11:22:59.325044+00:00",
+  "inputs": {
+    "pre_dir": "C:\\Users\\Paul\\Desktop\\dev\\surveyCatalyst\\assessment\\output",
+    "post_dir": "C:\\Users\\Paul\\Desktop\\dev\\surveyCatalyst\\assessment\\output",
+    "plan": "C:\\Users\\Paul\\Desktop\\dev\\surveyCatalyst\\assessment\\plans\\optimization_plan.json",
+    "execution_log": "C:\\Users\\Paul\\Desktop\\dev\\surveyCatalyst\\assessment\\logs\\execution_log.json"
+  },
+  "checks": {
+    "postgres_settings_rows_pre": 403,
+    "postgres_settings_rows_post": 403,
+    "extensions_rows_pre": 3,
+    "extensions_rows_post": 3,
+    "pgss_summary_pre": {
+      "total_exec_time": 20012.7073,
+      "total_calls": 2162.0,
+      "mean_exec_per_call": 9.256571369102682,
+      "temp_blocks": 0.0
+    },
+    "pgss_summary_post": {
+      "total_exec_time": 20012.7073,
+      "total_calls": 2162.0,
+      "mean_exec_per_call": 9.256571369102682,
+      "temp_blocks": 0.0
+    },
+    "dead_tuple_tables_pre": 2,
+    "dead_tuple_tables_post": 2,
+    "index_usage_rows_pre": 40,
+    "index_usage_rows_post": 40,
+    "plan_changes": 57,
+    "execution_results": 57
+  },
+  "recommendation": {
+    "keep_or_revert": "keep",
+    "notes": [
+      "If total execution time increased materially, inspect top workload findings and rollback high-risk approved changes first.",
+      "Track dead tuple table count trend and index usage trend over multiple runs before final keep/revert decision."
+    ]
+  }
+}

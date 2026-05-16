@@ -1,10 +1,10 @@
 # Unified Optimization Plan
 
-Generated: 2026-05-16T09:58:39.501399+00:00
+Generated: 2026-05-16T11:22:59.063881+00:00
 
 ## Group Summary
 - server_config: 6
-- database_optimization: 59
+- database_optimization: 44
 - database_content_cleanup: 0
 - application_query_optimization: 5
 - validation: 1
@@ -372,160 +372,25 @@ Generated: 2026-05-16T09:58:39.501399+00:00
 - Rollback: Recreate dropped index / restore previous vacuum settings / revert migration.
 - Notes: Review whether index is still needed; avoid blind drops without query-history window.
 
-### 41. [database_optimization] never_analyzed on spsde:simplifiedbavarianmonument
+### 41. [database_optimization] dead_tuple_pressure on bkg_vg250_boundaries
 - Risk: medium
 - Dependencies: server_config_reviewed
 - Restart/Downtime: none_or_reload
 - Affects next parcel: True
 - Validation: Compare pg_stat_user_indexes, pg_stat_user_tables, and query latency before/after.
 - Rollback: Recreate dropped index / restore previous vacuum settings / revert migration.
-- Notes: Ensure ANALYZE/autovacuum analyze runs for planner statistics quality.
+- Notes: Investigate vacuum/analyze cadence for this table.
 
-### 42. [database_optimization] never_analyzed on ingestion_runs
+### 42. [database_optimization] dead_tuple_pressure on bkg_vg25_boundaries
 - Risk: medium
 - Dependencies: server_config_reviewed
 - Restart/Downtime: none_or_reload
 - Affects next parcel: True
 - Validation: Compare pg_stat_user_indexes, pg_stat_user_tables, and query latency before/after.
 - Rollback: Recreate dropped index / restore previous vacuum settings / revert migration.
-- Notes: Ensure ANALYZE/autovacuum analyze runs for planner statistics quality.
+- Notes: Investigate vacuum/analyze cadence for this table.
 
-### 43. [database_optimization] never_analyzed on layer_registry
-- Risk: medium
-- Dependencies: server_config_reviewed
-- Restart/Downtime: none_or_reload
-- Affects next parcel: True
-- Validation: Compare pg_stat_user_indexes, pg_stat_user_tables, and query latency before/after.
-- Rollback: Recreate dropped index / restore previous vacuum settings / revert migration.
-- Notes: Ensure ANALYZE/autovacuum analyze runs for planner statistics quality.
-
-### 44. [database_optimization] never_analyzed on bkg_vg250_boundaries
-- Risk: medium
-- Dependencies: server_config_reviewed
-- Restart/Downtime: none_or_reload
-- Affects next parcel: True
-- Validation: Compare pg_stat_user_indexes, pg_stat_user_tables, and query latency before/after.
-- Rollback: Recreate dropped index / restore previous vacuum settings / revert migration.
-- Notes: Ensure ANALYZE/autovacuum analyze runs for planner statistics quality.
-
-### 45. [database_optimization] never_analyzed on ingestion_sources
-- Risk: medium
-- Dependencies: server_config_reviewed
-- Restart/Downtime: none_or_reload
-- Affects next parcel: True
-- Validation: Compare pg_stat_user_indexes, pg_stat_user_tables, and query latency before/after.
-- Rollback: Recreate dropped index / restore previous vacuum settings / revert migration.
-- Notes: Ensure ANALYZE/autovacuum analyze runs for planner statistics quality.
-
-### 46. [database_optimization] never_analyzed on ingestion_artifacts
-- Risk: medium
-- Dependencies: server_config_reviewed
-- Restart/Downtime: none_or_reload
-- Affects next parcel: True
-- Validation: Compare pg_stat_user_indexes, pg_stat_user_tables, and query latency before/after.
-- Rollback: Recreate dropped index / restore previous vacuum settings / revert migration.
-- Notes: Ensure ANALYZE/autovacuum analyze runs for planner statistics quality.
-
-### 47. [database_optimization] never_analyzed on bkg_vg25_boundaries
-- Risk: medium
-- Dependencies: server_config_reviewed
-- Restart/Downtime: none_or_reload
-- Affects next parcel: True
-- Validation: Compare pg_stat_user_indexes, pg_stat_user_tables, and query latency before/after.
-- Rollback: Recreate dropped index / restore previous vacuum settings / revert migration.
-- Notes: Ensure ANALYZE/autovacuum analyze runs for planner statistics quality.
-
-### 48. [database_optimization] never_analyzed on external_features
-- Risk: medium
-- Dependencies: server_config_reviewed
-- Restart/Downtime: none_or_reload
-- Affects next parcel: True
-- Validation: Compare pg_stat_user_indexes, pg_stat_user_tables, and query latency before/after.
-- Rollback: Recreate dropped index / restore previous vacuum settings / revert migration.
-- Notes: Ensure ANALYZE/autovacuum analyze runs for planner statistics quality.
-
-### 49. [database_optimization] never_analyzed on permission_requests
-- Risk: medium
-- Dependencies: server_config_reviewed
-- Restart/Downtime: none_or_reload
-- Affects next parcel: True
-- Validation: Compare pg_stat_user_indexes, pg_stat_user_tables, and query latency before/after.
-- Rollback: Recreate dropped index / restore previous vacuum settings / revert migration.
-- Notes: Ensure ANALYZE/autovacuum analyze runs for planner statistics quality.
-
-### 50. [database_optimization] never_analyzed on bavaria_economy_raw
-- Risk: medium
-- Dependencies: server_config_reviewed
-- Restart/Downtime: none_or_reload
-- Affects next parcel: True
-- Validation: Compare pg_stat_user_indexes, pg_stat_user_tables, and query latency before/after.
-- Rollback: Recreate dropped index / restore previous vacuum settings / revert migration.
-- Notes: Ensure ANALYZE/autovacuum analyze runs for planner statistics quality.
-
-### 51. [database_optimization] never_analyzed on survey_objects
-- Risk: medium
-- Dependencies: server_config_reviewed
-- Restart/Downtime: none_or_reload
-- Affects next parcel: True
-- Validation: Compare pg_stat_user_indexes, pg_stat_user_tables, and query latency before/after.
-- Rollback: Recreate dropped index / restore previous vacuum settings / revert migration.
-- Notes: Ensure ANALYZE/autovacuum analyze runs for planner statistics quality.
-
-### 52. [database_optimization] never_analyzed on mining_locations
-- Risk: medium
-- Dependencies: server_config_reviewed
-- Restart/Downtime: none_or_reload
-- Affects next parcel: True
-- Validation: Compare pg_stat_user_indexes, pg_stat_user_tables, and query latency before/after.
-- Rollback: Recreate dropped index / restore previous vacuum settings / revert migration.
-- Notes: Ensure ANALYZE/autovacuum analyze runs for planner statistics quality.
-
-### 53. [database_optimization] never_analyzed on surveys
-- Risk: medium
-- Dependencies: server_config_reviewed
-- Restart/Downtime: none_or_reload
-- Affects next parcel: True
-- Validation: Compare pg_stat_user_indexes, pg_stat_user_tables, and query latency before/after.
-- Rollback: Recreate dropped index / restore previous vacuum settings / revert migration.
-- Notes: Ensure ANALYZE/autovacuum analyze runs for planner statistics quality.
-
-### 54. [database_optimization] never_analyzed on raw_test
-- Risk: medium
-- Dependencies: server_config_reviewed
-- Restart/Downtime: none_or_reload
-- Affects next parcel: True
-- Validation: Compare pg_stat_user_indexes, pg_stat_user_tables, and query latency before/after.
-- Rollback: Recreate dropped index / restore previous vacuum settings / revert migration.
-- Notes: Ensure ANALYZE/autovacuum analyze runs for planner statistics quality.
-
-### 55. [database_optimization] never_analyzed on restricted_areas
-- Risk: medium
-- Dependencies: server_config_reviewed
-- Restart/Downtime: none_or_reload
-- Affects next parcel: True
-- Validation: Compare pg_stat_user_indexes, pg_stat_user_tables, and query latency before/after.
-- Rollback: Recreate dropped index / restore previous vacuum settings / revert migration.
-- Notes: Ensure ANALYZE/autovacuum analyze runs for planner statistics quality.
-
-### 56. [database_optimization] never_analyzed on layers_registry
-- Risk: medium
-- Dependencies: server_config_reviewed
-- Restart/Downtime: none_or_reload
-- Affects next parcel: True
-- Validation: Compare pg_stat_user_indexes, pg_stat_user_tables, and query latency before/after.
-- Rollback: Recreate dropped index / restore previous vacuum settings / revert migration.
-- Notes: Ensure ANALYZE/autovacuum analyze runs for planner statistics quality.
-
-### 57. [database_optimization] never_analyzed on spatial_ref_sys
-- Risk: medium
-- Dependencies: server_config_reviewed
-- Restart/Downtime: none_or_reload
-- Affects next parcel: True
-- Validation: Compare pg_stat_user_indexes, pg_stat_user_tables, and query latency before/after.
-- Rollback: Recreate dropped index / restore previous vacuum settings / revert migration.
-- Notes: Ensure ANALYZE/autovacuum analyze runs for planner statistics quality.
-
-### 58. [database_optimization] missing_spatial_index_candidate on bkg_vg250_boundaries
+### 43. [database_optimization] missing_spatial_index_candidate on bkg_vg250_boundaries
 - Risk: high
 - Dependencies: server_config_reviewed
 - Restart/Downtime: none_or_reload
@@ -534,7 +399,7 @@ Generated: 2026-05-16T09:58:39.501399+00:00
 - Rollback: Recreate dropped index / restore previous vacuum settings / revert migration.
 - Notes: Confirm whether a GiST/SP-GiST index exists or should be created.
 
-### 59. [database_optimization] missing_spatial_index_candidate on bkg_vg25_boundaries
+### 44. [database_optimization] missing_spatial_index_candidate on bkg_vg25_boundaries
 - Risk: high
 - Dependencies: server_config_reviewed
 - Restart/Downtime: none_or_reload
@@ -543,7 +408,7 @@ Generated: 2026-05-16T09:58:39.501399+00:00
 - Rollback: Recreate dropped index / restore previous vacuum settings / revert migration.
 - Notes: Confirm whether a GiST/SP-GiST index exists or should be created.
 
-### 60. [database_optimization] missing_spatial_index_candidate on mining_locations
+### 45. [database_optimization] missing_spatial_index_candidate on mining_locations
 - Risk: high
 - Dependencies: server_config_reviewed
 - Restart/Downtime: none_or_reload
@@ -552,7 +417,7 @@ Generated: 2026-05-16T09:58:39.501399+00:00
 - Rollback: Recreate dropped index / restore previous vacuum settings / revert migration.
 - Notes: Confirm whether a GiST/SP-GiST index exists or should be created.
 
-### 61. [database_optimization] missing_spatial_index_candidate on restricted_areas
+### 46. [database_optimization] missing_spatial_index_candidate on restricted_areas
 - Risk: high
 - Dependencies: server_config_reviewed
 - Restart/Downtime: none_or_reload
@@ -561,7 +426,7 @@ Generated: 2026-05-16T09:58:39.501399+00:00
 - Rollback: Recreate dropped index / restore previous vacuum settings / revert migration.
 - Notes: Confirm whether a GiST/SP-GiST index exists or should be created.
 
-### 62. [database_optimization] missing_spatial_index_candidate on external_features
+### 47. [database_optimization] missing_spatial_index_candidate on external_features
 - Risk: high
 - Dependencies: server_config_reviewed
 - Restart/Downtime: none_or_reload
@@ -570,7 +435,7 @@ Generated: 2026-05-16T09:58:39.501399+00:00
 - Rollback: Recreate dropped index / restore previous vacuum settings / revert migration.
 - Notes: Confirm whether a GiST/SP-GiST index exists or should be created.
 
-### 63. [database_optimization] missing_spatial_index_candidate on spsde:simplifiedbavarianmonument
+### 48. [database_optimization] missing_spatial_index_candidate on spsde:simplifiedbavarianmonument
 - Risk: high
 - Dependencies: server_config_reviewed
 - Restart/Downtime: none_or_reload
@@ -579,7 +444,7 @@ Generated: 2026-05-16T09:58:39.501399+00:00
 - Rollback: Recreate dropped index / restore previous vacuum settings / revert migration.
 - Notes: Confirm whether a GiST/SP-GiST index exists or should be created.
 
-### 64. [database_optimization] missing_spatial_index_candidate on survey_objects
+### 49. [database_optimization] missing_spatial_index_candidate on survey_objects
 - Risk: high
 - Dependencies: server_config_reviewed
 - Restart/Downtime: none_or_reload
@@ -588,7 +453,7 @@ Generated: 2026-05-16T09:58:39.501399+00:00
 - Rollback: Recreate dropped index / restore previous vacuum settings / revert migration.
 - Notes: Confirm whether a GiST/SP-GiST index exists or should be created.
 
-### 65. [database_optimization] missing_spatial_index_candidate on surveys
+### 50. [database_optimization] missing_spatial_index_candidate on surveys
 - Risk: high
 - Dependencies: server_config_reviewed
 - Restart/Downtime: none_or_reload
@@ -597,7 +462,7 @@ Generated: 2026-05-16T09:58:39.501399+00:00
 - Rollback: Recreate dropped index / restore previous vacuum settings / revert migration.
 - Notes: Confirm whether a GiST/SP-GiST index exists or should be created.
 
-### 66. [application_query_optimization] expensive_external_features_layer_count_query
+### 51. [application_query_optimization] expensive_external_features_layer_count_query
 - Risk: high
 - Dependencies: database_optimization_started
 - Restart/Downtime: app_restart_possible
@@ -606,7 +471,7 @@ Generated: 2026-05-16T09:58:39.501399+00:00
 - Rollback: Revert application query changes and disable new cache/materialized query path.
 - Notes: Replace repeated live COUNT(*) GROUP BY layer with cached/materialized counts refreshed on ingest/update events.
 
-### 67. [application_query_optimization] expensive_external_features_layer_count_query
+### 52. [application_query_optimization] expensive_external_features_layer_count_query
 - Risk: high
 - Dependencies: database_optimization_started
 - Restart/Downtime: app_restart_possible
@@ -615,7 +480,7 @@ Generated: 2026-05-16T09:58:39.501399+00:00
 - Rollback: Revert application query changes and disable new cache/materialized query path.
 - Notes: Replace repeated live COUNT(*) GROUP BY layer with cached/materialized counts refreshed on ingest/update events.
 
-### 68. [application_query_optimization] high_total_time_queries
+### 53. [application_query_optimization] high_total_time_queries
 - Risk: high
 - Dependencies: database_optimization_started
 - Restart/Downtime: app_restart_possible
@@ -624,7 +489,7 @@ Generated: 2026-05-16T09:58:39.501399+00:00
 - Rollback: Revert application query changes and disable new cache/materialized query path.
 - Notes: Target top total time queries first for latency/cost reduction.
 
-### 69. [application_query_optimization] high_mean_time_queries
+### 54. [application_query_optimization] high_mean_time_queries
 - Risk: medium
 - Dependencies: database_optimization_started
 - Restart/Downtime: app_restart_possible
@@ -633,7 +498,7 @@ Generated: 2026-05-16T09:58:39.501399+00:00
 - Rollback: Revert application query changes and disable new cache/materialized query path.
 - Notes: Investigate plans for high mean execution time outliers.
 
-### 70. [application_query_optimization] high_block_read_queries
+### 55. [application_query_optimization] high_block_read_queries
 - Risk: medium
 - Dependencies: database_optimization_started
 - Restart/Downtime: app_restart_possible
@@ -642,7 +507,7 @@ Generated: 2026-05-16T09:58:39.501399+00:00
 - Rollback: Revert application query changes and disable new cache/materialized query path.
 - Notes: Review indexing/plans and cache effectiveness for read-heavy SQL.
 
-### 71. [validation] Run post-change baseline and compare against pre-change baseline
+### 56. [validation] Run post-change baseline and compare against pre-change baseline
 - Risk: low
 - Dependencies: all_approved_changes_applied
 - Restart/Downtime: none
@@ -651,7 +516,7 @@ Generated: 2026-05-16T09:58:39.501399+00:00
 - Rollback: Use change-specific rollback procedures if regression thresholds are exceeded.
 - Notes: Validation gate for keep/revert decisions.
 
-### 72. [monitoring] Establish recurring health/performance checks
+### 57. [monitoring] Establish recurring health/performance checks
 - Risk: low
 - Dependencies: validation_passed
 - Restart/Downtime: none

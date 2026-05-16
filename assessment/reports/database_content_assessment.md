@@ -1,15 +1,15 @@
 # Database Content Assessment
 
-Generated: 2026-05-16T09:58:39.268760+00:00
+Generated: 2026-05-16T11:22:58.861830+00:00
 
 ## Scope
 - Baseline CSV outputs only
 - No schema/data changes applied
 
 ## Summary
-- Total findings: 59
+- Total findings: 44
 - Confirmed: 1
-- Candidate: 58
+- Candidate: 43
 
 ## Findings
 
@@ -217,151 +217,61 @@ Generated: 2026-05-16T09:58:39.268760+00:00
 - Evidence: `{"idx_scan": 0}`
 - Recommendation: Review whether index is still needed; avoid blind drops without query-history window.
 
-### 35. never_analyzed (medium)
-- Table: spsde:simplifiedbavarianmonument
-- Action status: candidate
-- Evidence: `{"last_analyze": "", "last_autoanalyze": ""}`
-- Recommendation: Ensure ANALYZE/autovacuum analyze runs for planner statistics quality.
-
-### 36. never_analyzed (medium)
-- Table: ingestion_runs
-- Action status: candidate
-- Evidence: `{"last_analyze": "", "last_autoanalyze": ""}`
-- Recommendation: Ensure ANALYZE/autovacuum analyze runs for planner statistics quality.
-
-### 37. never_analyzed (medium)
-- Table: layer_registry
-- Action status: candidate
-- Evidence: `{"last_analyze": "", "last_autoanalyze": ""}`
-- Recommendation: Ensure ANALYZE/autovacuum analyze runs for planner statistics quality.
-
-### 38. never_analyzed (medium)
+### 35. dead_tuple_pressure (medium)
 - Table: bkg_vg250_boundaries
 - Action status: candidate
-- Evidence: `{"last_analyze": "", "last_autoanalyze": ""}`
-- Recommendation: Ensure ANALYZE/autovacuum analyze runs for planner statistics quality.
+- Evidence: `{"n_live_tup": 7, "n_dead_tup": 14, "dead_ratio": 2.0}`
+- Recommendation: Investigate vacuum/analyze cadence for this table.
 
-### 39. never_analyzed (medium)
-- Table: ingestion_sources
-- Action status: candidate
-- Evidence: `{"last_analyze": "", "last_autoanalyze": ""}`
-- Recommendation: Ensure ANALYZE/autovacuum analyze runs for planner statistics quality.
-
-### 40. never_analyzed (medium)
-- Table: ingestion_artifacts
-- Action status: candidate
-- Evidence: `{"last_analyze": "", "last_autoanalyze": ""}`
-- Recommendation: Ensure ANALYZE/autovacuum analyze runs for planner statistics quality.
-
-### 41. never_analyzed (medium)
+### 36. dead_tuple_pressure (medium)
 - Table: bkg_vg25_boundaries
 - Action status: candidate
-- Evidence: `{"last_analyze": "", "last_autoanalyze": ""}`
-- Recommendation: Ensure ANALYZE/autovacuum analyze runs for planner statistics quality.
+- Evidence: `{"n_live_tup": 7, "n_dead_tup": 14, "dead_ratio": 2.0}`
+- Recommendation: Investigate vacuum/analyze cadence for this table.
 
-### 42. never_analyzed (medium)
-- Table: external_features
-- Action status: candidate
-- Evidence: `{"last_analyze": "", "last_autoanalyze": ""}`
-- Recommendation: Ensure ANALYZE/autovacuum analyze runs for planner statistics quality.
-
-### 43. never_analyzed (medium)
-- Table: permission_requests
-- Action status: candidate
-- Evidence: `{"last_analyze": "", "last_autoanalyze": ""}`
-- Recommendation: Ensure ANALYZE/autovacuum analyze runs for planner statistics quality.
-
-### 44. never_analyzed (medium)
-- Table: bavaria_economy_raw
-- Action status: candidate
-- Evidence: `{"last_analyze": "", "last_autoanalyze": ""}`
-- Recommendation: Ensure ANALYZE/autovacuum analyze runs for planner statistics quality.
-
-### 45. never_analyzed (medium)
-- Table: survey_objects
-- Action status: candidate
-- Evidence: `{"last_analyze": "", "last_autoanalyze": ""}`
-- Recommendation: Ensure ANALYZE/autovacuum analyze runs for planner statistics quality.
-
-### 46. never_analyzed (medium)
-- Table: mining_locations
-- Action status: candidate
-- Evidence: `{"last_analyze": "", "last_autoanalyze": ""}`
-- Recommendation: Ensure ANALYZE/autovacuum analyze runs for planner statistics quality.
-
-### 47. never_analyzed (medium)
-- Table: surveys
-- Action status: candidate
-- Evidence: `{"last_analyze": "", "last_autoanalyze": ""}`
-- Recommendation: Ensure ANALYZE/autovacuum analyze runs for planner statistics quality.
-
-### 48. never_analyzed (medium)
-- Table: raw_test
-- Action status: candidate
-- Evidence: `{"last_analyze": "", "last_autoanalyze": ""}`
-- Recommendation: Ensure ANALYZE/autovacuum analyze runs for planner statistics quality.
-
-### 49. never_analyzed (medium)
-- Table: restricted_areas
-- Action status: candidate
-- Evidence: `{"last_analyze": "", "last_autoanalyze": ""}`
-- Recommendation: Ensure ANALYZE/autovacuum analyze runs for planner statistics quality.
-
-### 50. never_analyzed (medium)
-- Table: layers_registry
-- Action status: candidate
-- Evidence: `{"last_analyze": "", "last_autoanalyze": ""}`
-- Recommendation: Ensure ANALYZE/autovacuum analyze runs for planner statistics quality.
-
-### 51. never_analyzed (medium)
-- Table: spatial_ref_sys
-- Action status: candidate
-- Evidence: `{"last_analyze": "", "last_autoanalyze": ""}`
-- Recommendation: Ensure ANALYZE/autovacuum analyze runs for planner statistics quality.
-
-### 52. missing_spatial_index_candidate (high)
+### 37. missing_spatial_index_candidate (high)
 - Table: bkg_vg250_boundaries
 - Action status: candidate
 - Evidence: `{"index_match_probe": " on bkg_vg250_boundaries using gist (geom"}`
 - Recommendation: Confirm whether a GiST/SP-GiST index exists or should be created.
 
-### 53. missing_spatial_index_candidate (high)
+### 38. missing_spatial_index_candidate (high)
 - Table: bkg_vg25_boundaries
 - Action status: candidate
 - Evidence: `{"index_match_probe": " on bkg_vg25_boundaries using gist (geom"}`
 - Recommendation: Confirm whether a GiST/SP-GiST index exists or should be created.
 
-### 54. missing_spatial_index_candidate (high)
+### 39. missing_spatial_index_candidate (high)
 - Table: mining_locations
 - Action status: candidate
 - Evidence: `{"index_match_probe": " on mining_locations using gist (geom"}`
 - Recommendation: Confirm whether a GiST/SP-GiST index exists or should be created.
 
-### 55. missing_spatial_index_candidate (high)
+### 40. missing_spatial_index_candidate (high)
 - Table: restricted_areas
 - Action status: candidate
 - Evidence: `{"index_match_probe": " on restricted_areas using gist (geom"}`
 - Recommendation: Confirm whether a GiST/SP-GiST index exists or should be created.
 
-### 56. missing_spatial_index_candidate (high)
+### 41. missing_spatial_index_candidate (high)
 - Table: external_features
 - Action status: candidate
 - Evidence: `{"index_match_probe": " on external_features using gist (geom"}`
 - Recommendation: Confirm whether a GiST/SP-GiST index exists or should be created.
 
-### 57. missing_spatial_index_candidate (high)
+### 42. missing_spatial_index_candidate (high)
 - Table: spsde:simplifiedbavarianmonument
 - Action status: candidate
 - Evidence: `{"index_match_probe": " on spsde:simplifiedbavarianmonument using gist (geometry"}`
 - Recommendation: Confirm whether a GiST/SP-GiST index exists or should be created.
 
-### 58. missing_spatial_index_candidate (high)
+### 43. missing_spatial_index_candidate (high)
 - Table: survey_objects
 - Action status: candidate
 - Evidence: `{"index_match_probe": " on survey_objects using gist (geom"}`
 - Recommendation: Confirm whether a GiST/SP-GiST index exists or should be created.
 
-### 59. missing_spatial_index_candidate (high)
+### 44. missing_spatial_index_candidate (high)
 - Table: surveys
 - Action status: candidate
 - Evidence: `{"index_match_probe": " on surveys using gist (geom"}`

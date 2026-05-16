@@ -1,5 +1,5 @@
 {
-  "generated_at_utc": "2026-05-16T09:58:39.501399+00:00",
+  "generated_at_utc": "2026-05-16T11:22:59.063881+00:00",
   "inputs": {
     "server_config_findings": "C:\\Users\\Paul\\Desktop\\dev\\surveyCatalyst\\assessment\\output\\server_config_findings.json",
     "database_content_findings": "C:\\Users\\Paul\\Desktop\\dev\\surveyCatalyst\\assessment\\output\\database_content_findings.json",
@@ -657,7 +657,7 @@
     {
       "execution_order": 41,
       "group": "database_optimization",
-      "title": "never_analyzed on spsde:simplifiedbavarianmonument",
+      "title": "dead_tuple_pressure on bkg_vg250_boundaries",
       "source": "database_content_findings",
       "risk": "medium",
       "dependencies": [
@@ -667,13 +667,13 @@
       "validation": "Compare pg_stat_user_indexes, pg_stat_user_tables, and query latency before/after.",
       "restart_or_downtime_requirement": "none_or_reload",
       "affects_next_parcel": true,
-      "notes": "Ensure ANALYZE/autovacuum analyze runs for planner statistics quality.",
+      "notes": "Investigate vacuum/analyze cadence for this table.",
       "status": "proposed"
     },
     {
       "execution_order": 42,
       "group": "database_optimization",
-      "title": "never_analyzed on ingestion_runs",
+      "title": "dead_tuple_pressure on bkg_vg25_boundaries",
       "source": "database_content_findings",
       "risk": "medium",
       "dependencies": [
@@ -683,251 +683,11 @@
       "validation": "Compare pg_stat_user_indexes, pg_stat_user_tables, and query latency before/after.",
       "restart_or_downtime_requirement": "none_or_reload",
       "affects_next_parcel": true,
-      "notes": "Ensure ANALYZE/autovacuum analyze runs for planner statistics quality.",
+      "notes": "Investigate vacuum/analyze cadence for this table.",
       "status": "proposed"
     },
     {
       "execution_order": 43,
-      "group": "database_optimization",
-      "title": "never_analyzed on layer_registry",
-      "source": "database_content_findings",
-      "risk": "medium",
-      "dependencies": [
-        "server_config_reviewed"
-      ],
-      "rollback": "Recreate dropped index / restore previous vacuum settings / revert migration.",
-      "validation": "Compare pg_stat_user_indexes, pg_stat_user_tables, and query latency before/after.",
-      "restart_or_downtime_requirement": "none_or_reload",
-      "affects_next_parcel": true,
-      "notes": "Ensure ANALYZE/autovacuum analyze runs for planner statistics quality.",
-      "status": "proposed"
-    },
-    {
-      "execution_order": 44,
-      "group": "database_optimization",
-      "title": "never_analyzed on bkg_vg250_boundaries",
-      "source": "database_content_findings",
-      "risk": "medium",
-      "dependencies": [
-        "server_config_reviewed"
-      ],
-      "rollback": "Recreate dropped index / restore previous vacuum settings / revert migration.",
-      "validation": "Compare pg_stat_user_indexes, pg_stat_user_tables, and query latency before/after.",
-      "restart_or_downtime_requirement": "none_or_reload",
-      "affects_next_parcel": true,
-      "notes": "Ensure ANALYZE/autovacuum analyze runs for planner statistics quality.",
-      "status": "proposed"
-    },
-    {
-      "execution_order": 45,
-      "group": "database_optimization",
-      "title": "never_analyzed on ingestion_sources",
-      "source": "database_content_findings",
-      "risk": "medium",
-      "dependencies": [
-        "server_config_reviewed"
-      ],
-      "rollback": "Recreate dropped index / restore previous vacuum settings / revert migration.",
-      "validation": "Compare pg_stat_user_indexes, pg_stat_user_tables, and query latency before/after.",
-      "restart_or_downtime_requirement": "none_or_reload",
-      "affects_next_parcel": true,
-      "notes": "Ensure ANALYZE/autovacuum analyze runs for planner statistics quality.",
-      "status": "proposed"
-    },
-    {
-      "execution_order": 46,
-      "group": "database_optimization",
-      "title": "never_analyzed on ingestion_artifacts",
-      "source": "database_content_findings",
-      "risk": "medium",
-      "dependencies": [
-        "server_config_reviewed"
-      ],
-      "rollback": "Recreate dropped index / restore previous vacuum settings / revert migration.",
-      "validation": "Compare pg_stat_user_indexes, pg_stat_user_tables, and query latency before/after.",
-      "restart_or_downtime_requirement": "none_or_reload",
-      "affects_next_parcel": true,
-      "notes": "Ensure ANALYZE/autovacuum analyze runs for planner statistics quality.",
-      "status": "proposed"
-    },
-    {
-      "execution_order": 47,
-      "group": "database_optimization",
-      "title": "never_analyzed on bkg_vg25_boundaries",
-      "source": "database_content_findings",
-      "risk": "medium",
-      "dependencies": [
-        "server_config_reviewed"
-      ],
-      "rollback": "Recreate dropped index / restore previous vacuum settings / revert migration.",
-      "validation": "Compare pg_stat_user_indexes, pg_stat_user_tables, and query latency before/after.",
-      "restart_or_downtime_requirement": "none_or_reload",
-      "affects_next_parcel": true,
-      "notes": "Ensure ANALYZE/autovacuum analyze runs for planner statistics quality.",
-      "status": "proposed"
-    },
-    {
-      "execution_order": 48,
-      "group": "database_optimization",
-      "title": "never_analyzed on external_features",
-      "source": "database_content_findings",
-      "risk": "medium",
-      "dependencies": [
-        "server_config_reviewed"
-      ],
-      "rollback": "Recreate dropped index / restore previous vacuum settings / revert migration.",
-      "validation": "Compare pg_stat_user_indexes, pg_stat_user_tables, and query latency before/after.",
-      "restart_or_downtime_requirement": "none_or_reload",
-      "affects_next_parcel": true,
-      "notes": "Ensure ANALYZE/autovacuum analyze runs for planner statistics quality.",
-      "status": "proposed"
-    },
-    {
-      "execution_order": 49,
-      "group": "database_optimization",
-      "title": "never_analyzed on permission_requests",
-      "source": "database_content_findings",
-      "risk": "medium",
-      "dependencies": [
-        "server_config_reviewed"
-      ],
-      "rollback": "Recreate dropped index / restore previous vacuum settings / revert migration.",
-      "validation": "Compare pg_stat_user_indexes, pg_stat_user_tables, and query latency before/after.",
-      "restart_or_downtime_requirement": "none_or_reload",
-      "affects_next_parcel": true,
-      "notes": "Ensure ANALYZE/autovacuum analyze runs for planner statistics quality.",
-      "status": "proposed"
-    },
-    {
-      "execution_order": 50,
-      "group": "database_optimization",
-      "title": "never_analyzed on bavaria_economy_raw",
-      "source": "database_content_findings",
-      "risk": "medium",
-      "dependencies": [
-        "server_config_reviewed"
-      ],
-      "rollback": "Recreate dropped index / restore previous vacuum settings / revert migration.",
-      "validation": "Compare pg_stat_user_indexes, pg_stat_user_tables, and query latency before/after.",
-      "restart_or_downtime_requirement": "none_or_reload",
-      "affects_next_parcel": true,
-      "notes": "Ensure ANALYZE/autovacuum analyze runs for planner statistics quality.",
-      "status": "proposed"
-    },
-    {
-      "execution_order": 51,
-      "group": "database_optimization",
-      "title": "never_analyzed on survey_objects",
-      "source": "database_content_findings",
-      "risk": "medium",
-      "dependencies": [
-        "server_config_reviewed"
-      ],
-      "rollback": "Recreate dropped index / restore previous vacuum settings / revert migration.",
-      "validation": "Compare pg_stat_user_indexes, pg_stat_user_tables, and query latency before/after.",
-      "restart_or_downtime_requirement": "none_or_reload",
-      "affects_next_parcel": true,
-      "notes": "Ensure ANALYZE/autovacuum analyze runs for planner statistics quality.",
-      "status": "proposed"
-    },
-    {
-      "execution_order": 52,
-      "group": "database_optimization",
-      "title": "never_analyzed on mining_locations",
-      "source": "database_content_findings",
-      "risk": "medium",
-      "dependencies": [
-        "server_config_reviewed"
-      ],
-      "rollback": "Recreate dropped index / restore previous vacuum settings / revert migration.",
-      "validation": "Compare pg_stat_user_indexes, pg_stat_user_tables, and query latency before/after.",
-      "restart_or_downtime_requirement": "none_or_reload",
-      "affects_next_parcel": true,
-      "notes": "Ensure ANALYZE/autovacuum analyze runs for planner statistics quality.",
-      "status": "proposed"
-    },
-    {
-      "execution_order": 53,
-      "group": "database_optimization",
-      "title": "never_analyzed on surveys",
-      "source": "database_content_findings",
-      "risk": "medium",
-      "dependencies": [
-        "server_config_reviewed"
-      ],
-      "rollback": "Recreate dropped index / restore previous vacuum settings / revert migration.",
-      "validation": "Compare pg_stat_user_indexes, pg_stat_user_tables, and query latency before/after.",
-      "restart_or_downtime_requirement": "none_or_reload",
-      "affects_next_parcel": true,
-      "notes": "Ensure ANALYZE/autovacuum analyze runs for planner statistics quality.",
-      "status": "proposed"
-    },
-    {
-      "execution_order": 54,
-      "group": "database_optimization",
-      "title": "never_analyzed on raw_test",
-      "source": "database_content_findings",
-      "risk": "medium",
-      "dependencies": [
-        "server_config_reviewed"
-      ],
-      "rollback": "Recreate dropped index / restore previous vacuum settings / revert migration.",
-      "validation": "Compare pg_stat_user_indexes, pg_stat_user_tables, and query latency before/after.",
-      "restart_or_downtime_requirement": "none_or_reload",
-      "affects_next_parcel": true,
-      "notes": "Ensure ANALYZE/autovacuum analyze runs for planner statistics quality.",
-      "status": "proposed"
-    },
-    {
-      "execution_order": 55,
-      "group": "database_optimization",
-      "title": "never_analyzed on restricted_areas",
-      "source": "database_content_findings",
-      "risk": "medium",
-      "dependencies": [
-        "server_config_reviewed"
-      ],
-      "rollback": "Recreate dropped index / restore previous vacuum settings / revert migration.",
-      "validation": "Compare pg_stat_user_indexes, pg_stat_user_tables, and query latency before/after.",
-      "restart_or_downtime_requirement": "none_or_reload",
-      "affects_next_parcel": true,
-      "notes": "Ensure ANALYZE/autovacuum analyze runs for planner statistics quality.",
-      "status": "proposed"
-    },
-    {
-      "execution_order": 56,
-      "group": "database_optimization",
-      "title": "never_analyzed on layers_registry",
-      "source": "database_content_findings",
-      "risk": "medium",
-      "dependencies": [
-        "server_config_reviewed"
-      ],
-      "rollback": "Recreate dropped index / restore previous vacuum settings / revert migration.",
-      "validation": "Compare pg_stat_user_indexes, pg_stat_user_tables, and query latency before/after.",
-      "restart_or_downtime_requirement": "none_or_reload",
-      "affects_next_parcel": true,
-      "notes": "Ensure ANALYZE/autovacuum analyze runs for planner statistics quality.",
-      "status": "proposed"
-    },
-    {
-      "execution_order": 57,
-      "group": "database_optimization",
-      "title": "never_analyzed on spatial_ref_sys",
-      "source": "database_content_findings",
-      "risk": "medium",
-      "dependencies": [
-        "server_config_reviewed"
-      ],
-      "rollback": "Recreate dropped index / restore previous vacuum settings / revert migration.",
-      "validation": "Compare pg_stat_user_indexes, pg_stat_user_tables, and query latency before/after.",
-      "restart_or_downtime_requirement": "none_or_reload",
-      "affects_next_parcel": true,
-      "notes": "Ensure ANALYZE/autovacuum analyze runs for planner statistics quality.",
-      "status": "proposed"
-    },
-    {
-      "execution_order": 58,
       "group": "database_optimization",
       "title": "missing_spatial_index_candidate on bkg_vg250_boundaries",
       "source": "database_content_findings",
@@ -943,7 +703,7 @@
       "status": "proposed"
     },
     {
-      "execution_order": 59,
+      "execution_order": 44,
       "group": "database_optimization",
       "title": "missing_spatial_index_candidate on bkg_vg25_boundaries",
       "source": "database_content_findings",
@@ -959,7 +719,7 @@
       "status": "proposed"
     },
     {
-      "execution_order": 60,
+      "execution_order": 45,
       "group": "database_optimization",
       "title": "missing_spatial_index_candidate on mining_locations",
       "source": "database_content_findings",
@@ -975,7 +735,7 @@
       "status": "proposed"
     },
     {
-      "execution_order": 61,
+      "execution_order": 46,
       "group": "database_optimization",
       "title": "missing_spatial_index_candidate on restricted_areas",
       "source": "database_content_findings",
@@ -991,7 +751,7 @@
       "status": "proposed"
     },
     {
-      "execution_order": 62,
+      "execution_order": 47,
       "group": "database_optimization",
       "title": "missing_spatial_index_candidate on external_features",
       "source": "database_content_findings",
@@ -1007,7 +767,7 @@
       "status": "proposed"
     },
     {
-      "execution_order": 63,
+      "execution_order": 48,
       "group": "database_optimization",
       "title": "missing_spatial_index_candidate on spsde:simplifiedbavarianmonument",
       "source": "database_content_findings",
@@ -1023,7 +783,7 @@
       "status": "proposed"
     },
     {
-      "execution_order": 64,
+      "execution_order": 49,
       "group": "database_optimization",
       "title": "missing_spatial_index_candidate on survey_objects",
       "source": "database_content_findings",
@@ -1039,7 +799,7 @@
       "status": "proposed"
     },
     {
-      "execution_order": 65,
+      "execution_order": 50,
       "group": "database_optimization",
       "title": "missing_spatial_index_candidate on surveys",
       "source": "database_content_findings",
@@ -1055,7 +815,7 @@
       "status": "proposed"
     },
     {
-      "execution_order": 66,
+      "execution_order": 51,
       "group": "application_query_optimization",
       "title": "expensive_external_features_layer_count_query",
       "source": "workload_findings",
@@ -1071,7 +831,7 @@
       "status": "proposed"
     },
     {
-      "execution_order": 67,
+      "execution_order": 52,
       "group": "application_query_optimization",
       "title": "expensive_external_features_layer_count_query",
       "source": "workload_findings",
@@ -1087,7 +847,7 @@
       "status": "proposed"
     },
     {
-      "execution_order": 68,
+      "execution_order": 53,
       "group": "application_query_optimization",
       "title": "high_total_time_queries",
       "source": "workload_findings",
@@ -1103,7 +863,7 @@
       "status": "proposed"
     },
     {
-      "execution_order": 69,
+      "execution_order": 54,
       "group": "application_query_optimization",
       "title": "high_mean_time_queries",
       "source": "workload_findings",
@@ -1119,7 +879,7 @@
       "status": "proposed"
     },
     {
-      "execution_order": 70,
+      "execution_order": 55,
       "group": "application_query_optimization",
       "title": "high_block_read_queries",
       "source": "workload_findings",
@@ -1135,7 +895,7 @@
       "status": "proposed"
     },
     {
-      "execution_order": 71,
+      "execution_order": 56,
       "group": "validation",
       "title": "Run post-change baseline and compare against pre-change baseline",
       "source": "plan_generated",
@@ -1151,7 +911,7 @@
       "status": "proposed"
     },
     {
-      "execution_order": 72,
+      "execution_order": 57,
       "group": "monitoring",
       "title": "Establish recurring health/performance checks",
       "source": "plan_generated",
@@ -1168,10 +928,10 @@
     }
   ],
   "summary": {
-    "total_changes": 72,
+    "total_changes": 57,
     "by_group": {
       "server_config": 6,
-      "database_optimization": 59,
+      "database_optimization": 44,
       "database_content_cleanup": 0,
       "application_query_optimization": 5,
       "validation": 1,

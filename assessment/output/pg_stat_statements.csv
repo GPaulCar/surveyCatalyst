@@ -1,8 +1,5 @@
 queryid,calls,total_exec_time,mean_exec_time,rows,shared_blks_hit,shared_blks_read,temp_blks_read,temp_blks_written,query
-4622485673134627552,1,5038.295,5038.295,36,85735,361465,0,0,"SELECT layer, COUNT(*)
-            FROM external_features
-            GROUP BY layer"
--5507895004688678276,3,4046.9772000000003,1348.9924,3,58311,1047012,0,0,"SELECT $1 AS table_name, ST_SRID(geom) AS srid, COUNT(*) AS n
+-5507895004688678276,5,6467.274800000001,1293.4549600000003,5,95997,1746206,0,0,"SELECT $1 AS table_name, ST_SRID(geom) AS srid, COUNT(*) AS n
             FROM external_features
             WHERE geom IS NOT NULL
             GROUP BY ST_SRID(geom)
@@ -17,11 +14,15 @@ queryid,calls,total_exec_time,mean_exec_time,rows,shared_blks_hit,shared_blks_re
             WHERE geom IS NOT NULL
             GROUP BY ST_SRID(geom)
             ORDER BY table_name, n DESC"
+4622485673134627552,1,5038.295,5038.295,36,85735,361465,0,0,"SELECT layer, COUNT(*)
+            FROM external_features
+            GROUP BY layer"
 1389976556187309256,1,2550.2867,2550.2867,0,99021,346660,0,0,"EXPLAIN (ANALYZE, BUFFERS, VERBOSE, SETTINGS)
 SELECT layer, COUNT(*)
 FROM public.external_features
 GROUP BY layer"
-7647870470435028548,3,1125.037,375.01233333333334,15,138465,6093,0,0,"WITH sample AS (
+-9041023306390297778,1,2226.0898,2226.0898,0,24088,76362,0,0,ANALYZE VERBOSE
+7647870470435028548,5,1743.741,348.7482,25,234837,6093,0,0,"WITH sample AS (
               SELECT layer, geom
               FROM external_features
               WHERE geom IS NOT NULL
@@ -37,10 +38,10 @@ GROUP BY layer"
             FROM sample
             GROUP BY layer
             ORDER BY sampled_features DESC"
-8285673085659896166,4,827.5359,206.88397500000002,16,48,0,0,0,"SELECT datname, pg_database_size(datname) AS bytes
+8285673085659896166,6,1247.1322,207.85536666666667,24,72,0,0,0,"SELECT datname, pg_database_size(datname) AS bytes
             FROM pg_database
             ORDER BY bytes DESC"
-1381153010722816006,4,241.60150000000002,60.400375,68,4787,37,0,0,"SELECT
+1381153010722816006,6,358.267,59.711166666666664,102,7199,37,0,0,"SELECT
               n.nspname AS schema_name,
               c.relname AS table_name,
               pg_total_relation_size(c.oid) AS total_bytes,
@@ -55,7 +56,7 @@ GROUP BY layer"
               AND n.nspname NOT IN ($4 /*, ... */)
             ORDER BY total_bytes DESC"
 -1118924422343236163,2,110.4422,55.2211,0,4026,80,0,0,CREATE EXTENSION IF NOT EXISTS pg_stat_statements
-2503101037485376602,4,55.1723,13.793075,160,4278,6,0,0,"SELECT
+2503101037485376602,6,83.3366,13.889433333333333,240,6420,6,0,0,"SELECT
               schemaname,
               tablename,
               indexname,
@@ -77,19 +78,19 @@ FROM pg_stat_statements
 WHERE query NOT ILIKE $3
 ORDER BY total_exec_time DESC
 LIMIT $4"
--9181392394806888969,4,25.706699999999998,6.4266749999999995,1612,12,0,0,0,"SELECT name, setting, unit, category, context, vartype, source, boot_val, reset_val, pending_restart
+-9181392394806888969,6,37.5177,6.252949999999999,2418,18,0,0,0,"SELECT name, setting, unit, category, context, vartype, source, boot_val, reset_val, pending_restart
             FROM pg_settings
             ORDER BY name"
-1314168946605071400,3,17.4838,5.827933333333333,3,0,0,0,0,"SELECT name, setting, pending_restart
-FROM pg_settings
-WHERE name = $1"
-3146247604830448625,3,16.8775,5.6258333333333335,54,0,0,0,0,"SELECT
+3146247604830448625,5,27.374200000000002,5.47484,90,0,0,0,0,"SELECT
               name, setting, unit, context, source
             FROM pg_settings
             WHERE name LIKE $1
                OR name IN ($2 /*, ... */)
             ORDER BY name"
--2441191445735386548,3,10.382100000000001,3.4607,24,5242,89,0,0,"SELECT f_table_schema, f_table_name, f_geometry_column, coord_dimension, srid, type
+1314168946605071400,3,17.4838,5.827933333333333,3,0,0,0,0,"SELECT name, setting, pending_restart
+FROM pg_settings
+WHERE name = $1"
+-2441191445735386548,5,12.789000000000001,2.5578,40,6108,89,0,0,"SELECT f_table_schema, f_table_name, f_geometry_column, coord_dimension, srid, type
             FROM public.geometry_columns
             ORDER BY f_table_schema, f_table_name, f_geometry_column"
 8808516917869465915,6,6.679699999999999,1.1132833333333332,189,107,49,0,0,"SELECT at.attname, ty.typname, at.attnum
@@ -137,10 +138,16 @@ WHERE
     AND att.attnum > $9
     AND att.attisdropped IS FALSE
 ORDER BY att.attnum"
-4854991825702068830,1956,3.9091999999999834,0.0019985685071574667,0,0,0,0,0,BEGIN
+4854991825702068830,1958,3.911799999999983,0.0019978549540347317,0,0,0,0,0,BEGIN
 -3741707593236325849,1,3.7272999999999996,3.7272999999999996,31,1173,36,0,0,"SELECT schemaname, tablename, indexname, indexdef
                 FROM pg_indexes
                 WHERE schemaname = ANY (current_schemas($1))"
+13694668025197710,4,2.2963,0.574075,249,12,0,0,0,"SELECT queryid, calls, total_exec_time, mean_exec_time, rows,
+                       shared_blks_hit, shared_blks_read, temp_blks_read, temp_blks_written,
+                       query
+                FROM pg_stat_statements
+                ORDER BY total_exec_time DESC
+                LIMIT $1"
 -3789064086496793860,2,2.2753,1.13765,38,0,0,0,0,"SELECT
     calls,
     ROUND(total_exec_time::numeric, $1) AS total_ms,
@@ -156,10 +163,10 @@ WHERE query NOT ILIKE $4
   AND query NOT ILIKE $6
 ORDER BY total_exec_time DESC
 LIMIT $7"
--896801712255462144,2,1.2884,0.6442,126,74,0,0,0,"SELECT locktype, mode, granted, pid, relation::regclass::text AS relation_name
+-896801712255462144,4,2.2621,0.565525,252,220,0,0,0,"SELECT locktype, mode, granted, pid, relation::regclass::text AS relation_name
             FROM pg_locks
             ORDER BY granted, pid"
-5459451095644561854,4,1.1981000000000002,0.29952500000000004,160,568,0,0,0,"SELECT
+5459451095644561854,6,1.8002000000000002,0.3000333333333333,240,852,0,0,0,"SELECT
               s.relname AS table_name,
               s.indexrelname AS index_name,
               s.idx_scan,
@@ -167,13 +174,11 @@ LIMIT $7"
               s.idx_tup_fetch
             FROM pg_stat_user_indexes s
             ORDER BY s.idx_scan DESC"
-13694668025197710,2,1.1124,0.5562,122,6,0,0,0,"SELECT queryid, calls, total_exec_time, mean_exec_time, rows,
-                       shared_blks_hit, shared_blks_read, temp_blks_read, temp_blks_written,
-                       query
-                FROM pg_stat_statements
-                ORDER BY total_exec_time DESC
-                LIMIT $1"
--8195791971706566154,4,1.0586,0.26465,68,88,0,0,0,"SELECT
+6076718095895867295,4,1.6063,0.401575,44,20,0,0,0,"SELECT pid, usename, datname, application_name, client_addr, state,
+                   backend_start, xact_start, query_start, wait_event_type, wait_event
+            FROM pg_stat_activity
+            ORDER BY pid"
+-8195791971706566154,6,1.5901999999999998,0.26503333333333334,102,132,0,0,0,"SELECT
               relname AS table_name,
               seq_scan, seq_tup_read, idx_scan, idx_tup_fetch,
               n_tup_ins, n_tup_upd, n_tup_del, n_tup_hot_upd,
@@ -181,10 +186,10 @@ LIMIT $7"
               last_vacuum, last_autovacuum, last_analyze, last_autoanalyze
             FROM pg_stat_user_tables
             ORDER BY n_live_tup DESC NULLS LAST"
-6076718095895867295,2,0.9232,0.4616,22,10,0,0,0,"SELECT pid, usename, datname, application_name, client_addr, state,
-                   backend_start, xact_start, query_start, wait_event_type, wait_event
-            FROM pg_stat_activity
-            ORDER BY pid"
+5299827402502271170,6,0.7535999999999999,0.1256,18,37,1,0,0,"SELECT e.extname, e.extversion, n.nspname AS schema_name
+            FROM pg_extension e
+            JOIN pg_namespace n ON n.oid = e.extnamespace
+            ORDER BY e.extname"
 7991237484093652806,1,0.7,0.7,0,0,1,0,0,"SELECT s.id, s.expedition_id, s.title, s.status, s.layer_key, s.metadata,
                        COUNT(so.id) FILTER (WHERE so.is_active = $1) AS object_count
                 FROM surveys s
@@ -192,10 +197,6 @@ LIMIT $7"
                 GROUP BY s.id, s.expedition_id, s.title, s.status, s.layer_key, s.metadata
                 ORDER BY s.id"
 -5894150803193253271,1,0.6451,0.6451,1,0,1,0,0,SELECT COUNT(*) FROM data_layers.bkg_vg25_boundaries WHERE geom IS NOT NULL
-5299827402502271170,4,0.5871999999999999,0.14679999999999999,12,27,1,0,0,"SELECT e.extname, e.extversion, n.nspname AS schema_name
-            FROM pg_extension e
-            JOIN pg_namespace n ON n.oid = e.extnamespace
-            ORDER BY e.extname"
 -7442721242327432905,1,0.5678000000000001,0.5678000000000001,1,0,1,0,0,SELECT COUNT(*) FROM data_layers.bkg_vg250_boundaries WHERE geom IS NOT NULL
 -5245368837703123513,1,0.5072,0.5072,1,0,1,0,0,"SELECT CASE
     WHEN (SELECT count(extname) FROM pg_catalog.pg_extension WHERE extname=$1) > $2
@@ -249,6 +250,7 @@ FROM pg_stat_statements"
         FROM
             pg_catalog.pg_stat_gssapi
         WHERE pid = pg_backend_pid()"
+5051979035894942613,5,0.0907,0.01814,5,5,0,0,0,SELECT COUNT(*) FROM pg_extension WHERE extname = $1
 6195550807530596269,1,0.0757,0.0757,1,4,0,0,0,"SELECT
             roles.oid as id, roles.rolname as name,
             roles.rolsuper as is_superuser,
@@ -269,8 +271,7 @@ FROM pg_stat_statements"
             pg_catalog.pg_roles as roles
         WHERE
             rolname = current_user"
-5051979035894942613,3,0.0504,0.0168,3,3,0,0,0,SELECT COUNT(*) FROM pg_extension WHERE extname = $1
-602080821217516466,4,0.0404,0.010100000000000001,4,0,0,0,0,SELECT current_database()
+602080821217516466,6,0.052399999999999995,0.008733333333333334,6,0,0,0,0,SELECT current_database()
 -3688696628780506391,3,0.0329,0.010966666666666666,3,0,0,0,0,SELECT $1
 -4643418664278280844,1,0.027200000000000002,0.027200000000000002,1,1,0,0,0,"SELECT
     db.oid as did, db.datname, db.datallowconn,
@@ -283,6 +284,7 @@ WHERE db.datname = current_database()"
 -1256420371218150429,2,0.0271,0.01355,2,2,0,0,0,"SELECT extname, extversion
 FROM pg_extension
 WHERE extname = $1"
+6039773827682666654,6,0.023,0.0038333333333333336,0,0,0,0,0,SHOW server_version
 -4643418664278280844,1,0.0208,0.0208,1,1,0,0,0,"SELECT
     db.oid as did, db.datname, db.datallowconn,
     pg_encoding_to_char(db.encoding) AS serverencoding,
@@ -301,20 +303,19 @@ WHERE db.datname = current_database()"
        ELSE $2
        END as isreplaypaused
 FROM pg_catalog.pg_user WHERE usename=current_user"
-6039773827682666654,4,0.0167,0.004175,0,0,0,0,0,SHOW server_version
+4999884173844161568,6,0.0162,0.0027,6,0,0,0,0,SELECT current_user
 -8873911804314169340,1,0.014,0.014,0,0,0,0,0,SET DateStyle=$1
-4999884173844161568,4,0.0121,0.003025,4,0,0,0,0,SELECT current_user
 -8873911804314169340,1,0.0108,0.0108,0,0,0,0,0,SET DateStyle=$1
+3899954808500938091,6,0.0107,0.0017833333333333332,0,0,0,0,0,SHOW data_directory
+-7556750615580075877,6,0.010299999999999998,0.0017166666666666667,0,0,0,0,0,SHOW port
+-7891584619504183020,6,0.01,0.0016666666666666666,0,0,0,0,0,SHOW config_file
+985182613339288046,6,0.009899999999999999,0.00165,0,0,0,0,0,SHOW hba_file
+-4664818520581223344,6,0.0085,0.0014166666666666668,0,0,0,0,0,SHOW listen_addresses
+-3669134851575249393,6,0.0084,0.0014,0,0,0,0,0,SHOW ident_file
 4359259187362990377,1,0.0082,0.0082,0,0,0,0,0,SET client_encoding=$1
--7891584619504183020,4,0.0074,0.00185,0,0,0,0,0,SHOW config_file
-3899954808500938091,4,0.0073,0.0018249999999999998,0,0,0,0,0,SHOW data_directory
-985182613339288046,4,0.0072,0.0018,0,0,0,0,0,SHOW hba_file
--7556750615580075877,4,0.0070999999999999995,0.0017749999999999999,0,0,0,0,0,SHOW port
 4359259187362990377,1,0.0061,0.0061,0,0,0,0,0,SET client_encoding=$1
--4664818520581223344,4,0.0057,0.001425,0,0,0,0,0,SHOW listen_addresses
--3669134851575249393,4,0.0057,0.001425,0,0,0,0,0,SHOW ident_file
+6097083398544187049,4,0.006,0.0015,0,0,0,0,0,COMMIT
 -86323926068950410,1,0.0049,0.0049,1,0,0,0,0,SELECT version()
-6097083398544187049,2,0.0045,0.00225,0,0,0,0,0,COMMIT
 -8370928913120278298,1,0.0043,0.0043,0,0,0,0,0,SET client_min_messages=$1
 -8370928913120278298,1,0.0038,0.0038,0,0,0,0,0,SET client_min_messages=$1
 -7676915344437841334,1,0.0025,0.0025,0,0,0,0,0,ROLLBACK

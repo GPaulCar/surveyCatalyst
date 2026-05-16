@@ -1,5 +1,5 @@
 {
-  "generated_at_utc": "2026-05-16T09:58:39.380848+00:00",
+  "generated_at_utc": "2026-05-16T11:22:58.957738+00:00",
   "input_files": {
     "pg_stat_statements": "C:\\Users\\Paul\\Desktop\\dev\\surveyCatalyst\\assessment\\output\\pg_stat_statements.csv"
   },
@@ -32,9 +32,9 @@
       "status": "confirmed",
       "evidence": {
         "queryid": "7647870470435028548",
-        "calls": 3,
-        "total_exec_time": 1125.037,
-        "mean_exec_time": 375.01233333333334,
+        "calls": 5,
+        "total_exec_time": 1743.741,
+        "mean_exec_time": 348.7482,
         "shared_blks_read": 6093,
         "temp_blks_read": 0,
         "temp_blks_written": 0,
@@ -51,6 +51,16 @@
         "top_n": 20,
         "queries": [
           {
+            "queryid": "-5507895004688678276",
+            "calls": 5,
+            "total_exec_time": 6467.274800000001,
+            "mean_exec_time": 1293.4549600000003,
+            "shared_blks_read": 1746206,
+            "temp_blks_read": 0,
+            "temp_blks_written": 0,
+            "query": "SELECT $1 AS table_name, ST_SRID(geom) AS srid, COUNT(*) AS n FROM external_features WHERE geom IS NOT NULL GROUP BY ST_SRID(geom) UNION ALL SELECT $2 AS table_name, ST_SRID(geom) AS srid, COUNT(*) AS n FROM survey_objects WHERE geom IS NOT NULL GROUP BY ST_SRID(geom) UNION ALL SELECT $3 AS table_name, ST_SRID(geom) AS srid, COUNT(*) AS n FROM surveys WHERE geom IS NOT NULL GROUP BY ST_SRID(geom) ORDER BY table_name, n DESC"
+          },
+          {
             "queryid": "4622485673134627552",
             "calls": 1,
             "total_exec_time": 5038.295,
@@ -59,16 +69,6 @@
             "temp_blks_read": 0,
             "temp_blks_written": 0,
             "query": "SELECT layer, COUNT(*) FROM external_features GROUP BY layer"
-          },
-          {
-            "queryid": "-5507895004688678276",
-            "calls": 3,
-            "total_exec_time": 4046.9772000000003,
-            "mean_exec_time": 1348.9924,
-            "shared_blks_read": 1047012,
-            "temp_blks_read": 0,
-            "temp_blks_written": 0,
-            "query": "SELECT $1 AS table_name, ST_SRID(geom) AS srid, COUNT(*) AS n FROM external_features WHERE geom IS NOT NULL GROUP BY ST_SRID(geom) UNION ALL SELECT $2 AS table_name, ST_SRID(geom) AS srid, COUNT(*) AS n FROM survey_objects WHERE geom IS NOT NULL GROUP BY ST_SRID(geom) UNION ALL SELECT $3 AS table_name, ST_SRID(geom) AS srid, COUNT(*) AS n FROM surveys WHERE geom IS NOT NULL GROUP BY ST_SRID(geom) ORDER BY table_name, n DESC"
           },
           {
             "queryid": "1389976556187309256",
@@ -81,10 +81,20 @@
             "query": "EXPLAIN (ANALYZE, BUFFERS, VERBOSE, SETTINGS) SELECT layer, COUNT(*) FROM public.external_features GROUP BY layer"
           },
           {
+            "queryid": "-9041023306390297778",
+            "calls": 1,
+            "total_exec_time": 2226.0898,
+            "mean_exec_time": 2226.0898,
+            "shared_blks_read": 76362,
+            "temp_blks_read": 0,
+            "temp_blks_written": 0,
+            "query": "ANALYZE VERBOSE"
+          },
+          {
             "queryid": "7647870470435028548",
-            "calls": 3,
-            "total_exec_time": 1125.037,
-            "mean_exec_time": 375.01233333333334,
+            "calls": 5,
+            "total_exec_time": 1743.741,
+            "mean_exec_time": 348.7482,
             "shared_blks_read": 6093,
             "temp_blks_read": 0,
             "temp_blks_written": 0,
@@ -92,9 +102,9 @@
           },
           {
             "queryid": "8285673085659896166",
-            "calls": 4,
-            "total_exec_time": 827.5359,
-            "mean_exec_time": 206.88397500000002,
+            "calls": 6,
+            "total_exec_time": 1247.1322,
+            "mean_exec_time": 207.85536666666667,
             "shared_blks_read": 0,
             "temp_blks_read": 0,
             "temp_blks_written": 0,
@@ -102,9 +112,9 @@
           },
           {
             "queryid": "1381153010722816006",
-            "calls": 4,
-            "total_exec_time": 241.60150000000002,
-            "mean_exec_time": 60.400375,
+            "calls": 6,
+            "total_exec_time": 358.267,
+            "mean_exec_time": 59.711166666666664,
             "shared_blks_read": 37,
             "temp_blks_read": 0,
             "temp_blks_written": 0,
@@ -122,9 +132,9 @@
           },
           {
             "queryid": "2503101037485376602",
-            "calls": 4,
-            "total_exec_time": 55.1723,
-            "mean_exec_time": 13.793075,
+            "calls": 6,
+            "total_exec_time": 83.3366,
+            "mean_exec_time": 13.889433333333333,
             "shared_blks_read": 6,
             "temp_blks_read": 0,
             "temp_blks_written": 0,
@@ -142,13 +152,23 @@
           },
           {
             "queryid": "-9181392394806888969",
-            "calls": 4,
-            "total_exec_time": 25.706699999999998,
-            "mean_exec_time": 6.4266749999999995,
+            "calls": 6,
+            "total_exec_time": 37.5177,
+            "mean_exec_time": 6.252949999999999,
             "shared_blks_read": 0,
             "temp_blks_read": 0,
             "temp_blks_written": 0,
             "query": "SELECT name, setting, unit, category, context, vartype, source, boot_val, reset_val, pending_restart FROM pg_settings ORDER BY name"
+          },
+          {
+            "queryid": "3146247604830448625",
+            "calls": 5,
+            "total_exec_time": 27.374200000000002,
+            "mean_exec_time": 5.47484,
+            "shared_blks_read": 0,
+            "temp_blks_read": 0,
+            "temp_blks_written": 0,
+            "query": "SELECT name, setting, unit, context, source FROM pg_settings WHERE name LIKE $1 OR name IN ($2 /*, ... */) ORDER BY name"
           },
           {
             "queryid": "1314168946605071400",
@@ -161,20 +181,10 @@
             "query": "SELECT name, setting, pending_restart FROM pg_settings WHERE name = $1"
           },
           {
-            "queryid": "3146247604830448625",
-            "calls": 3,
-            "total_exec_time": 16.8775,
-            "mean_exec_time": 5.6258333333333335,
-            "shared_blks_read": 0,
-            "temp_blks_read": 0,
-            "temp_blks_written": 0,
-            "query": "SELECT name, setting, unit, context, source FROM pg_settings WHERE name LIKE $1 OR name IN ($2 /*, ... */) ORDER BY name"
-          },
-          {
             "queryid": "-2441191445735386548",
-            "calls": 3,
-            "total_exec_time": 10.382100000000001,
-            "mean_exec_time": 3.4607,
+            "calls": 5,
+            "total_exec_time": 12.789000000000001,
+            "mean_exec_time": 2.5578,
             "shared_blks_read": 89,
             "temp_blks_read": 0,
             "temp_blks_written": 0,
@@ -232,23 +242,13 @@
           },
           {
             "queryid": "4854991825702068830",
-            "calls": 1956,
-            "total_exec_time": 3.9091999999999834,
-            "mean_exec_time": 0.0019985685071574667,
+            "calls": 1958,
+            "total_exec_time": 3.911799999999983,
+            "mean_exec_time": 0.0019978549540347317,
             "shared_blks_read": 0,
             "temp_blks_read": 0,
             "temp_blks_written": 0,
             "query": "BEGIN"
-          },
-          {
-            "queryid": "-3741707593236325849",
-            "calls": 1,
-            "total_exec_time": 3.7272999999999996,
-            "mean_exec_time": 3.7272999999999996,
-            "shared_blks_read": 36,
-            "temp_blks_read": 0,
-            "temp_blks_written": 0,
-            "query": "SELECT schemaname, tablename, indexname, indexdef FROM pg_indexes WHERE schemaname = ANY (current_schemas($1))"
           }
         ]
       },
@@ -283,20 +283,30 @@
             "query": "EXPLAIN (ANALYZE, BUFFERS, VERBOSE, SETTINGS) SELECT layer, COUNT(*) FROM public.external_features GROUP BY layer"
           },
           {
+            "queryid": "-9041023306390297778",
+            "calls": 1,
+            "total_exec_time": 2226.0898,
+            "mean_exec_time": 2226.0898,
+            "shared_blks_read": 76362,
+            "temp_blks_read": 0,
+            "temp_blks_written": 0,
+            "query": "ANALYZE VERBOSE"
+          },
+          {
             "queryid": "-5507895004688678276",
-            "calls": 3,
-            "total_exec_time": 4046.9772000000003,
-            "mean_exec_time": 1348.9924,
-            "shared_blks_read": 1047012,
+            "calls": 5,
+            "total_exec_time": 6467.274800000001,
+            "mean_exec_time": 1293.4549600000003,
+            "shared_blks_read": 1746206,
             "temp_blks_read": 0,
             "temp_blks_written": 0,
             "query": "SELECT $1 AS table_name, ST_SRID(geom) AS srid, COUNT(*) AS n FROM external_features WHERE geom IS NOT NULL GROUP BY ST_SRID(geom) UNION ALL SELECT $2 AS table_name, ST_SRID(geom) AS srid, COUNT(*) AS n FROM survey_objects WHERE geom IS NOT NULL GROUP BY ST_SRID(geom) UNION ALL SELECT $3 AS table_name, ST_SRID(geom) AS srid, COUNT(*) AS n FROM surveys WHERE geom IS NOT NULL GROUP BY ST_SRID(geom) ORDER BY table_name, n DESC"
           },
           {
             "queryid": "7647870470435028548",
-            "calls": 3,
-            "total_exec_time": 1125.037,
-            "mean_exec_time": 375.01233333333334,
+            "calls": 5,
+            "total_exec_time": 1743.741,
+            "mean_exec_time": 348.7482,
             "shared_blks_read": 6093,
             "temp_blks_read": 0,
             "temp_blks_written": 0,
@@ -304,9 +314,9 @@
           },
           {
             "queryid": "8285673085659896166",
-            "calls": 4,
-            "total_exec_time": 827.5359,
-            "mean_exec_time": 206.88397500000002,
+            "calls": 6,
+            "total_exec_time": 1247.1322,
+            "mean_exec_time": 207.85536666666667,
             "shared_blks_read": 0,
             "temp_blks_read": 0,
             "temp_blks_written": 0,
@@ -314,9 +324,9 @@
           },
           {
             "queryid": "1381153010722816006",
-            "calls": 4,
-            "total_exec_time": 241.60150000000002,
-            "mean_exec_time": 60.400375,
+            "calls": 6,
+            "total_exec_time": 358.267,
+            "mean_exec_time": 59.711166666666664,
             "shared_blks_read": 37,
             "temp_blks_read": 0,
             "temp_blks_written": 0,
@@ -344,9 +354,9 @@
           },
           {
             "queryid": "2503101037485376602",
-            "calls": 4,
-            "total_exec_time": 55.1723,
-            "mean_exec_time": 13.793075,
+            "calls": 6,
+            "total_exec_time": 83.3366,
+            "mean_exec_time": 13.889433333333333,
             "shared_blks_read": 6,
             "temp_blks_read": 0,
             "temp_blks_written": 0,
@@ -354,9 +364,9 @@
           },
           {
             "queryid": "-9181392394806888969",
-            "calls": 4,
-            "total_exec_time": 25.706699999999998,
-            "mean_exec_time": 6.4266749999999995,
+            "calls": 6,
+            "total_exec_time": 37.5177,
+            "mean_exec_time": 6.252949999999999,
             "shared_blks_read": 0,
             "temp_blks_read": 0,
             "temp_blks_written": 0,
@@ -383,16 +393,6 @@
             "query": "SELECT layer_key, layer_name, layer_group, source_table, geometry_type, is_visible, opacity, sort_order, metadata FROM layers_registry ORDER BY layer_group, sort_order, layer_name"
           },
           {
-            "queryid": "3146247604830448625",
-            "calls": 3,
-            "total_exec_time": 16.8775,
-            "mean_exec_time": 5.6258333333333335,
-            "shared_blks_read": 0,
-            "temp_blks_read": 0,
-            "temp_blks_written": 0,
-            "query": "SELECT name, setting, unit, context, source FROM pg_settings WHERE name LIKE $1 OR name IN ($2 /*, ... */) ORDER BY name"
-          },
-          {
             "queryid": "389015072221078199",
             "calls": 1,
             "total_exec_time": 5.5121,
@@ -401,6 +401,16 @@
             "temp_blks_read": 0,
             "temp_blks_written": 0,
             "query": "SELECT set_config($1,$2,$3) FROM pg_show_all_settings() WHERE name = $4"
+          },
+          {
+            "queryid": "3146247604830448625",
+            "calls": 5,
+            "total_exec_time": 27.374200000000002,
+            "mean_exec_time": 5.47484,
+            "shared_blks_read": 0,
+            "temp_blks_read": 0,
+            "temp_blks_written": 0,
+            "query": "SELECT name, setting, unit, context, source FROM pg_settings WHERE name LIKE $1 OR name IN ($2 /*, ... */) ORDER BY name"
           },
           {
             "queryid": "389015072221078199",
@@ -424,9 +434,9 @@
           },
           {
             "queryid": "-2441191445735386548",
-            "calls": 3,
-            "total_exec_time": 10.382100000000001,
-            "mean_exec_time": 3.4607,
+            "calls": 5,
+            "total_exec_time": 12.789000000000001,
+            "mean_exec_time": 2.5578,
             "shared_blks_read": 89,
             "temp_blks_read": 0,
             "temp_blks_written": 0,
@@ -451,16 +461,6 @@
             "temp_blks_read": 0,
             "temp_blks_written": 0,
             "query": "SELECT at.attname, ty.typname, at.attnum FROM pg_catalog.pg_attribute at LEFT JOIN pg_catalog.pg_type ty ON (ty.oid = at.atttypid) JOIN pg_catalog.pg_class as cl ON cl.oid=at.attrelid JOIN pg_catalog.pg_namespace as nsp ON nsp.oid=cl.relnamespace WHERE attrelid=$1::oid AND at.attnum > $2 AND at.attisdropped = $3"
-          },
-          {
-            "queryid": "-6321281415133756646",
-            "calls": 6,
-            "total_exec_time": 5.3933,
-            "mean_exec_time": 0.8988833333333334,
-            "shared_blks_read": 34,
-            "temp_blks_read": 0,
-            "temp_blks_written": 0,
-            "query": "SELECT DISTINCT att.attname as name, att.attnum as OID, pg_catalog.format_type(ty.oid,$1) AS datatype, pg_catalog.format_type(ty.oid,att.atttypmod) AS displaytypname, att.attnotnull as not_null, CASE WHEN att.atthasdef OR att.attidentity != $2 OR ty.typdefault IS NOT NULL THEN $3 ELSE $4 END as has_default_val, des.description, seq.seqtypid FROM pg_catalog.pg_attribute att JOIN pg_catalog.pg_type ty ON ty.oid=atttypid JOIN pg_catalog.pg_namespace tn ON tn.oid=ty.typnamespace JOIN pg_catalog.pg_class cl ON cl.oid=att.attrelid JOIN pg_catalog.pg_namespace na ON na.oid=cl.relnamespace LEFT OUTER JOIN pg_catalog.pg_type et ON et.oid=ty.typelem LEFT OUTER JOIN pg_catalog.pg_attrdef def ON adrelid=att.attrelid AND adnum=att.attnum LEFT OUTER JOIN (pg_catalog.pg_depend JOIN pg_catalog.pg_class cs ON classid=$5::regclass AND objid=cs.oid AND cs.relkind=$6) ON refobjid=att.attrelid AND refobjsubid=att.attnum LEFT OUTER JOIN pg_catalog.pg_namespace ns ON ns.oid=cs.relnamespace LEFT OUTER JOIN pg_catalog.pg_index pi ON pi.indrelid=att.attrelid AND indisprimary LEFT OUTER JOIN pg_catalog.pg_description des ON (des.objoid=att.attrelid AND des.objsubid=att.attnum AND des.classoid=$7::regclass) LEFT OUTER JOIN pg_catalog.pg_sequence seq ON cs.oid=seq.seqrelid WHERE att.attrelid = $8::oid AND att.attnum > $9 AND att.attisdropped IS FALSE ORDER BY att.attnum"
           }
         ]
       },
@@ -476,10 +476,10 @@
         "queries": [
           {
             "queryid": "-5507895004688678276",
-            "calls": 3,
-            "total_exec_time": 4046.9772000000003,
-            "mean_exec_time": 1348.9924,
-            "shared_blks_read": 1047012,
+            "calls": 5,
+            "total_exec_time": 6467.274800000001,
+            "mean_exec_time": 1293.4549600000003,
+            "shared_blks_read": 1746206,
             "temp_blks_read": 0,
             "temp_blks_written": 0,
             "query": "SELECT $1 AS table_name, ST_SRID(geom) AS srid, COUNT(*) AS n FROM external_features WHERE geom IS NOT NULL GROUP BY ST_SRID(geom) UNION ALL SELECT $2 AS table_name, ST_SRID(geom) AS srid, COUNT(*) AS n FROM survey_objects WHERE geom IS NOT NULL GROUP BY ST_SRID(geom) UNION ALL SELECT $3 AS table_name, ST_SRID(geom) AS srid, COUNT(*) AS n FROM surveys WHERE geom IS NOT NULL GROUP BY ST_SRID(geom) ORDER BY table_name, n DESC"
@@ -505,10 +505,20 @@
             "query": "EXPLAIN (ANALYZE, BUFFERS, VERBOSE, SETTINGS) SELECT layer, COUNT(*) FROM public.external_features GROUP BY layer"
           },
           {
+            "queryid": "-9041023306390297778",
+            "calls": 1,
+            "total_exec_time": 2226.0898,
+            "mean_exec_time": 2226.0898,
+            "shared_blks_read": 76362,
+            "temp_blks_read": 0,
+            "temp_blks_written": 0,
+            "query": "ANALYZE VERBOSE"
+          },
+          {
             "queryid": "7647870470435028548",
-            "calls": 3,
-            "total_exec_time": 1125.037,
-            "mean_exec_time": 375.01233333333334,
+            "calls": 5,
+            "total_exec_time": 1743.741,
+            "mean_exec_time": 348.7482,
             "shared_blks_read": 6093,
             "temp_blks_read": 0,
             "temp_blks_written": 0,
@@ -516,9 +526,9 @@
           },
           {
             "queryid": "-2441191445735386548",
-            "calls": 3,
-            "total_exec_time": 10.382100000000001,
-            "mean_exec_time": 3.4607,
+            "calls": 5,
+            "total_exec_time": 12.789000000000001,
+            "mean_exec_time": 2.5578,
             "shared_blks_read": 89,
             "temp_blks_read": 0,
             "temp_blks_written": 0,
@@ -546,9 +556,9 @@
           },
           {
             "queryid": "1381153010722816006",
-            "calls": 4,
-            "total_exec_time": 241.60150000000002,
-            "mean_exec_time": 60.400375,
+            "calls": 6,
+            "total_exec_time": 358.267,
+            "mean_exec_time": 59.711166666666664,
             "shared_blks_read": 37,
             "temp_blks_read": 0,
             "temp_blks_written": 0,
@@ -586,9 +596,9 @@
           },
           {
             "queryid": "2503101037485376602",
-            "calls": 4,
-            "total_exec_time": 55.1723,
-            "mean_exec_time": 13.793075,
+            "calls": 6,
+            "total_exec_time": 83.3366,
+            "mean_exec_time": 13.889433333333333,
             "shared_blks_read": 6,
             "temp_blks_read": 0,
             "temp_blks_written": 0,
@@ -603,6 +613,16 @@
             "temp_blks_read": 0,
             "temp_blks_written": 0,
             "query": "SELECT oid, pg_catalog.format_type(oid, $2) AS typname FROM pg_catalog.pg_type WHERE oid = ANY($1) ORDER BY oid"
+          },
+          {
+            "queryid": "5299827402502271170",
+            "calls": 6,
+            "total_exec_time": 0.7535999999999999,
+            "mean_exec_time": 0.1256,
+            "shared_blks_read": 1,
+            "temp_blks_read": 0,
+            "temp_blks_written": 0,
+            "query": "SELECT e.extname, e.extversion, n.nspname AS schema_name FROM pg_extension e JOIN pg_namespace n ON n.oid = e.extnamespace ORDER BY e.extname"
           },
           {
             "queryid": "7991237484093652806",
@@ -623,16 +643,6 @@
             "temp_blks_read": 0,
             "temp_blks_written": 0,
             "query": "SELECT COUNT(*) FROM data_layers.bkg_vg25_boundaries WHERE geom IS NOT NULL"
-          },
-          {
-            "queryid": "5299827402502271170",
-            "calls": 4,
-            "total_exec_time": 0.5871999999999999,
-            "mean_exec_time": 0.14679999999999999,
-            "shared_blks_read": 1,
-            "temp_blks_read": 0,
-            "temp_blks_written": 0,
-            "query": "SELECT e.extname, e.extversion, n.nspname AS schema_name FROM pg_extension e JOIN pg_namespace n ON n.oid = e.extnamespace ORDER BY e.extname"
           },
           {
             "queryid": "-7442721242327432905",

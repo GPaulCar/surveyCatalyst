@@ -1,5 +1,5 @@
 {
-  "generated_at_utc": "2026-05-16T09:58:39.268760+00:00",
+  "generated_at_utc": "2026-05-16T11:22:58.861830+00:00",
   "input_files": {
     "table_sizes": "C:\\Users\\Paul\\Desktop\\dev\\surveyCatalyst\\assessment\\output\\table_sizes.csv",
     "index_inventory": "C:\\Users\\Paul\\Desktop\\dev\\surveyCatalyst\\assessment\\output\\index_inventory.csv",
@@ -10,9 +10,9 @@
     "geometry_quality": "C:\\Users\\Paul\\Desktop\\dev\\surveyCatalyst\\assessment\\output\\geometry_quality.csv"
   },
   "summary": {
-    "total_findings": 59,
+    "total_findings": 44,
     "confirmed": 1,
-    "candidate": 58
+    "candidate": 43
   },
   "findings": [
     {
@@ -396,190 +396,27 @@
       "action": "candidate"
     },
     {
-      "type": "never_analyzed",
-      "severity": "medium",
-      "table": "spsde:simplifiedbavarianmonument",
-      "evidence": {
-        "last_analyze": "",
-        "last_autoanalyze": ""
-      },
-      "recommendation": "Ensure ANALYZE/autovacuum analyze runs for planner statistics quality.",
-      "action": "candidate"
-    },
-    {
-      "type": "never_analyzed",
-      "severity": "medium",
-      "table": "ingestion_runs",
-      "evidence": {
-        "last_analyze": "",
-        "last_autoanalyze": ""
-      },
-      "recommendation": "Ensure ANALYZE/autovacuum analyze runs for planner statistics quality.",
-      "action": "candidate"
-    },
-    {
-      "type": "never_analyzed",
-      "severity": "medium",
-      "table": "layer_registry",
-      "evidence": {
-        "last_analyze": "",
-        "last_autoanalyze": ""
-      },
-      "recommendation": "Ensure ANALYZE/autovacuum analyze runs for planner statistics quality.",
-      "action": "candidate"
-    },
-    {
-      "type": "never_analyzed",
+      "type": "dead_tuple_pressure",
       "severity": "medium",
       "table": "bkg_vg250_boundaries",
       "evidence": {
-        "last_analyze": "",
-        "last_autoanalyze": ""
+        "n_live_tup": 7,
+        "n_dead_tup": 14,
+        "dead_ratio": 2.0
       },
-      "recommendation": "Ensure ANALYZE/autovacuum analyze runs for planner statistics quality.",
+      "recommendation": "Investigate vacuum/analyze cadence for this table.",
       "action": "candidate"
     },
     {
-      "type": "never_analyzed",
-      "severity": "medium",
-      "table": "ingestion_sources",
-      "evidence": {
-        "last_analyze": "",
-        "last_autoanalyze": ""
-      },
-      "recommendation": "Ensure ANALYZE/autovacuum analyze runs for planner statistics quality.",
-      "action": "candidate"
-    },
-    {
-      "type": "never_analyzed",
-      "severity": "medium",
-      "table": "ingestion_artifacts",
-      "evidence": {
-        "last_analyze": "",
-        "last_autoanalyze": ""
-      },
-      "recommendation": "Ensure ANALYZE/autovacuum analyze runs for planner statistics quality.",
-      "action": "candidate"
-    },
-    {
-      "type": "never_analyzed",
+      "type": "dead_tuple_pressure",
       "severity": "medium",
       "table": "bkg_vg25_boundaries",
       "evidence": {
-        "last_analyze": "",
-        "last_autoanalyze": ""
+        "n_live_tup": 7,
+        "n_dead_tup": 14,
+        "dead_ratio": 2.0
       },
-      "recommendation": "Ensure ANALYZE/autovacuum analyze runs for planner statistics quality.",
-      "action": "candidate"
-    },
-    {
-      "type": "never_analyzed",
-      "severity": "medium",
-      "table": "external_features",
-      "evidence": {
-        "last_analyze": "",
-        "last_autoanalyze": ""
-      },
-      "recommendation": "Ensure ANALYZE/autovacuum analyze runs for planner statistics quality.",
-      "action": "candidate"
-    },
-    {
-      "type": "never_analyzed",
-      "severity": "medium",
-      "table": "permission_requests",
-      "evidence": {
-        "last_analyze": "",
-        "last_autoanalyze": ""
-      },
-      "recommendation": "Ensure ANALYZE/autovacuum analyze runs for planner statistics quality.",
-      "action": "candidate"
-    },
-    {
-      "type": "never_analyzed",
-      "severity": "medium",
-      "table": "bavaria_economy_raw",
-      "evidence": {
-        "last_analyze": "",
-        "last_autoanalyze": ""
-      },
-      "recommendation": "Ensure ANALYZE/autovacuum analyze runs for planner statistics quality.",
-      "action": "candidate"
-    },
-    {
-      "type": "never_analyzed",
-      "severity": "medium",
-      "table": "survey_objects",
-      "evidence": {
-        "last_analyze": "",
-        "last_autoanalyze": ""
-      },
-      "recommendation": "Ensure ANALYZE/autovacuum analyze runs for planner statistics quality.",
-      "action": "candidate"
-    },
-    {
-      "type": "never_analyzed",
-      "severity": "medium",
-      "table": "mining_locations",
-      "evidence": {
-        "last_analyze": "",
-        "last_autoanalyze": ""
-      },
-      "recommendation": "Ensure ANALYZE/autovacuum analyze runs for planner statistics quality.",
-      "action": "candidate"
-    },
-    {
-      "type": "never_analyzed",
-      "severity": "medium",
-      "table": "surveys",
-      "evidence": {
-        "last_analyze": "",
-        "last_autoanalyze": ""
-      },
-      "recommendation": "Ensure ANALYZE/autovacuum analyze runs for planner statistics quality.",
-      "action": "candidate"
-    },
-    {
-      "type": "never_analyzed",
-      "severity": "medium",
-      "table": "raw_test",
-      "evidence": {
-        "last_analyze": "",
-        "last_autoanalyze": ""
-      },
-      "recommendation": "Ensure ANALYZE/autovacuum analyze runs for planner statistics quality.",
-      "action": "candidate"
-    },
-    {
-      "type": "never_analyzed",
-      "severity": "medium",
-      "table": "restricted_areas",
-      "evidence": {
-        "last_analyze": "",
-        "last_autoanalyze": ""
-      },
-      "recommendation": "Ensure ANALYZE/autovacuum analyze runs for planner statistics quality.",
-      "action": "candidate"
-    },
-    {
-      "type": "never_analyzed",
-      "severity": "medium",
-      "table": "layers_registry",
-      "evidence": {
-        "last_analyze": "",
-        "last_autoanalyze": ""
-      },
-      "recommendation": "Ensure ANALYZE/autovacuum analyze runs for planner statistics quality.",
-      "action": "candidate"
-    },
-    {
-      "type": "never_analyzed",
-      "severity": "medium",
-      "table": "spatial_ref_sys",
-      "evidence": {
-        "last_analyze": "",
-        "last_autoanalyze": ""
-      },
-      "recommendation": "Ensure ANALYZE/autovacuum analyze runs for planner statistics quality.",
+      "recommendation": "Investigate vacuum/analyze cadence for this table.",
       "action": "candidate"
     },
     {

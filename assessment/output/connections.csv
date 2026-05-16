@@ -9,4 +9,5 @@ pid,usename,datname,application_name,client_addr,state,backend_start,xact_start,
 72872,,,,,,2026-05-16 11:16:19.281930+02:00,,,Activity,CheckpointerMain
 73400,,,,,,2026-05-16 11:16:19.277759+02:00,,,Activity,IoWorkerMain
 73564,sc_user,,,,,2026-05-16 11:16:19.733689+02:00,,,Activity,LogicalLauncherMain
-75296,sc_user,survey_catalyst,,127.0.0.1,active,2026-05-16 11:58:34.713823+02:00,2026-05-16 11:58:34.723039+02:00,2026-05-16 11:58:36.701783+02:00,,
+90812,sc_user,survey_catalyst,,127.0.0.1,active,2026-05-16 13:22:56.817653+02:00,2026-05-16 13:22:56.826304+02:00,2026-05-16 13:22:58.589732+02:00,,
+91232,sc_user,survey_catalyst,pgAdmin 4 - DB:postgres,::1,idle,2026-05-16 13:21:18.570432+02:00,,,Client,ClientRead
