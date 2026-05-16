@@ -1,5 +1,5 @@
 {
-  "generated_at_utc": "2026-05-16T11:22:59.325044+00:00",
+  "generated_at_utc": "2026-05-16T12:07:18.601757+00:00",
   "inputs": {
     "pre_dir": "C:\\Users\\Paul\\Desktop\\dev\\surveyCatalyst\\assessment\\output",
     "post_dir": "C:\\Users\\Paul\\Desktop\\dev\\surveyCatalyst\\assessment\\output",
@@ -12,15 +12,15 @@
     "extensions_rows_pre": 3,
     "extensions_rows_post": 3,
     "pgss_summary_pre": {
-      "total_exec_time": 20012.7073,
-      "total_calls": 2162.0,
-      "mean_exec_per_call": 9.256571369102682,
+      "total_exec_time": 22963.4126,
+      "total_calls": 2214.0,
+      "mean_exec_per_call": 10.371911743450768,
       "temp_blocks": 0.0
     },
     "pgss_summary_post": {
-      "total_exec_time": 20012.7073,
-      "total_calls": 2162.0,
-      "mean_exec_per_call": 9.256571369102682,
+      "total_exec_time": 22963.4126,
+      "total_calls": 2214.0,
+      "mean_exec_per_call": 10.371911743450768,
       "temp_blocks": 0.0
     },
     "dead_tuple_tables_pre": 2,

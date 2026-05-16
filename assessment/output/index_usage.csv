@@ -5,7 +5,7 @@ external_features,idx_external_features_layer_geom_gist,669,36244457,35962489
 external_features,idx_external_features_layer_source_id,179,456,456
 bkg_vg25_boundaries,idx_bkg_vg25_boundaries_geom_gist,63,249,83
 bkg_vg250_boundaries,idx_bkg_vg250_boundaries_geom_gist,62,240,80
-external_features,external_features_pkey,4,80000,80000
+external_features,external_features_pkey,6,120000,120000
 layers_registry,layers_registry_pkey,0,0,0
 surveys,idx_surveys_geom,0,0,0
 surveys,surveys_layer_key_key,0,0,0

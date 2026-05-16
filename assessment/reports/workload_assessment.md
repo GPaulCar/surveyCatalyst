@@ -1,6 +1,6 @@
 # Workload Assessment
 
-Generated: 2026-05-16T11:22:58.957738+00:00
+Generated: 2026-05-16T12:07:18.100475+00:00
 
 ## Scope
 - Input: assessment/output/pg_stat_statements.csv
