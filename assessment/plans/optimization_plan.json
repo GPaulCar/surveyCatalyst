@@ -1,0 +1,1181 @@
+{
+  "generated_at_utc": "2026-05-16T09:58:39.501399+00:00",
+  "inputs": {
+    "server_config_findings": "C:\\Users\\Paul\\Desktop\\dev\\surveyCatalyst\\assessment\\output\\server_config_findings.json",
+    "database_content_findings": "C:\\Users\\Paul\\Desktop\\dev\\surveyCatalyst\\assessment\\output\\database_content_findings.json",
+    "workload_findings": "C:\\Users\\Paul\\Desktop\\dev\\surveyCatalyst\\assessment\\output\\workload_findings.json"
+  },
+  "groups": [
+    "server_config",
+    "database_optimization",
+    "database_content_cleanup",
+    "application_query_optimization",
+    "validation",
+    "monitoring"
+  ],
+  "changes": [
+    {
+      "execution_order": 1,
+      "group": "server_config",
+      "title": "Adjust setting: shared_buffers",
+      "source": "server_config_findings",
+      "risk": "medium",
+      "dependencies": [
+        "baseline_collected"
+      ],
+      "rollback": "Restore shared_buffers to 163848kB.",
+      "validation": "Compare buffer cache hit ratio and query latency after restart.",
+      "restart_or_downtime_requirement": "restart",
+      "affects_next_parcel": true,
+      "notes": "shared_buffers below typical target can increase disk reads.",
+      "status": "proposed"
+    },
+    {
+      "execution_order": 2,
+      "group": "server_config",
+      "title": "Adjust setting: effective_cache_size",
+      "source": "server_config_findings",
+      "risk": "low",
+      "dependencies": [
+        "baseline_collected"
+      ],
+      "rollback": "Restore effective_cache_size to 5242888kB.",
+      "validation": "Check plan changes for top queries and index usage.",
+      "restart_or_downtime_requirement": "reload",
+      "affects_next_parcel": true,
+      "notes": "effective_cache_size drives planner assumptions for index scans.",
+      "status": "proposed"
+    },
+    {
+      "execution_order": 3,
+      "group": "server_config",
+      "title": "Adjust setting: maintenance_work_mem",
+      "source": "server_config_findings",
+      "risk": "low",
+      "dependencies": [
+        "baseline_collected"
+      ],
+      "rollback": "Restore maintenance_work_mem to 65536kB.",
+      "validation": "Observe VACUUM/CREATE INDEX runtime after change.",
+      "restart_or_downtime_requirement": "reload",
+      "affects_next_parcel": true,
+      "notes": "maintenance operations can be slow with too-small maintenance_work_mem.",
+      "status": "proposed"
+    },
+    {
+      "execution_order": 4,
+      "group": "server_config",
+      "title": "Adjust setting: max_parallel_workers_per_gather",
+      "source": "server_config_findings",
+      "risk": "low",
+      "dependencies": [
+        "baseline_collected"
+      ],
+      "rollback": "Restore max_parallel_workers_per_gather to 2.",
+      "validation": "Check EXPLAIN plans for Gather nodes and execution time.",
+      "restart_or_downtime_requirement": "reload",
+      "affects_next_parcel": true,
+      "notes": "parallel execution can improve scans on large analytical reads.",
+      "status": "proposed"
+    },
+    {
+      "execution_order": 5,
+      "group": "server_config",
+      "title": "Adjust setting: checkpoint_completion_target",
+      "source": "server_config_findings",
+      "risk": "low",
+      "dependencies": [
+        "baseline_collected"
+      ],
+      "rollback": "Restore checkpoint_completion_target to 0.9.",
+      "validation": "Track checkpoint write spikes and latency variance.",
+      "restart_or_downtime_requirement": "reload",
+      "affects_next_parcel": true,
+      "notes": "higher checkpoint_completion_target smooths checkpoint I/O bursts.",
+      "status": "proposed"
+    },
+    {
+      "execution_order": 6,
+      "group": "server_config",
+      "title": "Adjust setting: wal_buffers",
+      "source": "server_config_findings",
+      "risk": "low",
+      "dependencies": [
+        "baseline_collected"
+      ],
+      "rollback": "Restore wal_buffers to 5128kB.",
+      "validation": "Observe WAL write waits and transaction latency during write bursts.",
+      "restart_or_downtime_requirement": "restart",
+      "affects_next_parcel": true,
+      "notes": "WAL buffer size can affect write-heavy workloads.",
+      "status": "proposed"
+    },
+    {
+      "execution_order": 7,
+      "group": "database_optimization",
+      "title": "overlapping_spatial_indexes on external_features",
+      "source": "database_content_findings",
+      "risk": "high",
+      "dependencies": [
+        "server_config_reviewed"
+      ],
+      "rollback": "Recreate dropped index / restore previous vacuum settings / revert migration.",
+      "validation": "Compare pg_stat_user_indexes, pg_stat_user_tables, and query latency before/after.",
+      "restart_or_downtime_requirement": "none_or_reload",
+      "affects_next_parcel": true,
+      "notes": "Validate per-index usage and consolidate redundant GiST indexes.",
+      "status": "proposed"
+    },
+    {
+      "execution_order": 8,
+      "group": "database_optimization",
+      "title": "unused_index on layers_registry",
+      "source": "database_content_findings",
+      "risk": "medium",
+      "dependencies": [
+        "server_config_reviewed"
+      ],
+      "rollback": "Recreate dropped index / restore previous vacuum settings / revert migration.",
+      "validation": "Compare pg_stat_user_indexes, pg_stat_user_tables, and query latency before/after.",
+      "restart_or_downtime_requirement": "none_or_reload",
+      "affects_next_parcel": true,
+      "notes": "Review whether index is still needed; avoid blind drops without query-history window.",
+      "status": "proposed"
+    },
+    {
+      "execution_order": 9,
+      "group": "database_optimization",
+      "title": "unused_index on surveys",
+      "source": "database_content_findings",
+      "risk": "medium",
+      "dependencies": [
+        "server_config_reviewed"
+      ],
+      "rollback": "Recreate dropped index / restore previous vacuum settings / revert migration.",
+      "validation": "Compare pg_stat_user_indexes, pg_stat_user_tables, and query latency before/after.",
+      "restart_or_downtime_requirement": "none_or_reload",
+      "affects_next_parcel": true,
+      "notes": "Review whether index is still needed; avoid blind drops without query-history window.",
+      "status": "proposed"
+    },
+    {
+      "execution_order": 10,
+      "group": "database_optimization",
+      "title": "unused_index on surveys",
+      "source": "database_content_findings",
+      "risk": "medium",
+      "dependencies": [
+        "server_config_reviewed"
+      ],
+      "rollback": "Recreate dropped index / restore previous vacuum settings / revert migration.",
+      "validation": "Compare pg_stat_user_indexes, pg_stat_user_tables, and query latency before/after.",
+      "restart_or_downtime_requirement": "none_or_reload",
+      "affects_next_parcel": true,
+      "notes": "Review whether index is still needed; avoid blind drops without query-history window.",
+      "status": "proposed"
+    },
+    {
+      "execution_order": 11,
+      "group": "database_optimization",
+      "title": "unused_index on layers_registry",
+      "source": "database_content_findings",
+      "risk": "medium",
+      "dependencies": [
+        "server_config_reviewed"
+      ],
+      "rollback": "Recreate dropped index / restore previous vacuum settings / revert migration.",
+      "validation": "Compare pg_stat_user_indexes, pg_stat_user_tables, and query latency before/after.",
+      "restart_or_downtime_requirement": "none_or_reload",
+      "affects_next_parcel": true,
+      "notes": "Review whether index is still needed; avoid blind drops without query-history window.",
+      "status": "proposed"
+    },
+    {
+      "execution_order": 12,
+      "group": "database_optimization",
+      "title": "unused_index on survey_objects",
+      "source": "database_content_findings",
+      "risk": "medium",
+      "dependencies": [
+        "server_config_reviewed"
+      ],
+      "rollback": "Recreate dropped index / restore previous vacuum settings / revert migration.",
+      "validation": "Compare pg_stat_user_indexes, pg_stat_user_tables, and query latency before/after.",
+      "restart_or_downtime_requirement": "none_or_reload",
+      "affects_next_parcel": true,
+      "notes": "Review whether index is still needed; avoid blind drops without query-history window.",
+      "status": "proposed"
+    },
+    {
+      "execution_order": 13,
+      "group": "database_optimization",
+      "title": "unused_index on external_features",
+      "source": "database_content_findings",
+      "risk": "medium",
+      "dependencies": [
+        "server_config_reviewed"
+      ],
+      "rollback": "Recreate dropped index / restore previous vacuum settings / revert migration.",
+      "validation": "Compare pg_stat_user_indexes, pg_stat_user_tables, and query latency before/after.",
+      "restart_or_downtime_requirement": "none_or_reload",
+      "affects_next_parcel": true,
+      "notes": "Review whether index is still needed; avoid blind drops without query-history window.",
+      "status": "proposed"
+    },
+    {
+      "execution_order": 14,
+      "group": "database_optimization",
+      "title": "unused_index on ingestion_sources",
+      "source": "database_content_findings",
+      "risk": "medium",
+      "dependencies": [
+        "server_config_reviewed"
+      ],
+      "rollback": "Recreate dropped index / restore previous vacuum settings / revert migration.",
+      "validation": "Compare pg_stat_user_indexes, pg_stat_user_tables, and query latency before/after.",
+      "restart_or_downtime_requirement": "none_or_reload",
+      "affects_next_parcel": true,
+      "notes": "Review whether index is still needed; avoid blind drops without query-history window.",
+      "status": "proposed"
+    },
+    {
+      "execution_order": 15,
+      "group": "database_optimization",
+      "title": "unused_index on ingestion_sources",
+      "source": "database_content_findings",
+      "risk": "medium",
+      "dependencies": [
+        "server_config_reviewed"
+      ],
+      "rollback": "Recreate dropped index / restore previous vacuum settings / revert migration.",
+      "validation": "Compare pg_stat_user_indexes, pg_stat_user_tables, and query latency before/after.",
+      "restart_or_downtime_requirement": "none_or_reload",
+      "affects_next_parcel": true,
+      "notes": "Review whether index is still needed; avoid blind drops without query-history window.",
+      "status": "proposed"
+    },
+    {
+      "execution_order": 16,
+      "group": "database_optimization",
+      "title": "unused_index on ingestion_runs",
+      "source": "database_content_findings",
+      "risk": "medium",
+      "dependencies": [
+        "server_config_reviewed"
+      ],
+      "rollback": "Recreate dropped index / restore previous vacuum settings / revert migration.",
+      "validation": "Compare pg_stat_user_indexes, pg_stat_user_tables, and query latency before/after.",
+      "restart_or_downtime_requirement": "none_or_reload",
+      "affects_next_parcel": true,
+      "notes": "Review whether index is still needed; avoid blind drops without query-history window.",
+      "status": "proposed"
+    },
+    {
+      "execution_order": 17,
+      "group": "database_optimization",
+      "title": "unused_index on ingestion_artifacts",
+      "source": "database_content_findings",
+      "risk": "medium",
+      "dependencies": [
+        "server_config_reviewed"
+      ],
+      "rollback": "Recreate dropped index / restore previous vacuum settings / revert migration.",
+      "validation": "Compare pg_stat_user_indexes, pg_stat_user_tables, and query latency before/after.",
+      "restart_or_downtime_requirement": "none_or_reload",
+      "affects_next_parcel": true,
+      "notes": "Review whether index is still needed; avoid blind drops without query-history window.",
+      "status": "proposed"
+    },
+    {
+      "execution_order": 18,
+      "group": "database_optimization",
+      "title": "unused_index on restricted_areas",
+      "source": "database_content_findings",
+      "risk": "medium",
+      "dependencies": [
+        "server_config_reviewed"
+      ],
+      "rollback": "Recreate dropped index / restore previous vacuum settings / revert migration.",
+      "validation": "Compare pg_stat_user_indexes, pg_stat_user_tables, and query latency before/after.",
+      "restart_or_downtime_requirement": "none_or_reload",
+      "affects_next_parcel": true,
+      "notes": "Review whether index is still needed; avoid blind drops without query-history window.",
+      "status": "proposed"
+    },
+    {
+      "execution_order": 19,
+      "group": "database_optimization",
+      "title": "unused_index on bavaria_economy_raw",
+      "source": "database_content_findings",
+      "risk": "medium",
+      "dependencies": [
+        "server_config_reviewed"
+      ],
+      "rollback": "Recreate dropped index / restore previous vacuum settings / revert migration.",
+      "validation": "Compare pg_stat_user_indexes, pg_stat_user_tables, and query latency before/after.",
+      "restart_or_downtime_requirement": "none_or_reload",
+      "affects_next_parcel": true,
+      "notes": "Review whether index is still needed; avoid blind drops without query-history window.",
+      "status": "proposed"
+    },
+    {
+      "execution_order": 20,
+      "group": "database_optimization",
+      "title": "unused_index on mining_locations",
+      "source": "database_content_findings",
+      "risk": "medium",
+      "dependencies": [
+        "server_config_reviewed"
+      ],
+      "rollback": "Recreate dropped index / restore previous vacuum settings / revert migration.",
+      "validation": "Compare pg_stat_user_indexes, pg_stat_user_tables, and query latency before/after.",
+      "restart_or_downtime_requirement": "none_or_reload",
+      "affects_next_parcel": true,
+      "notes": "Review whether index is still needed; avoid blind drops without query-history window.",
+      "status": "proposed"
+    },
+    {
+      "execution_order": 21,
+      "group": "database_optimization",
+      "title": "unused_index on mining_locations",
+      "source": "database_content_findings",
+      "risk": "medium",
+      "dependencies": [
+        "server_config_reviewed"
+      ],
+      "rollback": "Recreate dropped index / restore previous vacuum settings / revert migration.",
+      "validation": "Compare pg_stat_user_indexes, pg_stat_user_tables, and query latency before/after.",
+      "restart_or_downtime_requirement": "none_or_reload",
+      "affects_next_parcel": true,
+      "notes": "Review whether index is still needed; avoid blind drops without query-history window.",
+      "status": "proposed"
+    },
+    {
+      "execution_order": 22,
+      "group": "database_optimization",
+      "title": "unused_index on raw_test",
+      "source": "database_content_findings",
+      "risk": "medium",
+      "dependencies": [
+        "server_config_reviewed"
+      ],
+      "rollback": "Recreate dropped index / restore previous vacuum settings / revert migration.",
+      "validation": "Compare pg_stat_user_indexes, pg_stat_user_tables, and query latency before/after.",
+      "restart_or_downtime_requirement": "none_or_reload",
+      "affects_next_parcel": true,
+      "notes": "Review whether index is still needed; avoid blind drops without query-history window.",
+      "status": "proposed"
+    },
+    {
+      "execution_order": 23,
+      "group": "database_optimization",
+      "title": "unused_index on spsde:simplifiedbavarianmonument",
+      "source": "database_content_findings",
+      "risk": "medium",
+      "dependencies": [
+        "server_config_reviewed"
+      ],
+      "rollback": "Recreate dropped index / restore previous vacuum settings / revert migration.",
+      "validation": "Compare pg_stat_user_indexes, pg_stat_user_tables, and query latency before/after.",
+      "restart_or_downtime_requirement": "none_or_reload",
+      "affects_next_parcel": true,
+      "notes": "Review whether index is still needed; avoid blind drops without query-history window.",
+      "status": "proposed"
+    },
+    {
+      "execution_order": 24,
+      "group": "database_optimization",
+      "title": "unused_index on spsde:simplifiedbavarianmonument",
+      "source": "database_content_findings",
+      "risk": "medium",
+      "dependencies": [
+        "server_config_reviewed"
+      ],
+      "rollback": "Recreate dropped index / restore previous vacuum settings / revert migration.",
+      "validation": "Compare pg_stat_user_indexes, pg_stat_user_tables, and query latency before/after.",
+      "restart_or_downtime_requirement": "none_or_reload",
+      "affects_next_parcel": true,
+      "notes": "Review whether index is still needed; avoid blind drops without query-history window.",
+      "status": "proposed"
+    },
+    {
+      "execution_order": 25,
+      "group": "database_optimization",
+      "title": "unused_index on restricted_areas",
+      "source": "database_content_findings",
+      "risk": "medium",
+      "dependencies": [
+        "server_config_reviewed"
+      ],
+      "rollback": "Recreate dropped index / restore previous vacuum settings / revert migration.",
+      "validation": "Compare pg_stat_user_indexes, pg_stat_user_tables, and query latency before/after.",
+      "restart_or_downtime_requirement": "none_or_reload",
+      "affects_next_parcel": true,
+      "notes": "Review whether index is still needed; avoid blind drops without query-history window.",
+      "status": "proposed"
+    },
+    {
+      "execution_order": 26,
+      "group": "database_optimization",
+      "title": "unused_index on surveys",
+      "source": "database_content_findings",
+      "risk": "medium",
+      "dependencies": [
+        "server_config_reviewed"
+      ],
+      "rollback": "Recreate dropped index / restore previous vacuum settings / revert migration.",
+      "validation": "Compare pg_stat_user_indexes, pg_stat_user_tables, and query latency before/after.",
+      "restart_or_downtime_requirement": "none_or_reload",
+      "affects_next_parcel": true,
+      "notes": "Review whether index is still needed; avoid blind drops without query-history window.",
+      "status": "proposed"
+    },
+    {
+      "execution_order": 27,
+      "group": "database_optimization",
+      "title": "unused_index on survey_objects",
+      "source": "database_content_findings",
+      "risk": "medium",
+      "dependencies": [
+        "server_config_reviewed"
+      ],
+      "rollback": "Recreate dropped index / restore previous vacuum settings / revert migration.",
+      "validation": "Compare pg_stat_user_indexes, pg_stat_user_tables, and query latency before/after.",
+      "restart_or_downtime_requirement": "none_or_reload",
+      "affects_next_parcel": true,
+      "notes": "Review whether index is still needed; avoid blind drops without query-history window.",
+      "status": "proposed"
+    },
+    {
+      "execution_order": 28,
+      "group": "database_optimization",
+      "title": "unused_index on external_features",
+      "source": "database_content_findings",
+      "risk": "medium",
+      "dependencies": [
+        "server_config_reviewed"
+      ],
+      "rollback": "Recreate dropped index / restore previous vacuum settings / revert migration.",
+      "validation": "Compare pg_stat_user_indexes, pg_stat_user_tables, and query latency before/after.",
+      "restart_or_downtime_requirement": "none_or_reload",
+      "affects_next_parcel": true,
+      "notes": "Review whether index is still needed; avoid blind drops without query-history window.",
+      "status": "proposed"
+    },
+    {
+      "execution_order": 29,
+      "group": "database_optimization",
+      "title": "unused_index on survey_objects",
+      "source": "database_content_findings",
+      "risk": "medium",
+      "dependencies": [
+        "server_config_reviewed"
+      ],
+      "rollback": "Recreate dropped index / restore previous vacuum settings / revert migration.",
+      "validation": "Compare pg_stat_user_indexes, pg_stat_user_tables, and query latency before/after.",
+      "restart_or_downtime_requirement": "none_or_reload",
+      "affects_next_parcel": true,
+      "notes": "Review whether index is still needed; avoid blind drops without query-history window.",
+      "status": "proposed"
+    },
+    {
+      "execution_order": 30,
+      "group": "database_optimization",
+      "title": "unused_index on external_features",
+      "source": "database_content_findings",
+      "risk": "medium",
+      "dependencies": [
+        "server_config_reviewed"
+      ],
+      "rollback": "Recreate dropped index / restore previous vacuum settings / revert migration.",
+      "validation": "Compare pg_stat_user_indexes, pg_stat_user_tables, and query latency before/after.",
+      "restart_or_downtime_requirement": "none_or_reload",
+      "affects_next_parcel": true,
+      "notes": "Review whether index is still needed; avoid blind drops without query-history window.",
+      "status": "proposed"
+    },
+    {
+      "execution_order": 31,
+      "group": "database_optimization",
+      "title": "unused_index on permission_requests",
+      "source": "database_content_findings",
+      "risk": "medium",
+      "dependencies": [
+        "server_config_reviewed"
+      ],
+      "rollback": "Recreate dropped index / restore previous vacuum settings / revert migration.",
+      "validation": "Compare pg_stat_user_indexes, pg_stat_user_tables, and query latency before/after.",
+      "restart_or_downtime_requirement": "none_or_reload",
+      "affects_next_parcel": true,
+      "notes": "Review whether index is still needed; avoid blind drops without query-history window.",
+      "status": "proposed"
+    },
+    {
+      "execution_order": 32,
+      "group": "database_optimization",
+      "title": "unused_index on permission_requests",
+      "source": "database_content_findings",
+      "risk": "medium",
+      "dependencies": [
+        "server_config_reviewed"
+      ],
+      "rollback": "Recreate dropped index / restore previous vacuum settings / revert migration.",
+      "validation": "Compare pg_stat_user_indexes, pg_stat_user_tables, and query latency before/after.",
+      "restart_or_downtime_requirement": "none_or_reload",
+      "affects_next_parcel": true,
+      "notes": "Review whether index is still needed; avoid blind drops without query-history window.",
+      "status": "proposed"
+    },
+    {
+      "execution_order": 33,
+      "group": "database_optimization",
+      "title": "unused_index on permission_requests",
+      "source": "database_content_findings",
+      "risk": "medium",
+      "dependencies": [
+        "server_config_reviewed"
+      ],
+      "rollback": "Recreate dropped index / restore previous vacuum settings / revert migration.",
+      "validation": "Compare pg_stat_user_indexes, pg_stat_user_tables, and query latency before/after.",
+      "restart_or_downtime_requirement": "none_or_reload",
+      "affects_next_parcel": true,
+      "notes": "Review whether index is still needed; avoid blind drops without query-history window.",
+      "status": "proposed"
+    },
+    {
+      "execution_order": 34,
+      "group": "database_optimization",
+      "title": "unused_index on layer_registry",
+      "source": "database_content_findings",
+      "risk": "medium",
+      "dependencies": [
+        "server_config_reviewed"
+      ],
+      "rollback": "Recreate dropped index / restore previous vacuum settings / revert migration.",
+      "validation": "Compare pg_stat_user_indexes, pg_stat_user_tables, and query latency before/after.",
+      "restart_or_downtime_requirement": "none_or_reload",
+      "affects_next_parcel": true,
+      "notes": "Review whether index is still needed; avoid blind drops without query-history window.",
+      "status": "proposed"
+    },
+    {
+      "execution_order": 35,
+      "group": "database_optimization",
+      "title": "unused_index on layer_registry",
+      "source": "database_content_findings",
+      "risk": "medium",
+      "dependencies": [
+        "server_config_reviewed"
+      ],
+      "rollback": "Recreate dropped index / restore previous vacuum settings / revert migration.",
+      "validation": "Compare pg_stat_user_indexes, pg_stat_user_tables, and query latency before/after.",
+      "restart_or_downtime_requirement": "none_or_reload",
+      "affects_next_parcel": true,
+      "notes": "Review whether index is still needed; avoid blind drops without query-history window.",
+      "status": "proposed"
+    },
+    {
+      "execution_order": 36,
+      "group": "database_optimization",
+      "title": "unused_index on bkg_vg250_boundaries",
+      "source": "database_content_findings",
+      "risk": "medium",
+      "dependencies": [
+        "server_config_reviewed"
+      ],
+      "rollback": "Recreate dropped index / restore previous vacuum settings / revert migration.",
+      "validation": "Compare pg_stat_user_indexes, pg_stat_user_tables, and query latency before/after.",
+      "restart_or_downtime_requirement": "none_or_reload",
+      "affects_next_parcel": true,
+      "notes": "Review whether index is still needed; avoid blind drops without query-history window.",
+      "status": "proposed"
+    },
+    {
+      "execution_order": 37,
+      "group": "database_optimization",
+      "title": "unused_index on bkg_vg25_boundaries",
+      "source": "database_content_findings",
+      "risk": "medium",
+      "dependencies": [
+        "server_config_reviewed"
+      ],
+      "rollback": "Recreate dropped index / restore previous vacuum settings / revert migration.",
+      "validation": "Compare pg_stat_user_indexes, pg_stat_user_tables, and query latency before/after.",
+      "restart_or_downtime_requirement": "none_or_reload",
+      "affects_next_parcel": true,
+      "notes": "Review whether index is still needed; avoid blind drops without query-history window.",
+      "status": "proposed"
+    },
+    {
+      "execution_order": 38,
+      "group": "database_optimization",
+      "title": "unused_index on survey_objects",
+      "source": "database_content_findings",
+      "risk": "medium",
+      "dependencies": [
+        "server_config_reviewed"
+      ],
+      "rollback": "Recreate dropped index / restore previous vacuum settings / revert migration.",
+      "validation": "Compare pg_stat_user_indexes, pg_stat_user_tables, and query latency before/after.",
+      "restart_or_downtime_requirement": "none_or_reload",
+      "affects_next_parcel": true,
+      "notes": "Review whether index is still needed; avoid blind drops without query-history window.",
+      "status": "proposed"
+    },
+    {
+      "execution_order": 39,
+      "group": "database_optimization",
+      "title": "unused_index on surveys",
+      "source": "database_content_findings",
+      "risk": "medium",
+      "dependencies": [
+        "server_config_reviewed"
+      ],
+      "rollback": "Recreate dropped index / restore previous vacuum settings / revert migration.",
+      "validation": "Compare pg_stat_user_indexes, pg_stat_user_tables, and query latency before/after.",
+      "restart_or_downtime_requirement": "none_or_reload",
+      "affects_next_parcel": true,
+      "notes": "Review whether index is still needed; avoid blind drops without query-history window.",
+      "status": "proposed"
+    },
+    {
+      "execution_order": 40,
+      "group": "database_optimization",
+      "title": "unused_index on external_features",
+      "source": "database_content_findings",
+      "risk": "medium",
+      "dependencies": [
+        "server_config_reviewed"
+      ],
+      "rollback": "Recreate dropped index / restore previous vacuum settings / revert migration.",
+      "validation": "Compare pg_stat_user_indexes, pg_stat_user_tables, and query latency before/after.",
+      "restart_or_downtime_requirement": "none_or_reload",
+      "affects_next_parcel": true,
+      "notes": "Review whether index is still needed; avoid blind drops without query-history window.",
+      "status": "proposed"
+    },
+    {
+      "execution_order": 41,
+      "group": "database_optimization",
+      "title": "never_analyzed on spsde:simplifiedbavarianmonument",
+      "source": "database_content_findings",
+      "risk": "medium",
+      "dependencies": [
+        "server_config_reviewed"
+      ],
+      "rollback": "Recreate dropped index / restore previous vacuum settings / revert migration.",
+      "validation": "Compare pg_stat_user_indexes, pg_stat_user_tables, and query latency before/after.",
+      "restart_or_downtime_requirement": "none_or_reload",
+      "affects_next_parcel": true,
+      "notes": "Ensure ANALYZE/autovacuum analyze runs for planner statistics quality.",
+      "status": "proposed"
+    },
+    {
+      "execution_order": 42,
+      "group": "database_optimization",
+      "title": "never_analyzed on ingestion_runs",
+      "source": "database_content_findings",
+      "risk": "medium",
+      "dependencies": [
+        "server_config_reviewed"
+      ],
+      "rollback": "Recreate dropped index / restore previous vacuum settings / revert migration.",
+      "validation": "Compare pg_stat_user_indexes, pg_stat_user_tables, and query latency before/after.",
+      "restart_or_downtime_requirement": "none_or_reload",
+      "affects_next_parcel": true,
+      "notes": "Ensure ANALYZE/autovacuum analyze runs for planner statistics quality.",
+      "status": "proposed"
+    },
+    {
+      "execution_order": 43,
+      "group": "database_optimization",
+      "title": "never_analyzed on layer_registry",
+      "source": "database_content_findings",
+      "risk": "medium",
+      "dependencies": [
+        "server_config_reviewed"
+      ],
+      "rollback": "Recreate dropped index / restore previous vacuum settings / revert migration.",
+      "validation": "Compare pg_stat_user_indexes, pg_stat_user_tables, and query latency before/after.",
+      "restart_or_downtime_requirement": "none_or_reload",
+      "affects_next_parcel": true,
+      "notes": "Ensure ANALYZE/autovacuum analyze runs for planner statistics quality.",
+      "status": "proposed"
+    },
+    {
+      "execution_order": 44,
+      "group": "database_optimization",
+      "title": "never_analyzed on bkg_vg250_boundaries",
+      "source": "database_content_findings",
+      "risk": "medium",
+      "dependencies": [
+        "server_config_reviewed"
+      ],
+      "rollback": "Recreate dropped index / restore previous vacuum settings / revert migration.",
+      "validation": "Compare pg_stat_user_indexes, pg_stat_user_tables, and query latency before/after.",
+      "restart_or_downtime_requirement": "none_or_reload",
+      "affects_next_parcel": true,
+      "notes": "Ensure ANALYZE/autovacuum analyze runs for planner statistics quality.",
+      "status": "proposed"
+    },
+    {
+      "execution_order": 45,
+      "group": "database_optimization",
+      "title": "never_analyzed on ingestion_sources",
+      "source": "database_content_findings",
+      "risk": "medium",
+      "dependencies": [
+        "server_config_reviewed"
+      ],
+      "rollback": "Recreate dropped index / restore previous vacuum settings / revert migration.",
+      "validation": "Compare pg_stat_user_indexes, pg_stat_user_tables, and query latency before/after.",
+      "restart_or_downtime_requirement": "none_or_reload",
+      "affects_next_parcel": true,
+      "notes": "Ensure ANALYZE/autovacuum analyze runs for planner statistics quality.",
+      "status": "proposed"
+    },
+    {
+      "execution_order": 46,
+      "group": "database_optimization",
+      "title": "never_analyzed on ingestion_artifacts",
+      "source": "database_content_findings",
+      "risk": "medium",
+      "dependencies": [
+        "server_config_reviewed"
+      ],
+      "rollback": "Recreate dropped index / restore previous vacuum settings / revert migration.",
+      "validation": "Compare pg_stat_user_indexes, pg_stat_user_tables, and query latency before/after.",
+      "restart_or_downtime_requirement": "none_or_reload",
+      "affects_next_parcel": true,
+      "notes": "Ensure ANALYZE/autovacuum analyze runs for planner statistics quality.",
+      "status": "proposed"
+    },
+    {
+      "execution_order": 47,
+      "group": "database_optimization",
+      "title": "never_analyzed on bkg_vg25_boundaries",
+      "source": "database_content_findings",
+      "risk": "medium",
+      "dependencies": [
+        "server_config_reviewed"
+      ],
+      "rollback": "Recreate dropped index / restore previous vacuum settings / revert migration.",
+      "validation": "Compare pg_stat_user_indexes, pg_stat_user_tables, and query latency before/after.",
+      "restart_or_downtime_requirement": "none_or_reload",
+      "affects_next_parcel": true,
+      "notes": "Ensure ANALYZE/autovacuum analyze runs for planner statistics quality.",
+      "status": "proposed"
+    },
+    {
+      "execution_order": 48,
+      "group": "database_optimization",
+      "title": "never_analyzed on external_features",
+      "source": "database_content_findings",
+      "risk": "medium",
+      "dependencies": [
+        "server_config_reviewed"
+      ],
+      "rollback": "Recreate dropped index / restore previous vacuum settings / revert migration.",
+      "validation": "Compare pg_stat_user_indexes, pg_stat_user_tables, and query latency before/after.",
+      "restart_or_downtime_requirement": "none_or_reload",
+      "affects_next_parcel": true,
+      "notes": "Ensure ANALYZE/autovacuum analyze runs for planner statistics quality.",
+      "status": "proposed"
+    },
+    {
+      "execution_order": 49,
+      "group": "database_optimization",
+      "title": "never_analyzed on permission_requests",
+      "source": "database_content_findings",
+      "risk": "medium",
+      "dependencies": [
+        "server_config_reviewed"
+      ],
+      "rollback": "Recreate dropped index / restore previous vacuum settings / revert migration.",
+      "validation": "Compare pg_stat_user_indexes, pg_stat_user_tables, and query latency before/after.",
+      "restart_or_downtime_requirement": "none_or_reload",
+      "affects_next_parcel": true,
+      "notes": "Ensure ANALYZE/autovacuum analyze runs for planner statistics quality.",
+      "status": "proposed"
+    },
+    {
+      "execution_order": 50,
+      "group": "database_optimization",
+      "title": "never_analyzed on bavaria_economy_raw",
+      "source": "database_content_findings",
+      "risk": "medium",
+      "dependencies": [
+        "server_config_reviewed"
+      ],
+      "rollback": "Recreate dropped index / restore previous vacuum settings / revert migration.",
+      "validation": "Compare pg_stat_user_indexes, pg_stat_user_tables, and query latency before/after.",
+      "restart_or_downtime_requirement": "none_or_reload",
+      "affects_next_parcel": true,
+      "notes": "Ensure ANALYZE/autovacuum analyze runs for planner statistics quality.",
+      "status": "proposed"
+    },
+    {
+      "execution_order": 51,
+      "group": "database_optimization",
+      "title": "never_analyzed on survey_objects",
+      "source": "database_content_findings",
+      "risk": "medium",
+      "dependencies": [
+        "server_config_reviewed"
+      ],
+      "rollback": "Recreate dropped index / restore previous vacuum settings / revert migration.",
+      "validation": "Compare pg_stat_user_indexes, pg_stat_user_tables, and query latency before/after.",
+      "restart_or_downtime_requirement": "none_or_reload",
+      "affects_next_parcel": true,
+      "notes": "Ensure ANALYZE/autovacuum analyze runs for planner statistics quality.",
+      "status": "proposed"
+    },
+    {
+      "execution_order": 52,
+      "group": "database_optimization",
+      "title": "never_analyzed on mining_locations",
+      "source": "database_content_findings",
+      "risk": "medium",
+      "dependencies": [
+        "server_config_reviewed"
+      ],
+      "rollback": "Recreate dropped index / restore previous vacuum settings / revert migration.",
+      "validation": "Compare pg_stat_user_indexes, pg_stat_user_tables, and query latency before/after.",
+      "restart_or_downtime_requirement": "none_or_reload",
+      "affects_next_parcel": true,
+      "notes": "Ensure ANALYZE/autovacuum analyze runs for planner statistics quality.",
+      "status": "proposed"
+    },
+    {
+      "execution_order": 53,
+      "group": "database_optimization",
+      "title": "never_analyzed on surveys",
+      "source": "database_content_findings",
+      "risk": "medium",
+      "dependencies": [
+        "server_config_reviewed"
+      ],
+      "rollback": "Recreate dropped index / restore previous vacuum settings / revert migration.",
+      "validation": "Compare pg_stat_user_indexes, pg_stat_user_tables, and query latency before/after.",
+      "restart_or_downtime_requirement": "none_or_reload",
+      "affects_next_parcel": true,
+      "notes": "Ensure ANALYZE/autovacuum analyze runs for planner statistics quality.",
+      "status": "proposed"
+    },
+    {
+      "execution_order": 54,
+      "group": "database_optimization",
+      "title": "never_analyzed on raw_test",
+      "source": "database_content_findings",
+      "risk": "medium",
+      "dependencies": [
+        "server_config_reviewed"
+      ],
+      "rollback": "Recreate dropped index / restore previous vacuum settings / revert migration.",
+      "validation": "Compare pg_stat_user_indexes, pg_stat_user_tables, and query latency before/after.",
+      "restart_or_downtime_requirement": "none_or_reload",
+      "affects_next_parcel": true,
+      "notes": "Ensure ANALYZE/autovacuum analyze runs for planner statistics quality.",
+      "status": "proposed"
+    },
+    {
+      "execution_order": 55,
+      "group": "database_optimization",
+      "title": "never_analyzed on restricted_areas",
+      "source": "database_content_findings",
+      "risk": "medium",
+      "dependencies": [
+        "server_config_reviewed"
+      ],
+      "rollback": "Recreate dropped index / restore previous vacuum settings / revert migration.",
+      "validation": "Compare pg_stat_user_indexes, pg_stat_user_tables, and query latency before/after.",
+      "restart_or_downtime_requirement": "none_or_reload",
+      "affects_next_parcel": true,
+      "notes": "Ensure ANALYZE/autovacuum analyze runs for planner statistics quality.",
+      "status": "proposed"
+    },
+    {
+      "execution_order": 56,
+      "group": "database_optimization",
+      "title": "never_analyzed on layers_registry",
+      "source": "database_content_findings",
+      "risk": "medium",
+      "dependencies": [
+        "server_config_reviewed"
+      ],
+      "rollback": "Recreate dropped index / restore previous vacuum settings / revert migration.",
+      "validation": "Compare pg_stat_user_indexes, pg_stat_user_tables, and query latency before/after.",
+      "restart_or_downtime_requirement": "none_or_reload",
+      "affects_next_parcel": true,
+      "notes": "Ensure ANALYZE/autovacuum analyze runs for planner statistics quality.",
+      "status": "proposed"
+    },
+    {
+      "execution_order": 57,
+      "group": "database_optimization",
+      "title": "never_analyzed on spatial_ref_sys",
+      "source": "database_content_findings",
+      "risk": "medium",
+      "dependencies": [
+        "server_config_reviewed"
+      ],
+      "rollback": "Recreate dropped index / restore previous vacuum settings / revert migration.",
+      "validation": "Compare pg_stat_user_indexes, pg_stat_user_tables, and query latency before/after.",
+      "restart_or_downtime_requirement": "none_or_reload",
+      "affects_next_parcel": true,
+      "notes": "Ensure ANALYZE/autovacuum analyze runs for planner statistics quality.",
+      "status": "proposed"
+    },
+    {
+      "execution_order": 58,
+      "group": "database_optimization",
+      "title": "missing_spatial_index_candidate on bkg_vg250_boundaries",
+      "source": "database_content_findings",
+      "risk": "high",
+      "dependencies": [
+        "server_config_reviewed"
+      ],
+      "rollback": "Recreate dropped index / restore previous vacuum settings / revert migration.",
+      "validation": "Compare pg_stat_user_indexes, pg_stat_user_tables, and query latency before/after.",
+      "restart_or_downtime_requirement": "none_or_reload",
+      "affects_next_parcel": true,
+      "notes": "Confirm whether a GiST/SP-GiST index exists or should be created.",
+      "status": "proposed"
+    },
+    {
+      "execution_order": 59,
+      "group": "database_optimization",
+      "title": "missing_spatial_index_candidate on bkg_vg25_boundaries",
+      "source": "database_content_findings",
+      "risk": "high",
+      "dependencies": [
+        "server_config_reviewed"
+      ],
+      "rollback": "Recreate dropped index / restore previous vacuum settings / revert migration.",
+      "validation": "Compare pg_stat_user_indexes, pg_stat_user_tables, and query latency before/after.",
+      "restart_or_downtime_requirement": "none_or_reload",
+      "affects_next_parcel": true,
+      "notes": "Confirm whether a GiST/SP-GiST index exists or should be created.",
+      "status": "proposed"
+    },
+    {
+      "execution_order": 60,
+      "group": "database_optimization",
+      "title": "missing_spatial_index_candidate on mining_locations",
+      "source": "database_content_findings",
+      "risk": "high",
+      "dependencies": [
+        "server_config_reviewed"
+      ],
+      "rollback": "Recreate dropped index / restore previous vacuum settings / revert migration.",
+      "validation": "Compare pg_stat_user_indexes, pg_stat_user_tables, and query latency before/after.",
+      "restart_or_downtime_requirement": "none_or_reload",
+      "affects_next_parcel": true,
+      "notes": "Confirm whether a GiST/SP-GiST index exists or should be created.",
+      "status": "proposed"
+    },
+    {
+      "execution_order": 61,
+      "group": "database_optimization",
+      "title": "missing_spatial_index_candidate on restricted_areas",
+      "source": "database_content_findings",
+      "risk": "high",
+      "dependencies": [
+        "server_config_reviewed"
+      ],
+      "rollback": "Recreate dropped index / restore previous vacuum settings / revert migration.",
+      "validation": "Compare pg_stat_user_indexes, pg_stat_user_tables, and query latency before/after.",
+      "restart_or_downtime_requirement": "none_or_reload",
+      "affects_next_parcel": true,
+      "notes": "Confirm whether a GiST/SP-GiST index exists or should be created.",
+      "status": "proposed"
+    },
+    {
+      "execution_order": 62,
+      "group": "database_optimization",
+      "title": "missing_spatial_index_candidate on external_features",
+      "source": "database_content_findings",
+      "risk": "high",
+      "dependencies": [
+        "server_config_reviewed"
+      ],
+      "rollback": "Recreate dropped index / restore previous vacuum settings / revert migration.",
+      "validation": "Compare pg_stat_user_indexes, pg_stat_user_tables, and query latency before/after.",
+      "restart_or_downtime_requirement": "none_or_reload",
+      "affects_next_parcel": true,
+      "notes": "Confirm whether a GiST/SP-GiST index exists or should be created.",
+      "status": "proposed"
+    },
+    {
+      "execution_order": 63,
+      "group": "database_optimization",
+      "title": "missing_spatial_index_candidate on spsde:simplifiedbavarianmonument",
+      "source": "database_content_findings",
+      "risk": "high",
+      "dependencies": [
+        "server_config_reviewed"
+      ],
+      "rollback": "Recreate dropped index / restore previous vacuum settings / revert migration.",
+      "validation": "Compare pg_stat_user_indexes, pg_stat_user_tables, and query latency before/after.",
+      "restart_or_downtime_requirement": "none_or_reload",
+      "affects_next_parcel": true,
+      "notes": "Confirm whether a GiST/SP-GiST index exists or should be created.",
+      "status": "proposed"
+    },
+    {
+      "execution_order": 64,
+      "group": "database_optimization",
+      "title": "missing_spatial_index_candidate on survey_objects",
+      "source": "database_content_findings",
+      "risk": "high",
+      "dependencies": [
+        "server_config_reviewed"
+      ],
+      "rollback": "Recreate dropped index / restore previous vacuum settings / revert migration.",
+      "validation": "Compare pg_stat_user_indexes, pg_stat_user_tables, and query latency before/after.",
+      "restart_or_downtime_requirement": "none_or_reload",
+      "affects_next_parcel": true,
+      "notes": "Confirm whether a GiST/SP-GiST index exists or should be created.",
+      "status": "proposed"
+    },
+    {
+      "execution_order": 65,
+      "group": "database_optimization",
+      "title": "missing_spatial_index_candidate on surveys",
+      "source": "database_content_findings",
+      "risk": "high",
+      "dependencies": [
+        "server_config_reviewed"
+      ],
+      "rollback": "Recreate dropped index / restore previous vacuum settings / revert migration.",
+      "validation": "Compare pg_stat_user_indexes, pg_stat_user_tables, and query latency before/after.",
+      "restart_or_downtime_requirement": "none_or_reload",
+      "affects_next_parcel": true,
+      "notes": "Confirm whether a GiST/SP-GiST index exists or should be created.",
+      "status": "proposed"
+    },
+    {
+      "execution_order": 66,
+      "group": "application_query_optimization",
+      "title": "expensive_external_features_layer_count_query",
+      "source": "workload_findings",
+      "risk": "high",
+      "dependencies": [
+        "database_optimization_started"
+      ],
+      "rollback": "Revert application query changes and disable new cache/materialized query path.",
+      "validation": "Compare pg_stat_statements before/after for target query classes.",
+      "restart_or_downtime_requirement": "app_restart_possible",
+      "affects_next_parcel": true,
+      "notes": "Replace repeated live COUNT(*) GROUP BY layer with cached/materialized counts refreshed on ingest/update events.",
+      "status": "proposed"
+    },
+    {
+      "execution_order": 67,
+      "group": "application_query_optimization",
+      "title": "expensive_external_features_layer_count_query",
+      "source": "workload_findings",
+      "risk": "high",
+      "dependencies": [
+        "database_optimization_started"
+      ],
+      "rollback": "Revert application query changes and disable new cache/materialized query path.",
+      "validation": "Compare pg_stat_statements before/after for target query classes.",
+      "restart_or_downtime_requirement": "app_restart_possible",
+      "affects_next_parcel": true,
+      "notes": "Replace repeated live COUNT(*) GROUP BY layer with cached/materialized counts refreshed on ingest/update events.",
+      "status": "proposed"
+    },
+    {
+      "execution_order": 68,
+      "group": "application_query_optimization",
+      "title": "high_total_time_queries",
+      "source": "workload_findings",
+      "risk": "high",
+      "dependencies": [
+        "database_optimization_started"
+      ],
+      "rollback": "Revert application query changes and disable new cache/materialized query path.",
+      "validation": "Compare pg_stat_statements before/after for target query classes.",
+      "restart_or_downtime_requirement": "app_restart_possible",
+      "affects_next_parcel": true,
+      "notes": "Target top total time queries first for latency/cost reduction.",
+      "status": "proposed"
+    },
+    {
+      "execution_order": 69,
+      "group": "application_query_optimization",
+      "title": "high_mean_time_queries",
+      "source": "workload_findings",
+      "risk": "medium",
+      "dependencies": [
+        "database_optimization_started"
+      ],
+      "rollback": "Revert application query changes and disable new cache/materialized query path.",
+      "validation": "Compare pg_stat_statements before/after for target query classes.",
+      "restart_or_downtime_requirement": "app_restart_possible",
+      "affects_next_parcel": true,
+      "notes": "Investigate plans for high mean execution time outliers.",
+      "status": "proposed"
+    },
+    {
+      "execution_order": 70,
+      "group": "application_query_optimization",
+      "title": "high_block_read_queries",
+      "source": "workload_findings",
+      "risk": "medium",
+      "dependencies": [
+        "database_optimization_started"
+      ],
+      "rollback": "Revert application query changes and disable new cache/materialized query path.",
+      "validation": "Compare pg_stat_statements before/after for target query classes.",
+      "restart_or_downtime_requirement": "app_restart_possible",
+      "affects_next_parcel": true,
+      "notes": "Review indexing/plans and cache effectiveness for read-heavy SQL.",
+      "status": "proposed"
+    },
+    {
+      "execution_order": 71,
+      "group": "validation",
+      "title": "Run post-change baseline and compare against pre-change baseline",
+      "source": "plan_generated",
+      "risk": "low",
+      "dependencies": [
+        "all_approved_changes_applied"
+      ],
+      "rollback": "Use change-specific rollback procedures if regression thresholds are exceeded.",
+      "validation": "Execute validate_and_monitor.py and review validation_report.md.",
+      "restart_or_downtime_requirement": "none",
+      "affects_next_parcel": false,
+      "notes": "Validation gate for keep/revert decisions.",
+      "status": "proposed"
+    },
+    {
+      "execution_order": 72,
+      "group": "monitoring",
+      "title": "Establish recurring health/performance checks",
+      "source": "plan_generated",
+      "risk": "low",
+      "dependencies": [
+        "validation_passed"
+      ],
+      "rollback": "Disable monitoring jobs if they create operational noise.",
+      "validation": "Confirm checks run and produce actionable outputs.",
+      "restart_or_downtime_requirement": "none",
+      "affects_next_parcel": false,
+      "notes": "Track query latency, dead tuples, index usage, lock pressure, and cache effectiveness.",
+      "status": "proposed"
+    }
+  ],
+  "summary": {
+    "total_changes": 72,
+    "by_group": {
+      "server_config": 6,
+      "database_optimization": 59,
+      "database_content_cleanup": 0,
+      "application_query_optimization": 5,
+      "validation": 1,
+      "monitoring": 1
+    }
+  }
+}

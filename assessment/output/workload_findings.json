@@ -1,0 +1,673 @@
+{
+  "generated_at_utc": "2026-05-16T09:58:39.380848+00:00",
+  "input_files": {
+    "pg_stat_statements": "C:\\Users\\Paul\\Desktop\\dev\\surveyCatalyst\\assessment\\output\\pg_stat_statements.csv"
+  },
+  "summary": {
+    "total_findings": 5,
+    "confirmed": 5,
+    "candidate": 0
+  },
+  "findings": [
+    {
+      "type": "expensive_external_features_layer_count_query",
+      "severity": "high",
+      "status": "confirmed",
+      "evidence": {
+        "queryid": "4622485673134627552",
+        "calls": 1,
+        "total_exec_time": 5038.295,
+        "mean_exec_time": 5038.295,
+        "shared_blks_read": 361465,
+        "temp_blks_read": 0,
+        "temp_blks_written": 0,
+        "query": "SELECT layer, COUNT(*) FROM external_features GROUP BY layer"
+      },
+      "recommendation": "Replace repeated live COUNT(*) GROUP BY layer with cached/materialized counts refreshed on ingest/update events.",
+      "candidate_scope": "application + database"
+    },
+    {
+      "type": "expensive_external_features_layer_count_query",
+      "severity": "high",
+      "status": "confirmed",
+      "evidence": {
+        "queryid": "7647870470435028548",
+        "calls": 3,
+        "total_exec_time": 1125.037,
+        "mean_exec_time": 375.01233333333334,
+        "shared_blks_read": 6093,
+        "temp_blks_read": 0,
+        "temp_blks_written": 0,
+        "query": "WITH sample AS ( SELECT layer, geom FROM external_features WHERE geom IS NOT NULL ORDER BY id DESC LIMIT $1 ) SELECT layer, COUNT(*) AS sampled_features, COUNT(*) FILTER (WHERE NOT ST_IsValid(geom)) AS invalid_features, AVG(ST_NPoints(geom)) AS avg_points, MAX(ST_NPoints(geom)) AS max_points FROM sample GROUP BY layer ORDER BY sampled_features DESC"
+      },
+      "recommendation": "Replace repeated live COUNT(*) GROUP BY layer with cached/materialized counts refreshed on ingest/update events.",
+      "candidate_scope": "application + database"
+    },
+    {
+      "type": "high_total_time_queries",
+      "severity": "high",
+      "status": "confirmed",
+      "evidence": {
+        "top_n": 20,
+        "queries": [
+          {
+            "queryid": "4622485673134627552",
+            "calls": 1,
+            "total_exec_time": 5038.295,
+            "mean_exec_time": 5038.295,
+            "shared_blks_read": 361465,
+            "temp_blks_read": 0,
+            "temp_blks_written": 0,
+            "query": "SELECT layer, COUNT(*) FROM external_features GROUP BY layer"
+          },
+          {
+            "queryid": "-5507895004688678276",
+            "calls": 3,
+            "total_exec_time": 4046.9772000000003,
+            "mean_exec_time": 1348.9924,
+            "shared_blks_read": 1047012,
+            "temp_blks_read": 0,
+            "temp_blks_written": 0,
+            "query": "SELECT $1 AS table_name, ST_SRID(geom) AS srid, COUNT(*) AS n FROM external_features WHERE geom IS NOT NULL GROUP BY ST_SRID(geom) UNION ALL SELECT $2 AS table_name, ST_SRID(geom) AS srid, COUNT(*) AS n FROM survey_objects WHERE geom IS NOT NULL GROUP BY ST_SRID(geom) UNION ALL SELECT $3 AS table_name, ST_SRID(geom) AS srid, COUNT(*) AS n FROM surveys WHERE geom IS NOT NULL GROUP BY ST_SRID(geom) ORDER BY table_name, n DESC"
+          },
+          {
+            "queryid": "1389976556187309256",
+            "calls": 1,
+            "total_exec_time": 2550.2867,
+            "mean_exec_time": 2550.2867,
+            "shared_blks_read": 346660,
+            "temp_blks_read": 0,
+            "temp_blks_written": 0,
+            "query": "EXPLAIN (ANALYZE, BUFFERS, VERBOSE, SETTINGS) SELECT layer, COUNT(*) FROM public.external_features GROUP BY layer"
+          },
+          {
+            "queryid": "7647870470435028548",
+            "calls": 3,
+            "total_exec_time": 1125.037,
+            "mean_exec_time": 375.01233333333334,
+            "shared_blks_read": 6093,
+            "temp_blks_read": 0,
+            "temp_blks_written": 0,
+            "query": "WITH sample AS ( SELECT layer, geom FROM external_features WHERE geom IS NOT NULL ORDER BY id DESC LIMIT $1 ) SELECT layer, COUNT(*) AS sampled_features, COUNT(*) FILTER (WHERE NOT ST_IsValid(geom)) AS invalid_features, AVG(ST_NPoints(geom)) AS avg_points, MAX(ST_NPoints(geom)) AS max_points FROM sample GROUP BY layer ORDER BY sampled_features DESC"
+          },
+          {
+            "queryid": "8285673085659896166",
+            "calls": 4,
+            "total_exec_time": 827.5359,
+            "mean_exec_time": 206.88397500000002,
+            "shared_blks_read": 0,
+            "temp_blks_read": 0,
+            "temp_blks_written": 0,
+            "query": "SELECT datname, pg_database_size(datname) AS bytes FROM pg_database ORDER BY bytes DESC"
+          },
+          {
+            "queryid": "1381153010722816006",
+            "calls": 4,
+            "total_exec_time": 241.60150000000002,
+            "mean_exec_time": 60.400375,
+            "shared_blks_read": 37,
+            "temp_blks_read": 0,
+            "temp_blks_written": 0,
+            "query": "SELECT n.nspname AS schema_name, c.relname AS table_name, pg_total_relation_size(c.oid) AS total_bytes, pg_relation_size(c.oid) AS table_bytes, pg_indexes_size(c.oid) AS index_bytes, COALESCE(s.n_live_tup, $1) AS n_live_tup, COALESCE(s.n_dead_tup, $2) AS n_dead_tup FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace LEFT JOIN pg_stat_user_tables s ON s.relid = c.oid WHERE c.relkind = $3 AND n.nspname NOT IN ($4 /*, ... */) ORDER BY total_bytes DESC"
+          },
+          {
+            "queryid": "-1118924422343236163",
+            "calls": 2,
+            "total_exec_time": 110.4422,
+            "mean_exec_time": 55.2211,
+            "shared_blks_read": 80,
+            "temp_blks_read": 0,
+            "temp_blks_written": 0,
+            "query": "CREATE EXTENSION IF NOT EXISTS pg_stat_statements"
+          },
+          {
+            "queryid": "2503101037485376602",
+            "calls": 4,
+            "total_exec_time": 55.1723,
+            "mean_exec_time": 13.793075,
+            "shared_blks_read": 6,
+            "temp_blks_read": 0,
+            "temp_blks_written": 0,
+            "query": "SELECT schemaname, tablename, indexname, indexdef, pg_relation_size((schemaname || $1 || indexname)::regclass) AS index_bytes FROM pg_indexes WHERE schemaname NOT IN ($2 /*, ... */) ORDER BY index_bytes DESC NULLS LAST"
+          },
+          {
+            "queryid": "9144112771074952941",
+            "calls": 1,
+            "total_exec_time": 38.688100000000006,
+            "mean_exec_time": 38.688100000000006,
+            "shared_blks_read": 0,
+            "temp_blks_read": 0,
+            "temp_blks_written": 0,
+            "query": "SELECT calls, ROUND(total_exec_time::numeric, $1) AS total_ms, ROUND(mean_exec_time::numeric, $2) AS mean_ms, rows, shared_blks_hit, shared_blks_read, temp_blks_written, query FROM pg_stat_statements WHERE query NOT ILIKE $3 ORDER BY total_exec_time DESC LIMIT $4"
+          },
+          {
+            "queryid": "-9181392394806888969",
+            "calls": 4,
+            "total_exec_time": 25.706699999999998,
+            "mean_exec_time": 6.4266749999999995,
+            "shared_blks_read": 0,
+            "temp_blks_read": 0,
+            "temp_blks_written": 0,
+            "query": "SELECT name, setting, unit, category, context, vartype, source, boot_val, reset_val, pending_restart FROM pg_settings ORDER BY name"
+          },
+          {
+            "queryid": "1314168946605071400",
+            "calls": 3,
+            "total_exec_time": 17.4838,
+            "mean_exec_time": 5.827933333333333,
+            "shared_blks_read": 0,
+            "temp_blks_read": 0,
+            "temp_blks_written": 0,
+            "query": "SELECT name, setting, pending_restart FROM pg_settings WHERE name = $1"
+          },
+          {
+            "queryid": "3146247604830448625",
+            "calls": 3,
+            "total_exec_time": 16.8775,
+            "mean_exec_time": 5.6258333333333335,
+            "shared_blks_read": 0,
+            "temp_blks_read": 0,
+            "temp_blks_written": 0,
+            "query": "SELECT name, setting, unit, context, source FROM pg_settings WHERE name LIKE $1 OR name IN ($2 /*, ... */) ORDER BY name"
+          },
+          {
+            "queryid": "-2441191445735386548",
+            "calls": 3,
+            "total_exec_time": 10.382100000000001,
+            "mean_exec_time": 3.4607,
+            "shared_blks_read": 89,
+            "temp_blks_read": 0,
+            "temp_blks_written": 0,
+            "query": "SELECT f_table_schema, f_table_name, f_geometry_column, coord_dimension, srid, type FROM public.geometry_columns ORDER BY f_table_schema, f_table_name, f_geometry_column"
+          },
+          {
+            "queryid": "8808516917869465915",
+            "calls": 6,
+            "total_exec_time": 6.679699999999999,
+            "mean_exec_time": 1.1132833333333332,
+            "shared_blks_read": 49,
+            "temp_blks_read": 0,
+            "temp_blks_written": 0,
+            "query": "SELECT at.attname, ty.typname, at.attnum FROM pg_catalog.pg_attribute at LEFT JOIN pg_catalog.pg_type ty ON (ty.oid = at.atttypid) JOIN pg_catalog.pg_class as cl ON cl.oid=at.attrelid JOIN pg_catalog.pg_namespace as nsp ON nsp.oid=cl.relnamespace WHERE attrelid=$1::oid AND at.attnum > $2 AND at.attisdropped = $3"
+          },
+          {
+            "queryid": "8511307368339327141",
+            "calls": 1,
+            "total_exec_time": 5.8027,
+            "mean_exec_time": 5.8027,
+            "shared_blks_read": 22,
+            "temp_blks_read": 0,
+            "temp_blks_written": 0,
+            "query": "SELECT layer_key, layer_name, layer_group, source_table, geometry_type, is_visible, opacity, sort_order, metadata FROM layers_registry ORDER BY layer_group, sort_order, layer_name"
+          },
+          {
+            "queryid": "389015072221078199",
+            "calls": 1,
+            "total_exec_time": 5.5121,
+            "mean_exec_time": 5.5121,
+            "shared_blks_read": 0,
+            "temp_blks_read": 0,
+            "temp_blks_written": 0,
+            "query": "SELECT set_config($1,$2,$3) FROM pg_show_all_settings() WHERE name = $4"
+          },
+          {
+            "queryid": "389015072221078199",
+            "calls": 1,
+            "total_exec_time": 5.4352,
+            "mean_exec_time": 5.4352,
+            "shared_blks_read": 0,
+            "temp_blks_read": 0,
+            "temp_blks_written": 0,
+            "query": "SELECT set_config($1,$2,$3) FROM pg_show_all_settings() WHERE name = $4"
+          },
+          {
+            "queryid": "-6321281415133756646",
+            "calls": 6,
+            "total_exec_time": 5.3933,
+            "mean_exec_time": 0.8988833333333334,
+            "shared_blks_read": 34,
+            "temp_blks_read": 0,
+            "temp_blks_written": 0,
+            "query": "SELECT DISTINCT att.attname as name, att.attnum as OID, pg_catalog.format_type(ty.oid,$1) AS datatype, pg_catalog.format_type(ty.oid,att.atttypmod) AS displaytypname, att.attnotnull as not_null, CASE WHEN att.atthasdef OR att.attidentity != $2 OR ty.typdefault IS NOT NULL THEN $3 ELSE $4 END as has_default_val, des.description, seq.seqtypid FROM pg_catalog.pg_attribute att JOIN pg_catalog.pg_type ty ON ty.oid=atttypid JOIN pg_catalog.pg_namespace tn ON tn.oid=ty.typnamespace JOIN pg_catalog.pg_class cl ON cl.oid=att.attrelid JOIN pg_catalog.pg_namespace na ON na.oid=cl.relnamespace LEFT OUTER JOIN pg_catalog.pg_type et ON et.oid=ty.typelem LEFT OUTER JOIN pg_catalog.pg_attrdef def ON adrelid=att.attrelid AND adnum=att.attnum LEFT OUTER JOIN (pg_catalog.pg_depend JOIN pg_catalog.pg_class cs ON classid=$5::regclass AND objid=cs.oid AND cs.relkind=$6) ON refobjid=att.attrelid AND refobjsubid=att.attnum LEFT OUTER JOIN pg_catalog.pg_namespace ns ON ns.oid=cs.relnamespace LEFT OUTER JOIN pg_catalog.pg_index pi ON pi.indrelid=att.attrelid AND indisprimary LEFT OUTER JOIN pg_catalog.pg_description des ON (des.objoid=att.attrelid AND des.objsubid=att.attnum AND des.classoid=$7::regclass) LEFT OUTER JOIN pg_catalog.pg_sequence seq ON cs.oid=seq.seqrelid WHERE att.attrelid = $8::oid AND att.attnum > $9 AND att.attisdropped IS FALSE ORDER BY att.attnum"
+          },
+          {
+            "queryid": "4854991825702068830",
+            "calls": 1956,
+            "total_exec_time": 3.9091999999999834,
+            "mean_exec_time": 0.0019985685071574667,
+            "shared_blks_read": 0,
+            "temp_blks_read": 0,
+            "temp_blks_written": 0,
+            "query": "BEGIN"
+          },
+          {
+            "queryid": "-3741707593236325849",
+            "calls": 1,
+            "total_exec_time": 3.7272999999999996,
+            "mean_exec_time": 3.7272999999999996,
+            "shared_blks_read": 36,
+            "temp_blks_read": 0,
+            "temp_blks_written": 0,
+            "query": "SELECT schemaname, tablename, indexname, indexdef FROM pg_indexes WHERE schemaname = ANY (current_schemas($1))"
+          }
+        ]
+      },
+      "recommendation": "Target top total time queries first for latency/cost reduction.",
+      "candidate_scope": "application + database"
+    },
+    {
+      "type": "high_mean_time_queries",
+      "severity": "medium",
+      "status": "confirmed",
+      "evidence": {
+        "top_n": 20,
+        "queries": [
+          {
+            "queryid": "4622485673134627552",
+            "calls": 1,
+            "total_exec_time": 5038.295,
+            "mean_exec_time": 5038.295,
+            "shared_blks_read": 361465,
+            "temp_blks_read": 0,
+            "temp_blks_written": 0,
+            "query": "SELECT layer, COUNT(*) FROM external_features GROUP BY layer"
+          },
+          {
+            "queryid": "1389976556187309256",
+            "calls": 1,
+            "total_exec_time": 2550.2867,
+            "mean_exec_time": 2550.2867,
+            "shared_blks_read": 346660,
+            "temp_blks_read": 0,
+            "temp_blks_written": 0,
+            "query": "EXPLAIN (ANALYZE, BUFFERS, VERBOSE, SETTINGS) SELECT layer, COUNT(*) FROM public.external_features GROUP BY layer"
+          },
+          {
+            "queryid": "-5507895004688678276",
+            "calls": 3,
+            "total_exec_time": 4046.9772000000003,
+            "mean_exec_time": 1348.9924,
+            "shared_blks_read": 1047012,
+            "temp_blks_read": 0,
+            "temp_blks_written": 0,
+            "query": "SELECT $1 AS table_name, ST_SRID(geom) AS srid, COUNT(*) AS n FROM external_features WHERE geom IS NOT NULL GROUP BY ST_SRID(geom) UNION ALL SELECT $2 AS table_name, ST_SRID(geom) AS srid, COUNT(*) AS n FROM survey_objects WHERE geom IS NOT NULL GROUP BY ST_SRID(geom) UNION ALL SELECT $3 AS table_name, ST_SRID(geom) AS srid, COUNT(*) AS n FROM surveys WHERE geom IS NOT NULL GROUP BY ST_SRID(geom) ORDER BY table_name, n DESC"
+          },
+          {
+            "queryid": "7647870470435028548",
+            "calls": 3,
+            "total_exec_time": 1125.037,
+            "mean_exec_time": 375.01233333333334,
+            "shared_blks_read": 6093,
+            "temp_blks_read": 0,
+            "temp_blks_written": 0,
+            "query": "WITH sample AS ( SELECT layer, geom FROM external_features WHERE geom IS NOT NULL ORDER BY id DESC LIMIT $1 ) SELECT layer, COUNT(*) AS sampled_features, COUNT(*) FILTER (WHERE NOT ST_IsValid(geom)) AS invalid_features, AVG(ST_NPoints(geom)) AS avg_points, MAX(ST_NPoints(geom)) AS max_points FROM sample GROUP BY layer ORDER BY sampled_features DESC"
+          },
+          {
+            "queryid": "8285673085659896166",
+            "calls": 4,
+            "total_exec_time": 827.5359,
+            "mean_exec_time": 206.88397500000002,
+            "shared_blks_read": 0,
+            "temp_blks_read": 0,
+            "temp_blks_written": 0,
+            "query": "SELECT datname, pg_database_size(datname) AS bytes FROM pg_database ORDER BY bytes DESC"
+          },
+          {
+            "queryid": "1381153010722816006",
+            "calls": 4,
+            "total_exec_time": 241.60150000000002,
+            "mean_exec_time": 60.400375,
+            "shared_blks_read": 37,
+            "temp_blks_read": 0,
+            "temp_blks_written": 0,
+            "query": "SELECT n.nspname AS schema_name, c.relname AS table_name, pg_total_relation_size(c.oid) AS total_bytes, pg_relation_size(c.oid) AS table_bytes, pg_indexes_size(c.oid) AS index_bytes, COALESCE(s.n_live_tup, $1) AS n_live_tup, COALESCE(s.n_dead_tup, $2) AS n_dead_tup FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace LEFT JOIN pg_stat_user_tables s ON s.relid = c.oid WHERE c.relkind = $3 AND n.nspname NOT IN ($4 /*, ... */) ORDER BY total_bytes DESC"
+          },
+          {
+            "queryid": "-1118924422343236163",
+            "calls": 2,
+            "total_exec_time": 110.4422,
+            "mean_exec_time": 55.2211,
+            "shared_blks_read": 80,
+            "temp_blks_read": 0,
+            "temp_blks_written": 0,
+            "query": "CREATE EXTENSION IF NOT EXISTS pg_stat_statements"
+          },
+          {
+            "queryid": "9144112771074952941",
+            "calls": 1,
+            "total_exec_time": 38.688100000000006,
+            "mean_exec_time": 38.688100000000006,
+            "shared_blks_read": 0,
+            "temp_blks_read": 0,
+            "temp_blks_written": 0,
+            "query": "SELECT calls, ROUND(total_exec_time::numeric, $1) AS total_ms, ROUND(mean_exec_time::numeric, $2) AS mean_ms, rows, shared_blks_hit, shared_blks_read, temp_blks_written, query FROM pg_stat_statements WHERE query NOT ILIKE $3 ORDER BY total_exec_time DESC LIMIT $4"
+          },
+          {
+            "queryid": "2503101037485376602",
+            "calls": 4,
+            "total_exec_time": 55.1723,
+            "mean_exec_time": 13.793075,
+            "shared_blks_read": 6,
+            "temp_blks_read": 0,
+            "temp_blks_written": 0,
+            "query": "SELECT schemaname, tablename, indexname, indexdef, pg_relation_size((schemaname || $1 || indexname)::regclass) AS index_bytes FROM pg_indexes WHERE schemaname NOT IN ($2 /*, ... */) ORDER BY index_bytes DESC NULLS LAST"
+          },
+          {
+            "queryid": "-9181392394806888969",
+            "calls": 4,
+            "total_exec_time": 25.706699999999998,
+            "mean_exec_time": 6.4266749999999995,
+            "shared_blks_read": 0,
+            "temp_blks_read": 0,
+            "temp_blks_written": 0,
+            "query": "SELECT name, setting, unit, category, context, vartype, source, boot_val, reset_val, pending_restart FROM pg_settings ORDER BY name"
+          },
+          {
+            "queryid": "1314168946605071400",
+            "calls": 3,
+            "total_exec_time": 17.4838,
+            "mean_exec_time": 5.827933333333333,
+            "shared_blks_read": 0,
+            "temp_blks_read": 0,
+            "temp_blks_written": 0,
+            "query": "SELECT name, setting, pending_restart FROM pg_settings WHERE name = $1"
+          },
+          {
+            "queryid": "8511307368339327141",
+            "calls": 1,
+            "total_exec_time": 5.8027,
+            "mean_exec_time": 5.8027,
+            "shared_blks_read": 22,
+            "temp_blks_read": 0,
+            "temp_blks_written": 0,
+            "query": "SELECT layer_key, layer_name, layer_group, source_table, geometry_type, is_visible, opacity, sort_order, metadata FROM layers_registry ORDER BY layer_group, sort_order, layer_name"
+          },
+          {
+            "queryid": "3146247604830448625",
+            "calls": 3,
+            "total_exec_time": 16.8775,
+            "mean_exec_time": 5.6258333333333335,
+            "shared_blks_read": 0,
+            "temp_blks_read": 0,
+            "temp_blks_written": 0,
+            "query": "SELECT name, setting, unit, context, source FROM pg_settings WHERE name LIKE $1 OR name IN ($2 /*, ... */) ORDER BY name"
+          },
+          {
+            "queryid": "389015072221078199",
+            "calls": 1,
+            "total_exec_time": 5.5121,
+            "mean_exec_time": 5.5121,
+            "shared_blks_read": 0,
+            "temp_blks_read": 0,
+            "temp_blks_written": 0,
+            "query": "SELECT set_config($1,$2,$3) FROM pg_show_all_settings() WHERE name = $4"
+          },
+          {
+            "queryid": "389015072221078199",
+            "calls": 1,
+            "total_exec_time": 5.4352,
+            "mean_exec_time": 5.4352,
+            "shared_blks_read": 0,
+            "temp_blks_read": 0,
+            "temp_blks_written": 0,
+            "query": "SELECT set_config($1,$2,$3) FROM pg_show_all_settings() WHERE name = $4"
+          },
+          {
+            "queryid": "-3741707593236325849",
+            "calls": 1,
+            "total_exec_time": 3.7272999999999996,
+            "mean_exec_time": 3.7272999999999996,
+            "shared_blks_read": 36,
+            "temp_blks_read": 0,
+            "temp_blks_written": 0,
+            "query": "SELECT schemaname, tablename, indexname, indexdef FROM pg_indexes WHERE schemaname = ANY (current_schemas($1))"
+          },
+          {
+            "queryid": "-2441191445735386548",
+            "calls": 3,
+            "total_exec_time": 10.382100000000001,
+            "mean_exec_time": 3.4607,
+            "shared_blks_read": 89,
+            "temp_blks_read": 0,
+            "temp_blks_written": 0,
+            "query": "SELECT f_table_schema, f_table_name, f_geometry_column, coord_dimension, srid, type FROM public.geometry_columns ORDER BY f_table_schema, f_table_name, f_geometry_column"
+          },
+          {
+            "queryid": "-3789064086496793860",
+            "calls": 2,
+            "total_exec_time": 2.2753,
+            "mean_exec_time": 1.13765,
+            "shared_blks_read": 0,
+            "temp_blks_read": 0,
+            "temp_blks_written": 0,
+            "query": "SELECT calls, ROUND(total_exec_time::numeric, $1) AS total_ms, ROUND(mean_exec_time::numeric, $2) AS mean_ms, rows, shared_blks_hit, shared_blks_read, temp_blks_written, LEFT(query, $3) AS query FROM pg_stat_statements WHERE query NOT ILIKE $4 AND query NOT ILIKE $5 AND query NOT ILIKE $6 ORDER BY total_exec_time DESC LIMIT $7"
+          },
+          {
+            "queryid": "8808516917869465915",
+            "calls": 6,
+            "total_exec_time": 6.679699999999999,
+            "mean_exec_time": 1.1132833333333332,
+            "shared_blks_read": 49,
+            "temp_blks_read": 0,
+            "temp_blks_written": 0,
+            "query": "SELECT at.attname, ty.typname, at.attnum FROM pg_catalog.pg_attribute at LEFT JOIN pg_catalog.pg_type ty ON (ty.oid = at.atttypid) JOIN pg_catalog.pg_class as cl ON cl.oid=at.attrelid JOIN pg_catalog.pg_namespace as nsp ON nsp.oid=cl.relnamespace WHERE attrelid=$1::oid AND at.attnum > $2 AND at.attisdropped = $3"
+          },
+          {
+            "queryid": "-6321281415133756646",
+            "calls": 6,
+            "total_exec_time": 5.3933,
+            "mean_exec_time": 0.8988833333333334,
+            "shared_blks_read": 34,
+            "temp_blks_read": 0,
+            "temp_blks_written": 0,
+            "query": "SELECT DISTINCT att.attname as name, att.attnum as OID, pg_catalog.format_type(ty.oid,$1) AS datatype, pg_catalog.format_type(ty.oid,att.atttypmod) AS displaytypname, att.attnotnull as not_null, CASE WHEN att.atthasdef OR att.attidentity != $2 OR ty.typdefault IS NOT NULL THEN $3 ELSE $4 END as has_default_val, des.description, seq.seqtypid FROM pg_catalog.pg_attribute att JOIN pg_catalog.pg_type ty ON ty.oid=atttypid JOIN pg_catalog.pg_namespace tn ON tn.oid=ty.typnamespace JOIN pg_catalog.pg_class cl ON cl.oid=att.attrelid JOIN pg_catalog.pg_namespace na ON na.oid=cl.relnamespace LEFT OUTER JOIN pg_catalog.pg_type et ON et.oid=ty.typelem LEFT OUTER JOIN pg_catalog.pg_attrdef def ON adrelid=att.attrelid AND adnum=att.attnum LEFT OUTER JOIN (pg_catalog.pg_depend JOIN pg_catalog.pg_class cs ON classid=$5::regclass AND objid=cs.oid AND cs.relkind=$6) ON refobjid=att.attrelid AND refobjsubid=att.attnum LEFT OUTER JOIN pg_catalog.pg_namespace ns ON ns.oid=cs.relnamespace LEFT OUTER JOIN pg_catalog.pg_index pi ON pi.indrelid=att.attrelid AND indisprimary LEFT OUTER JOIN pg_catalog.pg_description des ON (des.objoid=att.attrelid AND des.objsubid=att.attnum AND des.classoid=$7::regclass) LEFT OUTER JOIN pg_catalog.pg_sequence seq ON cs.oid=seq.seqrelid WHERE att.attrelid = $8::oid AND att.attnum > $9 AND att.attisdropped IS FALSE ORDER BY att.attnum"
+          }
+        ]
+      },
+      "recommendation": "Investigate plans for high mean execution time outliers.",
+      "candidate_scope": "database"
+    },
+    {
+      "type": "high_block_read_queries",
+      "severity": "medium",
+      "status": "confirmed",
+      "evidence": {
+        "top_n": 20,
+        "queries": [
+          {
+            "queryid": "-5507895004688678276",
+            "calls": 3,
+            "total_exec_time": 4046.9772000000003,
+            "mean_exec_time": 1348.9924,
+            "shared_blks_read": 1047012,
+            "temp_blks_read": 0,
+            "temp_blks_written": 0,
+            "query": "SELECT $1 AS table_name, ST_SRID(geom) AS srid, COUNT(*) AS n FROM external_features WHERE geom IS NOT NULL GROUP BY ST_SRID(geom) UNION ALL SELECT $2 AS table_name, ST_SRID(geom) AS srid, COUNT(*) AS n FROM survey_objects WHERE geom IS NOT NULL GROUP BY ST_SRID(geom) UNION ALL SELECT $3 AS table_name, ST_SRID(geom) AS srid, COUNT(*) AS n FROM surveys WHERE geom IS NOT NULL GROUP BY ST_SRID(geom) ORDER BY table_name, n DESC"
+          },
+          {
+            "queryid": "4622485673134627552",
+            "calls": 1,
+            "total_exec_time": 5038.295,
+            "mean_exec_time": 5038.295,
+            "shared_blks_read": 361465,
+            "temp_blks_read": 0,
+            "temp_blks_written": 0,
+            "query": "SELECT layer, COUNT(*) FROM external_features GROUP BY layer"
+          },
+          {
+            "queryid": "1389976556187309256",
+            "calls": 1,
+            "total_exec_time": 2550.2867,
+            "mean_exec_time": 2550.2867,
+            "shared_blks_read": 346660,
+            "temp_blks_read": 0,
+            "temp_blks_written": 0,
+            "query": "EXPLAIN (ANALYZE, BUFFERS, VERBOSE, SETTINGS) SELECT layer, COUNT(*) FROM public.external_features GROUP BY layer"
+          },
+          {
+            "queryid": "7647870470435028548",
+            "calls": 3,
+            "total_exec_time": 1125.037,
+            "mean_exec_time": 375.01233333333334,
+            "shared_blks_read": 6093,
+            "temp_blks_read": 0,
+            "temp_blks_written": 0,
+            "query": "WITH sample AS ( SELECT layer, geom FROM external_features WHERE geom IS NOT NULL ORDER BY id DESC LIMIT $1 ) SELECT layer, COUNT(*) AS sampled_features, COUNT(*) FILTER (WHERE NOT ST_IsValid(geom)) AS invalid_features, AVG(ST_NPoints(geom)) AS avg_points, MAX(ST_NPoints(geom)) AS max_points FROM sample GROUP BY layer ORDER BY sampled_features DESC"
+          },
+          {
+            "queryid": "-2441191445735386548",
+            "calls": 3,
+            "total_exec_time": 10.382100000000001,
+            "mean_exec_time": 3.4607,
+            "shared_blks_read": 89,
+            "temp_blks_read": 0,
+            "temp_blks_written": 0,
+            "query": "SELECT f_table_schema, f_table_name, f_geometry_column, coord_dimension, srid, type FROM public.geometry_columns ORDER BY f_table_schema, f_table_name, f_geometry_column"
+          },
+          {
+            "queryid": "-1118924422343236163",
+            "calls": 2,
+            "total_exec_time": 110.4422,
+            "mean_exec_time": 55.2211,
+            "shared_blks_read": 80,
+            "temp_blks_read": 0,
+            "temp_blks_written": 0,
+            "query": "CREATE EXTENSION IF NOT EXISTS pg_stat_statements"
+          },
+          {
+            "queryid": "8808516917869465915",
+            "calls": 6,
+            "total_exec_time": 6.679699999999999,
+            "mean_exec_time": 1.1132833333333332,
+            "shared_blks_read": 49,
+            "temp_blks_read": 0,
+            "temp_blks_written": 0,
+            "query": "SELECT at.attname, ty.typname, at.attnum FROM pg_catalog.pg_attribute at LEFT JOIN pg_catalog.pg_type ty ON (ty.oid = at.atttypid) JOIN pg_catalog.pg_class as cl ON cl.oid=at.attrelid JOIN pg_catalog.pg_namespace as nsp ON nsp.oid=cl.relnamespace WHERE attrelid=$1::oid AND at.attnum > $2 AND at.attisdropped = $3"
+          },
+          {
+            "queryid": "1381153010722816006",
+            "calls": 4,
+            "total_exec_time": 241.60150000000002,
+            "mean_exec_time": 60.400375,
+            "shared_blks_read": 37,
+            "temp_blks_read": 0,
+            "temp_blks_written": 0,
+            "query": "SELECT n.nspname AS schema_name, c.relname AS table_name, pg_total_relation_size(c.oid) AS total_bytes, pg_relation_size(c.oid) AS table_bytes, pg_indexes_size(c.oid) AS index_bytes, COALESCE(s.n_live_tup, $1) AS n_live_tup, COALESCE(s.n_dead_tup, $2) AS n_dead_tup FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace LEFT JOIN pg_stat_user_tables s ON s.relid = c.oid WHERE c.relkind = $3 AND n.nspname NOT IN ($4 /*, ... */) ORDER BY total_bytes DESC"
+          },
+          {
+            "queryid": "-3741707593236325849",
+            "calls": 1,
+            "total_exec_time": 3.7272999999999996,
+            "mean_exec_time": 3.7272999999999996,
+            "shared_blks_read": 36,
+            "temp_blks_read": 0,
+            "temp_blks_written": 0,
+            "query": "SELECT schemaname, tablename, indexname, indexdef FROM pg_indexes WHERE schemaname = ANY (current_schemas($1))"
+          },
+          {
+            "queryid": "-6321281415133756646",
+            "calls": 6,
+            "total_exec_time": 5.3933,
+            "mean_exec_time": 0.8988833333333334,
+            "shared_blks_read": 34,
+            "temp_blks_read": 0,
+            "temp_blks_written": 0,
+            "query": "SELECT DISTINCT att.attname as name, att.attnum as OID, pg_catalog.format_type(ty.oid,$1) AS datatype, pg_catalog.format_type(ty.oid,att.atttypmod) AS displaytypname, att.attnotnull as not_null, CASE WHEN att.atthasdef OR att.attidentity != $2 OR ty.typdefault IS NOT NULL THEN $3 ELSE $4 END as has_default_val, des.description, seq.seqtypid FROM pg_catalog.pg_attribute att JOIN pg_catalog.pg_type ty ON ty.oid=atttypid JOIN pg_catalog.pg_namespace tn ON tn.oid=ty.typnamespace JOIN pg_catalog.pg_class cl ON cl.oid=att.attrelid JOIN pg_catalog.pg_namespace na ON na.oid=cl.relnamespace LEFT OUTER JOIN pg_catalog.pg_type et ON et.oid=ty.typelem LEFT OUTER JOIN pg_catalog.pg_attrdef def ON adrelid=att.attrelid AND adnum=att.attnum LEFT OUTER JOIN (pg_catalog.pg_depend JOIN pg_catalog.pg_class cs ON classid=$5::regclass AND objid=cs.oid AND cs.relkind=$6) ON refobjid=att.attrelid AND refobjsubid=att.attnum LEFT OUTER JOIN pg_catalog.pg_namespace ns ON ns.oid=cs.relnamespace LEFT OUTER JOIN pg_catalog.pg_index pi ON pi.indrelid=att.attrelid AND indisprimary LEFT OUTER JOIN pg_catalog.pg_description des ON (des.objoid=att.attrelid AND des.objsubid=att.attnum AND des.classoid=$7::regclass) LEFT OUTER JOIN pg_catalog.pg_sequence seq ON cs.oid=seq.seqrelid WHERE att.attrelid = $8::oid AND att.attnum > $9 AND att.attisdropped IS FALSE ORDER BY att.attnum"
+          },
+          {
+            "queryid": "8511307368339327141",
+            "calls": 1,
+            "total_exec_time": 5.8027,
+            "mean_exec_time": 5.8027,
+            "shared_blks_read": 22,
+            "temp_blks_read": 0,
+            "temp_blks_written": 0,
+            "query": "SELECT layer_key, layer_name, layer_group, source_table, geometry_type, is_visible, opacity, sort_order, metadata FROM layers_registry ORDER BY layer_group, sort_order, layer_name"
+          },
+          {
+            "queryid": "2503101037485376602",
+            "calls": 4,
+            "total_exec_time": 55.1723,
+            "mean_exec_time": 13.793075,
+            "shared_blks_read": 6,
+            "temp_blks_read": 0,
+            "temp_blks_written": 0,
+            "query": "SELECT schemaname, tablename, indexname, indexdef, pg_relation_size((schemaname || $1 || indexname)::regclass) AS index_bytes FROM pg_indexes WHERE schemaname NOT IN ($2 /*, ... */) ORDER BY index_bytes DESC NULLS LAST"
+          },
+          {
+            "queryid": "3318008918616571018",
+            "calls": 8,
+            "total_exec_time": 0.3881,
+            "mean_exec_time": 0.04851250000000001,
+            "shared_blks_read": 3,
+            "temp_blks_read": 0,
+            "temp_blks_written": 0,
+            "query": "SELECT oid, pg_catalog.format_type(oid, $2) AS typname FROM pg_catalog.pg_type WHERE oid = ANY($1) ORDER BY oid"
+          },
+          {
+            "queryid": "7991237484093652806",
+            "calls": 1,
+            "total_exec_time": 0.7,
+            "mean_exec_time": 0.7,
+            "shared_blks_read": 1,
+            "temp_blks_read": 0,
+            "temp_blks_written": 0,
+            "query": "SELECT s.id, s.expedition_id, s.title, s.status, s.layer_key, s.metadata, COUNT(so.id) FILTER (WHERE so.is_active = $1) AS object_count FROM surveys s LEFT JOIN survey_objects so ON so.survey_id = s.id GROUP BY s.id, s.expedition_id, s.title, s.status, s.layer_key, s.metadata ORDER BY s.id"
+          },
+          {
+            "queryid": "-5894150803193253271",
+            "calls": 1,
+            "total_exec_time": 0.6451,
+            "mean_exec_time": 0.6451,
+            "shared_blks_read": 1,
+            "temp_blks_read": 0,
+            "temp_blks_written": 0,
+            "query": "SELECT COUNT(*) FROM data_layers.bkg_vg25_boundaries WHERE geom IS NOT NULL"
+          },
+          {
+            "queryid": "5299827402502271170",
+            "calls": 4,
+            "total_exec_time": 0.5871999999999999,
+            "mean_exec_time": 0.14679999999999999,
+            "shared_blks_read": 1,
+            "temp_blks_read": 0,
+            "temp_blks_written": 0,
+            "query": "SELECT e.extname, e.extversion, n.nspname AS schema_name FROM pg_extension e JOIN pg_namespace n ON n.oid = e.extnamespace ORDER BY e.extname"
+          },
+          {
+            "queryid": "-7442721242327432905",
+            "calls": 1,
+            "total_exec_time": 0.5678000000000001,
+            "mean_exec_time": 0.5678000000000001,
+            "shared_blks_read": 1,
+            "temp_blks_read": 0,
+            "temp_blks_written": 0,
+            "query": "SELECT COUNT(*) FROM data_layers.bkg_vg250_boundaries WHERE geom IS NOT NULL"
+          },
+          {
+            "queryid": "-5245368837703123513",
+            "calls": 1,
+            "total_exec_time": 0.5072,
+            "mean_exec_time": 0.5072,
+            "shared_blks_read": 1,
+            "temp_blks_read": 0,
+            "temp_blks_written": 0,
+            "query": "SELECT CASE WHEN (SELECT count(extname) FROM pg_catalog.pg_extension WHERE extname=$1) > $2 THEN $3 WHEN (SELECT COUNT(*) FROM pg_replication_slots) > $4 THEN $5 ELSE $6 END as type"
+          },
+          {
+            "queryid": "6195550807530596269",
+            "calls": 1,
+            "total_exec_time": 0.4816,
+            "mean_exec_time": 0.4816,
+            "shared_blks_read": 1,
+            "temp_blks_read": 0,
+            "temp_blks_written": 0,
+            "query": "SELECT roles.oid as id, roles.rolname as name, roles.rolsuper as is_superuser, CASE WHEN roles.rolsuper THEN $1 ELSE roles.rolcreaterole END as can_create_role, CASE WHEN roles.rolsuper THEN $2 ELSE roles.rolcreatedb END as can_create_db, CASE WHEN $3=ANY(ARRAY(WITH RECURSIVE cte AS ( SELECT pg_roles.oid,pg_roles.rolname FROM pg_roles WHERE pg_roles.oid = roles.oid UNION ALL SELECT m.roleid,pgr.rolname FROM cte cte_1 JOIN pg_auth_members m ON m.member = cte_1.oid JOIN pg_roles pgr ON pgr.oid = m.roleid) SELECT rolname FROM cte)) THEN $4 ELSE $5 END as can_signal_backend FROM pg_catalog.pg_roles as roles WHERE rolname = current_user"
+          }
+        ]
+      },
+      "recommendation": "Review indexing/plans and cache effectiveness for read-heavy SQL.",
+      "candidate_scope": "database"
+    }
+  ]
+}

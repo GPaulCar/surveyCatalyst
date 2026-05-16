@@ -1,5 +1,5 @@
 {
-  "collected_at_utc": "2026-05-16T09:51:33.597693+00:00",
+  "collected_at_utc": "2026-05-16T09:58:34.043040+00:00",
   "hostname": "Spanish-Bombs",
   "platform": "Windows-11-10.0.26200-SP0",
   "system": "Windows",
@@ -11,15 +11,21 @@
   "cwd": "C:\\Users\\Paul\\Desktop\\dev\\surveyCatalyst",
   "disk_usage_root": {
     "total": 2047301980160,
-    "used": 1322407415808,
-    "free": 724894564352
+    "used": 1322416144384,
+    "free": 724885835776
   },
   "volumes": [
     {
       "name": "C",
       "root": "C:\\",
-      "used": 1322407415808,
-      "free": 724894564352
+      "used": 1322416144384,
+      "free": 724885835776
+    },
+    {
+      "name": "D",
+      "root": "D:\\",
+      "used": 1010655232,
+      "free": 172032
     },
     {
       "name": "G",

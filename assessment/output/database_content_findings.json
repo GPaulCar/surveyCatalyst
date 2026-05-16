@@ -1,0 +1,674 @@
+{
+  "generated_at_utc": "2026-05-16T09:58:39.268760+00:00",
+  "input_files": {
+    "table_sizes": "C:\\Users\\Paul\\Desktop\\dev\\surveyCatalyst\\assessment\\output\\table_sizes.csv",
+    "index_inventory": "C:\\Users\\Paul\\Desktop\\dev\\surveyCatalyst\\assessment\\output\\index_inventory.csv",
+    "index_usage": "C:\\Users\\Paul\\Desktop\\dev\\surveyCatalyst\\assessment\\output\\index_usage.csv",
+    "table_activity": "C:\\Users\\Paul\\Desktop\\dev\\surveyCatalyst\\assessment\\output\\table_activity.csv",
+    "geometry_columns": "C:\\Users\\Paul\\Desktop\\dev\\surveyCatalyst\\assessment\\output\\geometry_columns.csv",
+    "srid_distribution": "C:\\Users\\Paul\\Desktop\\dev\\surveyCatalyst\\assessment\\output\\srid_distribution.csv",
+    "geometry_quality": "C:\\Users\\Paul\\Desktop\\dev\\surveyCatalyst\\assessment\\output\\geometry_quality.csv"
+  },
+  "summary": {
+    "total_findings": 59,
+    "confirmed": 1,
+    "candidate": 58
+  },
+  "findings": [
+    {
+      "type": "overlapping_spatial_indexes",
+      "severity": "high",
+      "table": "external_features",
+      "indexes": [
+        "idx_external_features_geom_gist",
+        "idx_external_features_geom",
+        "idx_external_features_layer_geom_gist"
+      ],
+      "evidence": [
+        "CREATE INDEX idx_external_features_geom_gist ON public.external_features USING gist (geom)",
+        "CREATE INDEX idx_external_features_geom ON public.external_features USING gist (geom)",
+        "CREATE INDEX idx_external_features_layer_geom_gist ON public.external_features USING gist (geom)"
+      ],
+      "recommendation": "Validate per-index usage and consolidate redundant GiST indexes.",
+      "action": "confirmed"
+    },
+    {
+      "type": "unused_index",
+      "severity": "medium",
+      "table": "layers_registry",
+      "index": "layers_registry_pkey",
+      "evidence": {
+        "idx_scan": 0
+      },
+      "recommendation": "Review whether index is still needed; avoid blind drops without query-history window.",
+      "action": "candidate"
+    },
+    {
+      "type": "unused_index",
+      "severity": "medium",
+      "table": "surveys",
+      "index": "idx_surveys_geom",
+      "evidence": {
+        "idx_scan": 0
+      },
+      "recommendation": "Review whether index is still needed; avoid blind drops without query-history window.",
+      "action": "candidate"
+    },
+    {
+      "type": "unused_index",
+      "severity": "medium",
+      "table": "surveys",
+      "index": "surveys_layer_key_key",
+      "evidence": {
+        "idx_scan": 0
+      },
+      "recommendation": "Review whether index is still needed; avoid blind drops without query-history window.",
+      "action": "candidate"
+    },
+    {
+      "type": "unused_index",
+      "severity": "medium",
+      "table": "layers_registry",
+      "index": "idx_layers_registry_group_sort",
+      "evidence": {
+        "idx_scan": 0
+      },
+      "recommendation": "Review whether index is still needed; avoid blind drops without query-history window.",
+      "action": "candidate"
+    },
+    {
+      "type": "unused_index",
+      "severity": "medium",
+      "table": "survey_objects",
+      "index": "idx_survey_objects_layer_key",
+      "evidence": {
+        "idx_scan": 0
+      },
+      "recommendation": "Review whether index is still needed; avoid blind drops without query-history window.",
+      "action": "candidate"
+    },
+    {
+      "type": "unused_index",
+      "severity": "medium",
+      "table": "external_features",
+      "index": "idx_external_features_layer",
+      "evidence": {
+        "idx_scan": 0
+      },
+      "recommendation": "Review whether index is still needed; avoid blind drops without query-history window.",
+      "action": "candidate"
+    },
+    {
+      "type": "unused_index",
+      "severity": "medium",
+      "table": "ingestion_sources",
+      "index": "ingestion_sources_pkey",
+      "evidence": {
+        "idx_scan": 0
+      },
+      "recommendation": "Review whether index is still needed; avoid blind drops without query-history window.",
+      "action": "candidate"
+    },
+    {
+      "type": "unused_index",
+      "severity": "medium",
+      "table": "ingestion_sources",
+      "index": "ingestion_sources_source_key_key",
+      "evidence": {
+        "idx_scan": 0
+      },
+      "recommendation": "Review whether index is still needed; avoid blind drops without query-history window.",
+      "action": "candidate"
+    },
+    {
+      "type": "unused_index",
+      "severity": "medium",
+      "table": "ingestion_runs",
+      "index": "ingestion_runs_pkey",
+      "evidence": {
+        "idx_scan": 0
+      },
+      "recommendation": "Review whether index is still needed; avoid blind drops without query-history window.",
+      "action": "candidate"
+    },
+    {
+      "type": "unused_index",
+      "severity": "medium",
+      "table": "ingestion_artifacts",
+      "index": "ingestion_artifacts_pkey",
+      "evidence": {
+        "idx_scan": 0
+      },
+      "recommendation": "Review whether index is still needed; avoid blind drops without query-history window.",
+      "action": "candidate"
+    },
+    {
+      "type": "unused_index",
+      "severity": "medium",
+      "table": "restricted_areas",
+      "index": "restricted_areas_pkey",
+      "evidence": {
+        "idx_scan": 0
+      },
+      "recommendation": "Review whether index is still needed; avoid blind drops without query-history window.",
+      "action": "candidate"
+    },
+    {
+      "type": "unused_index",
+      "severity": "medium",
+      "table": "bavaria_economy_raw",
+      "index": "bavaria_economy_raw_pkey",
+      "evidence": {
+        "idx_scan": 0
+      },
+      "recommendation": "Review whether index is still needed; avoid blind drops without query-history window.",
+      "action": "candidate"
+    },
+    {
+      "type": "unused_index",
+      "severity": "medium",
+      "table": "mining_locations",
+      "index": "mining_locations_pkey",
+      "evidence": {
+        "idx_scan": 0
+      },
+      "recommendation": "Review whether index is still needed; avoid blind drops without query-history window.",
+      "action": "candidate"
+    },
+    {
+      "type": "unused_index",
+      "severity": "medium",
+      "table": "mining_locations",
+      "index": "idx_mining_locations_geom",
+      "evidence": {
+        "idx_scan": 0
+      },
+      "recommendation": "Review whether index is still needed; avoid blind drops without query-history window.",
+      "action": "candidate"
+    },
+    {
+      "type": "unused_index",
+      "severity": "medium",
+      "table": "raw_test",
+      "index": "raw_test_pkey",
+      "evidence": {
+        "idx_scan": 0
+      },
+      "recommendation": "Review whether index is still needed; avoid blind drops without query-history window.",
+      "action": "candidate"
+    },
+    {
+      "type": "unused_index",
+      "severity": "medium",
+      "table": "spsde:simplifiedbavarianmonument",
+      "index": "spsde:simplifiedbavarianmonument_pk",
+      "evidence": {
+        "idx_scan": 0
+      },
+      "recommendation": "Review whether index is still needed; avoid blind drops without query-history window.",
+      "action": "candidate"
+    },
+    {
+      "type": "unused_index",
+      "severity": "medium",
+      "table": "spsde:simplifiedbavarianmonument",
+      "index": "spsde:simplifiedbavarianmonument_geometry_geom_idx",
+      "evidence": {
+        "idx_scan": 0
+      },
+      "recommendation": "Review whether index is still needed; avoid blind drops without query-history window.",
+      "action": "candidate"
+    },
+    {
+      "type": "unused_index",
+      "severity": "medium",
+      "table": "restricted_areas",
+      "index": "idx_restricted_areas_geom",
+      "evidence": {
+        "idx_scan": 0
+      },
+      "recommendation": "Review whether index is still needed; avoid blind drops without query-history window.",
+      "action": "candidate"
+    },
+    {
+      "type": "unused_index",
+      "severity": "medium",
+      "table": "surveys",
+      "index": "idx_surveys_geom_gist",
+      "evidence": {
+        "idx_scan": 0
+      },
+      "recommendation": "Review whether index is still needed; avoid blind drops without query-history window.",
+      "action": "candidate"
+    },
+    {
+      "type": "unused_index",
+      "severity": "medium",
+      "table": "survey_objects",
+      "index": "idx_survey_objects_geom_gist",
+      "evidence": {
+        "idx_scan": 0
+      },
+      "recommendation": "Review whether index is still needed; avoid blind drops without query-history window.",
+      "action": "candidate"
+    },
+    {
+      "type": "unused_index",
+      "severity": "medium",
+      "table": "external_features",
+      "index": "idx_external_features_geom_gist",
+      "evidence": {
+        "idx_scan": 0
+      },
+      "recommendation": "Review whether index is still needed; avoid blind drops without query-history window.",
+      "action": "candidate"
+    },
+    {
+      "type": "unused_index",
+      "severity": "medium",
+      "table": "survey_objects",
+      "index": "survey_objects_pkey",
+      "evidence": {
+        "idx_scan": 0
+      },
+      "recommendation": "Review whether index is still needed; avoid blind drops without query-history window.",
+      "action": "candidate"
+    },
+    {
+      "type": "unused_index",
+      "severity": "medium",
+      "table": "external_features",
+      "index": "idx_external_features_properties_label",
+      "evidence": {
+        "idx_scan": 0
+      },
+      "recommendation": "Review whether index is still needed; avoid blind drops without query-history window.",
+      "action": "candidate"
+    },
+    {
+      "type": "unused_index",
+      "severity": "medium",
+      "table": "permission_requests",
+      "index": "permission_requests_pkey",
+      "evidence": {
+        "idx_scan": 0
+      },
+      "recommendation": "Review whether index is still needed; avoid blind drops without query-history window.",
+      "action": "candidate"
+    },
+    {
+      "type": "unused_index",
+      "severity": "medium",
+      "table": "permission_requests",
+      "index": "idx_permission_requests_survey_id",
+      "evidence": {
+        "idx_scan": 0
+      },
+      "recommendation": "Review whether index is still needed; avoid blind drops without query-history window.",
+      "action": "candidate"
+    },
+    {
+      "type": "unused_index",
+      "severity": "medium",
+      "table": "permission_requests",
+      "index": "idx_permission_requests_feature_id",
+      "evidence": {
+        "idx_scan": 0
+      },
+      "recommendation": "Review whether index is still needed; avoid blind drops without query-history window.",
+      "action": "candidate"
+    },
+    {
+      "type": "unused_index",
+      "severity": "medium",
+      "table": "layer_registry",
+      "index": "layer_registry_pkey",
+      "evidence": {
+        "idx_scan": 0
+      },
+      "recommendation": "Review whether index is still needed; avoid blind drops without query-history window.",
+      "action": "candidate"
+    },
+    {
+      "type": "unused_index",
+      "severity": "medium",
+      "table": "layer_registry",
+      "index": "layer_registry_layer_name_key",
+      "evidence": {
+        "idx_scan": 0
+      },
+      "recommendation": "Review whether index is still needed; avoid blind drops without query-history window.",
+      "action": "candidate"
+    },
+    {
+      "type": "unused_index",
+      "severity": "medium",
+      "table": "bkg_vg250_boundaries",
+      "index": "bkg_vg250_boundaries_pkey",
+      "evidence": {
+        "idx_scan": 0
+      },
+      "recommendation": "Review whether index is still needed; avoid blind drops without query-history window.",
+      "action": "candidate"
+    },
+    {
+      "type": "unused_index",
+      "severity": "medium",
+      "table": "bkg_vg25_boundaries",
+      "index": "bkg_vg25_boundaries_pkey",
+      "evidence": {
+        "idx_scan": 0
+      },
+      "recommendation": "Review whether index is still needed; avoid blind drops without query-history window.",
+      "action": "candidate"
+    },
+    {
+      "type": "unused_index",
+      "severity": "medium",
+      "table": "survey_objects",
+      "index": "idx_survey_objects_geom",
+      "evidence": {
+        "idx_scan": 0
+      },
+      "recommendation": "Review whether index is still needed; avoid blind drops without query-history window.",
+      "action": "candidate"
+    },
+    {
+      "type": "unused_index",
+      "severity": "medium",
+      "table": "surveys",
+      "index": "surveys_pkey",
+      "evidence": {
+        "idx_scan": 0
+      },
+      "recommendation": "Review whether index is still needed; avoid blind drops without query-history window.",
+      "action": "candidate"
+    },
+    {
+      "type": "unused_index",
+      "severity": "medium",
+      "table": "external_features",
+      "index": "idx_external_features_geom",
+      "evidence": {
+        "idx_scan": 0
+      },
+      "recommendation": "Review whether index is still needed; avoid blind drops without query-history window.",
+      "action": "candidate"
+    },
+    {
+      "type": "never_analyzed",
+      "severity": "medium",
+      "table": "spsde:simplifiedbavarianmonument",
+      "evidence": {
+        "last_analyze": "",
+        "last_autoanalyze": ""
+      },
+      "recommendation": "Ensure ANALYZE/autovacuum analyze runs for planner statistics quality.",
+      "action": "candidate"
+    },
+    {
+      "type": "never_analyzed",
+      "severity": "medium",
+      "table": "ingestion_runs",
+      "evidence": {
+        "last_analyze": "",
+        "last_autoanalyze": ""
+      },
+      "recommendation": "Ensure ANALYZE/autovacuum analyze runs for planner statistics quality.",
+      "action": "candidate"
+    },
+    {
+      "type": "never_analyzed",
+      "severity": "medium",
+      "table": "layer_registry",
+      "evidence": {
+        "last_analyze": "",
+        "last_autoanalyze": ""
+      },
+      "recommendation": "Ensure ANALYZE/autovacuum analyze runs for planner statistics quality.",
+      "action": "candidate"
+    },
+    {
+      "type": "never_analyzed",
+      "severity": "medium",
+      "table": "bkg_vg250_boundaries",
+      "evidence": {
+        "last_analyze": "",
+        "last_autoanalyze": ""
+      },
+      "recommendation": "Ensure ANALYZE/autovacuum analyze runs for planner statistics quality.",
+      "action": "candidate"
+    },
+    {
+      "type": "never_analyzed",
+      "severity": "medium",
+      "table": "ingestion_sources",
+      "evidence": {
+        "last_analyze": "",
+        "last_autoanalyze": ""
+      },
+      "recommendation": "Ensure ANALYZE/autovacuum analyze runs for planner statistics quality.",
+      "action": "candidate"
+    },
+    {
+      "type": "never_analyzed",
+      "severity": "medium",
+      "table": "ingestion_artifacts",
+      "evidence": {
+        "last_analyze": "",
+        "last_autoanalyze": ""
+      },
+      "recommendation": "Ensure ANALYZE/autovacuum analyze runs for planner statistics quality.",
+      "action": "candidate"
+    },
+    {
+      "type": "never_analyzed",
+      "severity": "medium",
+      "table": "bkg_vg25_boundaries",
+      "evidence": {
+        "last_analyze": "",
+        "last_autoanalyze": ""
+      },
+      "recommendation": "Ensure ANALYZE/autovacuum analyze runs for planner statistics quality.",
+      "action": "candidate"
+    },
+    {
+      "type": "never_analyzed",
+      "severity": "medium",
+      "table": "external_features",
+      "evidence": {
+        "last_analyze": "",
+        "last_autoanalyze": ""
+      },
+      "recommendation": "Ensure ANALYZE/autovacuum analyze runs for planner statistics quality.",
+      "action": "candidate"
+    },
+    {
+      "type": "never_analyzed",
+      "severity": "medium",
+      "table": "permission_requests",
+      "evidence": {
+        "last_analyze": "",
+        "last_autoanalyze": ""
+      },
+      "recommendation": "Ensure ANALYZE/autovacuum analyze runs for planner statistics quality.",
+      "action": "candidate"
+    },
+    {
+      "type": "never_analyzed",
+      "severity": "medium",
+      "table": "bavaria_economy_raw",
+      "evidence": {
+        "last_analyze": "",
+        "last_autoanalyze": ""
+      },
+      "recommendation": "Ensure ANALYZE/autovacuum analyze runs for planner statistics quality.",
+      "action": "candidate"
+    },
+    {
+      "type": "never_analyzed",
+      "severity": "medium",
+      "table": "survey_objects",
+      "evidence": {
+        "last_analyze": "",
+        "last_autoanalyze": ""
+      },
+      "recommendation": "Ensure ANALYZE/autovacuum analyze runs for planner statistics quality.",
+      "action": "candidate"
+    },
+    {
+      "type": "never_analyzed",
+      "severity": "medium",
+      "table": "mining_locations",
+      "evidence": {
+        "last_analyze": "",
+        "last_autoanalyze": ""
+      },
+      "recommendation": "Ensure ANALYZE/autovacuum analyze runs for planner statistics quality.",
+      "action": "candidate"
+    },
+    {
+      "type": "never_analyzed",
+      "severity": "medium",
+      "table": "surveys",
+      "evidence": {
+        "last_analyze": "",
+        "last_autoanalyze": ""
+      },
+      "recommendation": "Ensure ANALYZE/autovacuum analyze runs for planner statistics quality.",
+      "action": "candidate"
+    },
+    {
+      "type": "never_analyzed",
+      "severity": "medium",
+      "table": "raw_test",
+      "evidence": {
+        "last_analyze": "",
+        "last_autoanalyze": ""
+      },
+      "recommendation": "Ensure ANALYZE/autovacuum analyze runs for planner statistics quality.",
+      "action": "candidate"
+    },
+    {
+      "type": "never_analyzed",
+      "severity": "medium",
+      "table": "restricted_areas",
+      "evidence": {
+        "last_analyze": "",
+        "last_autoanalyze": ""
+      },
+      "recommendation": "Ensure ANALYZE/autovacuum analyze runs for planner statistics quality.",
+      "action": "candidate"
+    },
+    {
+      "type": "never_analyzed",
+      "severity": "medium",
+      "table": "layers_registry",
+      "evidence": {
+        "last_analyze": "",
+        "last_autoanalyze": ""
+      },
+      "recommendation": "Ensure ANALYZE/autovacuum analyze runs for planner statistics quality.",
+      "action": "candidate"
+    },
+    {
+      "type": "never_analyzed",
+      "severity": "medium",
+      "table": "spatial_ref_sys",
+      "evidence": {
+        "last_analyze": "",
+        "last_autoanalyze": ""
+      },
+      "recommendation": "Ensure ANALYZE/autovacuum analyze runs for planner statistics quality.",
+      "action": "candidate"
+    },
+    {
+      "type": "missing_spatial_index_candidate",
+      "severity": "high",
+      "table": "bkg_vg250_boundaries",
+      "column": "geom",
+      "evidence": {
+        "index_match_probe": " on bkg_vg250_boundaries using gist (geom"
+      },
+      "recommendation": "Confirm whether a GiST/SP-GiST index exists or should be created.",
+      "action": "candidate"
+    },
+    {
+      "type": "missing_spatial_index_candidate",
+      "severity": "high",
+      "table": "bkg_vg25_boundaries",
+      "column": "geom",
+      "evidence": {
+        "index_match_probe": " on bkg_vg25_boundaries using gist (geom"
+      },
+      "recommendation": "Confirm whether a GiST/SP-GiST index exists or should be created.",
+      "action": "candidate"
+    },
+    {
+      "type": "missing_spatial_index_candidate",
+      "severity": "high",
+      "table": "mining_locations",
+      "column": "geom",
+      "evidence": {
+        "index_match_probe": " on mining_locations using gist (geom"
+      },
+      "recommendation": "Confirm whether a GiST/SP-GiST index exists or should be created.",
+      "action": "candidate"
+    },
+    {
+      "type": "missing_spatial_index_candidate",
+      "severity": "high",
+      "table": "restricted_areas",
+      "column": "geom",
+      "evidence": {
+        "index_match_probe": " on restricted_areas using gist (geom"
+      },
+      "recommendation": "Confirm whether a GiST/SP-GiST index exists or should be created.",
+      "action": "candidate"
+    },
+    {
+      "type": "missing_spatial_index_candidate",
+      "severity": "high",
+      "table": "external_features",
+      "column": "geom",
+      "evidence": {
+        "index_match_probe": " on external_features using gist (geom"
+      },
+      "recommendation": "Confirm whether a GiST/SP-GiST index exists or should be created.",
+      "action": "candidate"
+    },
+    {
+      "type": "missing_spatial_index_candidate",
+      "severity": "high",
+      "table": "spsde:simplifiedbavarianmonument",
+      "column": "geometry",
+      "evidence": {
+        "index_match_probe": " on spsde:simplifiedbavarianmonument using gist (geometry"
+      },
+      "recommendation": "Confirm whether a GiST/SP-GiST index exists or should be created.",
+      "action": "candidate"
+    },
+    {
+      "type": "missing_spatial_index_candidate",
+      "severity": "high",
+      "table": "survey_objects",
+      "column": "geom",
+      "evidence": {
+        "index_match_probe": " on survey_objects using gist (geom"
+      },
+      "recommendation": "Confirm whether a GiST/SP-GiST index exists or should be created.",
+      "action": "candidate"
+    },
+    {
+      "type": "missing_spatial_index_candidate",
+      "severity": "high",
+      "table": "surveys",
+      "column": "geom",
+      "evidence": {
+        "index_match_probe": " on surveys using gist (geom"
+      },
+      "recommendation": "Confirm whether a GiST/SP-GiST index exists or should be created.",
+      "action": "candidate"
+    }
+  ]
+}

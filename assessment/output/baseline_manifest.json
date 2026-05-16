@@ -1,6 +1,6 @@
 {
-  "collected_at_utc": "2026-05-16T09:51:36.281657+00:00",
-  "started_at_utc": "2026-05-16T09:51:33.597622+00:00",
+  "collected_at_utc": "2026-05-16T09:58:38.936077+00:00",
+  "started_at_utc": "2026-05-16T09:58:34.042975+00:00",
   "output_dir": "C:\\Users\\Paul\\Desktop\\dev\\surveyCatalyst\\assessment\\output",
   "db_target": {
     "host": "127.0.0.1",
@@ -8,7 +8,7 @@
     "database": "survey_catalyst",
     "user": "sc_user"
   },
-  "allow_analyze": false,
+  "allow_analyze": true,
   "files": [
     "system_baseline.json",
     "postgres_identity.json",

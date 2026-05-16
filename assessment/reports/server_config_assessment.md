@@ -1,6 +1,6 @@
 # Server Configuration Assessment
 
-Generated: 2026-05-16T09:51:36.454334+00:00
+Generated: 2026-05-16T09:58:39.095600+00:00
 
 ## Scope
 - Input: assessment/output/postgres_settings.csv
