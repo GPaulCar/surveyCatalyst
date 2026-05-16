@@ -1,0 +1,320 @@
+queryid,calls,total_exec_time,mean_exec_time,rows,shared_blks_hit,shared_blks_read,temp_blks_read,temp_blks_written,query
+4622485673134627552,1,5038.295,5038.295,36,85735,361465,0,0,"SELECT layer, COUNT(*)
+            FROM external_features
+            GROUP BY layer"
+-5507895004688678276,2,2741.3256,1370.6628,2,37491,699391,0,0,"SELECT $1 AS table_name, ST_SRID(geom) AS srid, COUNT(*) AS n
+            FROM external_features
+            WHERE geom IS NOT NULL
+            GROUP BY ST_SRID(geom)
+            UNION ALL
+            SELECT $2 AS table_name, ST_SRID(geom) AS srid, COUNT(*) AS n
+            FROM survey_objects
+            WHERE geom IS NOT NULL
+            GROUP BY ST_SRID(geom)
+            UNION ALL
+            SELECT $3 AS table_name, ST_SRID(geom) AS srid, COUNT(*) AS n
+            FROM surveys
+            WHERE geom IS NOT NULL
+            GROUP BY ST_SRID(geom)
+            ORDER BY table_name, n DESC"
+1389976556187309256,1,2550.2867,2550.2867,0,99021,346660,0,0,"EXPLAIN (ANALYZE, BUFFERS, VERBOSE, SETTINGS)
+SELECT layer, COUNT(*)
+FROM public.external_features
+GROUP BY layer"
+7647870470435028548,2,800.7752,400.3876,10,90279,6093,0,0,"WITH sample AS (
+              SELECT layer, geom
+              FROM external_features
+              WHERE geom IS NOT NULL
+              ORDER BY id DESC
+              LIMIT $1
+            )
+            SELECT
+              layer,
+              COUNT(*) AS sampled_features,
+              COUNT(*) FILTER (WHERE NOT ST_IsValid(geom)) AS invalid_features,
+              AVG(ST_NPoints(geom)) AS avg_points,
+              MAX(ST_NPoints(geom)) AS max_points
+            FROM sample
+            GROUP BY layer
+            ORDER BY sampled_features DESC"
+8285673085659896166,3,625.2084,208.4028,12,36,0,0,0,"SELECT datname, pg_database_size(datname) AS bytes
+            FROM pg_database
+            ORDER BY bytes DESC"
+1381153010722816006,3,183.788,61.26266666666667,51,3581,37,0,0,"SELECT
+              n.nspname AS schema_name,
+              c.relname AS table_name,
+              pg_total_relation_size(c.oid) AS total_bytes,
+              pg_relation_size(c.oid) AS table_bytes,
+              pg_indexes_size(c.oid) AS index_bytes,
+              COALESCE(s.n_live_tup, $1) AS n_live_tup,
+              COALESCE(s.n_dead_tup, $2) AS n_dead_tup
+            FROM pg_class c
+            JOIN pg_namespace n ON n.oid = c.relnamespace
+            LEFT JOIN pg_stat_user_tables s ON s.relid = c.oid
+            WHERE c.relkind = $3
+              AND n.nspname NOT IN ($4 /*, ... */)
+            ORDER BY total_bytes DESC"
+-1118924422343236163,2,110.4422,55.2211,0,4026,80,0,0,CREATE EXTENSION IF NOT EXISTS pg_stat_statements
+2503101037485376602,3,42.1,14.033333333333333,120,3207,6,0,0,"SELECT
+              schemaname,
+              tablename,
+              indexname,
+              indexdef,
+              pg_relation_size((schemaname || $1 || indexname)::regclass) AS index_bytes
+            FROM pg_indexes
+            WHERE schemaname NOT IN ($2 /*, ... */)
+            ORDER BY index_bytes DESC NULLS LAST"
+9144112771074952941,1,38.688100000000006,38.688100000000006,15,3,0,0,0,"SELECT
+    calls,
+    ROUND(total_exec_time::numeric, $1) AS total_ms,
+    ROUND(mean_exec_time::numeric, $2) AS mean_ms,
+    rows,
+    shared_blks_hit,
+    shared_blks_read,
+    temp_blks_written,
+    query
+FROM pg_stat_statements
+WHERE query NOT ILIKE $3
+ORDER BY total_exec_time DESC
+LIMIT $4"
+-9181392394806888969,3,19.0797,6.3599,1209,9,0,0,0,"SELECT name, setting, unit, category, context, vartype, source, boot_val, reset_val, pending_restart
+            FROM pg_settings
+            ORDER BY name"
+1314168946605071400,3,17.4838,5.827933333333333,3,0,0,0,0,"SELECT name, setting, pending_restart
+FROM pg_settings
+WHERE name = $1"
+3146247604830448625,2,10.9581,5.47905,36,0,0,0,0,"SELECT
+              name, setting, unit, context, source
+            FROM pg_settings
+            WHERE name LIKE $1
+               OR name IN ($2 /*, ... */)
+            ORDER BY name"
+-2441191445735386548,2,7.5048,3.7524,16,3465,89,0,0,"SELECT f_table_schema, f_table_name, f_geometry_column, coord_dimension, srid, type
+            FROM public.geometry_columns
+            ORDER BY f_table_schema, f_table_name, f_geometry_column"
+8808516917869465915,6,6.679699999999999,1.1132833333333332,189,107,49,0,0,"SELECT at.attname, ty.typname, at.attnum
+    FROM pg_catalog.pg_attribute at
+    LEFT JOIN pg_catalog.pg_type ty ON (ty.oid = at.atttypid)
+    JOIN pg_catalog.pg_class as cl ON cl.oid=at.attrelid
+    JOIN pg_catalog.pg_namespace as nsp ON nsp.oid=cl.relnamespace
+WHERE
+    attrelid=$1::oid AND
+at.attnum > $2
+AND at.attisdropped = $3"
+8511307368339327141,1,5.8027,5.8027,95,7,22,0,0,"SELECT layer_key,
+                           layer_name,
+                           layer_group,
+                           source_table,
+                           geometry_type,
+                           is_visible,
+                           opacity,
+                           sort_order,
+                           metadata
+                    FROM layers_registry
+                    ORDER BY layer_group, sort_order, layer_name"
+389015072221078199,1,5.5121,5.5121,1,0,0,0,0,"SELECT set_config($1,$2,$3) FROM pg_show_all_settings() WHERE name = $4"
+389015072221078199,1,5.4352,5.4352,1,0,0,0,0,"SELECT set_config($1,$2,$3) FROM pg_show_all_settings() WHERE name = $4"
+-6321281415133756646,6,5.3933,0.8988833333333334,189,270,34,0,0,"SELECT DISTINCT att.attname as name, att.attnum as OID, pg_catalog.format_type(ty.oid,$1) AS datatype,
+pg_catalog.format_type(ty.oid,att.atttypmod) AS displaytypname,
+att.attnotnull as not_null,
+CASE WHEN att.atthasdef OR att.attidentity != $2 OR ty.typdefault IS NOT NULL THEN $3
+ELSE $4 END as has_default_val, des.description, seq.seqtypid
+FROM pg_catalog.pg_attribute att
+    JOIN pg_catalog.pg_type ty ON ty.oid=atttypid
+    JOIN pg_catalog.pg_namespace tn ON tn.oid=ty.typnamespace
+    JOIN pg_catalog.pg_class cl ON cl.oid=att.attrelid
+    JOIN pg_catalog.pg_namespace na ON na.oid=cl.relnamespace
+    LEFT OUTER JOIN pg_catalog.pg_type et ON et.oid=ty.typelem
+    LEFT OUTER JOIN pg_catalog.pg_attrdef def ON adrelid=att.attrelid AND adnum=att.attnum
+    LEFT OUTER JOIN (pg_catalog.pg_depend JOIN pg_catalog.pg_class cs ON classid=$5::regclass AND objid=cs.oid AND cs.relkind=$6) ON refobjid=att.attrelid AND refobjsubid=att.attnum
+    LEFT OUTER JOIN pg_catalog.pg_namespace ns ON ns.oid=cs.relnamespace
+    LEFT OUTER JOIN pg_catalog.pg_index pi ON pi.indrelid=att.attrelid AND indisprimary
+    LEFT OUTER JOIN pg_catalog.pg_description des ON (des.objoid=att.attrelid AND des.objsubid=att.attnum AND des.classoid=$7::regclass)
+    LEFT OUTER JOIN pg_catalog.pg_sequence seq ON cs.oid=seq.seqrelid
+WHERE
+
+    att.attrelid = $8::oid
+    AND att.attnum > $9
+    AND att.attisdropped IS FALSE
+ORDER BY att.attnum"
+4854991825702068830,1955,3.9076999999999833,0.0019988235294117673,0,0,0,0,0,BEGIN
+-3741707593236325849,1,3.7272999999999996,3.7272999999999996,31,1173,36,0,0,"SELECT schemaname, tablename, indexname, indexdef
+                FROM pg_indexes
+                WHERE schemaname = ANY (current_schemas($1))"
+-3789064086496793860,2,2.2753,1.13765,38,0,0,0,0,"SELECT
+    calls,
+    ROUND(total_exec_time::numeric, $1) AS total_ms,
+    ROUND(mean_exec_time::numeric, $2) AS mean_ms,
+    rows,
+    shared_blks_hit,
+    shared_blks_read,
+    temp_blks_written,
+    LEFT(query, $3) AS query
+FROM pg_stat_statements
+WHERE query NOT ILIKE $4
+  AND query NOT ILIKE $5
+  AND query NOT ILIKE $6
+ORDER BY total_exec_time DESC
+LIMIT $7"
+5459451095644561854,3,0.9067000000000001,0.30223333333333335,120,426,0,0,0,"SELECT
+              s.relname AS table_name,
+              s.indexrelname AS index_name,
+              s.idx_scan,
+              s.idx_tup_read,
+              s.idx_tup_fetch
+            FROM pg_stat_user_indexes s
+            ORDER BY s.idx_scan DESC"
+-896801712255462144,1,0.8491,0.8491,63,37,0,0,0,"SELECT locktype, mode, granted, pid, relation::regclass::text AS relation_name
+            FROM pg_locks
+            ORDER BY granted, pid"
+-8195791971706566154,3,0.7925,0.26416666666666666,51,66,0,0,0,"SELECT
+              relname AS table_name,
+              seq_scan, seq_tup_read, idx_scan, idx_tup_fetch,
+              n_tup_ins, n_tup_upd, n_tup_del, n_tup_hot_upd,
+              n_live_tup, n_dead_tup,
+              last_vacuum, last_autovacuum, last_analyze, last_autoanalyze
+            FROM pg_stat_user_tables
+            ORDER BY n_live_tup DESC NULLS LAST"
+7991237484093652806,1,0.7,0.7,0,0,1,0,0,"SELECT s.id, s.expedition_id, s.title, s.status, s.layer_key, s.metadata,
+                       COUNT(so.id) FILTER (WHERE so.is_active = $1) AS object_count
+                FROM surveys s
+                LEFT JOIN survey_objects so ON so.survey_id = s.id
+                GROUP BY s.id, s.expedition_id, s.title, s.status, s.layer_key, s.metadata
+                ORDER BY s.id"
+-5894150803193253271,1,0.6451,0.6451,1,0,1,0,0,SELECT COUNT(*) FROM data_layers.bkg_vg25_boundaries WHERE geom IS NOT NULL
+6076718095895867295,1,0.6192,0.6192,11,5,0,0,0,"SELECT pid, usename, datname, application_name, client_addr, state,
+                   backend_start, xact_start, query_start, wait_event_type, wait_event
+            FROM pg_stat_activity
+            ORDER BY pid"
+-7442721242327432905,1,0.5678000000000001,0.5678000000000001,1,0,1,0,0,SELECT COUNT(*) FROM data_layers.bkg_vg250_boundaries WHERE geom IS NOT NULL
+5299827402502271170,3,0.5282,0.17606666666666665,9,20,1,0,0,"SELECT e.extname, e.extversion, n.nspname AS schema_name
+            FROM pg_extension e
+            JOIN pg_namespace n ON n.oid = e.extnamespace
+            ORDER BY e.extname"
+-5245368837703123513,1,0.5072,0.5072,1,0,1,0,0,"SELECT CASE
+    WHEN (SELECT count(extname) FROM pg_catalog.pg_extension WHERE extname=$1) > $2
+    THEN $3
+    WHEN (SELECT COUNT(*) FROM pg_replication_slots) > $4
+    THEN $5
+    ELSE $6
+END as type"
+2575877978056241298,6,0.48450000000000004,0.08075000000000002,2,73,0,0,0,"SELECT at.attname, at.attnum, ty.typname
+FROM pg_catalog.pg_attribute at LEFT JOIN pg_catalog.pg_type ty ON (ty.oid = at.atttypid)
+JOIN pg_catalog.pg_class as cl ON cl.oid=AT.attrelid
+JOIN pg_catalog.pg_namespace as nsp ON nsp.oid=cl.relnamespace
+WHERE
+    attrelid=$1::oid AND
+attnum = ANY (
+(SELECT con.conkey FROM pg_catalog.pg_class rel LEFT OUTER JOIN pg_catalog.pg_constraint con ON con.conrelid=rel.oid
+JOIN pg_catalog.pg_namespace as nsp ON nsp.oid=REL.relnamespace
+AND con.contype=$2 WHERE rel.relkind IN ($3 /*, ... */) AND
+    rel.oid = ($4)::oid
+)::oid[])"
+6195550807530596269,1,0.4816,0.4816,1,3,1,0,0,"SELECT
+            roles.oid as id, roles.rolname as name,
+            roles.rolsuper as is_superuser,
+            CASE WHEN roles.rolsuper THEN $1 ELSE roles.rolcreaterole END as
+            can_create_role,
+            CASE WHEN roles.rolsuper THEN $2
+            ELSE roles.rolcreatedb END as can_create_db,
+            CASE WHEN $3=ANY(ARRAY(WITH RECURSIVE cte AS (
+            SELECT pg_roles.oid,pg_roles.rolname FROM pg_roles
+                WHERE pg_roles.oid = roles.oid
+            UNION ALL
+            SELECT m.roleid,pgr.rolname FROM cte cte_1
+                JOIN pg_auth_members m ON m.member = cte_1.oid
+                JOIN pg_roles pgr ON pgr.oid = m.roleid)
+            SELECT rolname  FROM cte)) THEN $4
+            ELSE $5 END as can_signal_backend
+        FROM
+            pg_catalog.pg_roles as roles
+        WHERE
+            rolname = current_user"
+13694668025197710,1,0.4523,0.4523,59,3,0,0,0,"SELECT queryid, calls, total_exec_time, mean_exec_time, rows,
+                       shared_blks_hit, shared_blks_read, temp_blks_read, temp_blks_written,
+                       query
+                FROM pg_stat_statements
+                ORDER BY total_exec_time DESC
+                LIMIT $1"
+3446253728778910686,1,0.4441,0.4441,1,0,0,0,0,"SELECT count(*) AS pg_stat_statements_rows
+FROM pg_stat_statements"
+3318008918616571018,8,0.3881,0.04851250000000001,17,21,3,0,0,"SELECT oid, pg_catalog.format_type(oid, $2) AS typname FROM pg_catalog.pg_type WHERE oid = ANY($1) ORDER BY oid"
+723080116808149895,1,0.11120000000000001,0.11120000000000001,1,0,0,0,0,"SELECT
+             gss_authenticated, encrypted
+        FROM
+            pg_catalog.pg_stat_gssapi
+        WHERE pid = pg_backend_pid()"
+723080116808149895,1,0.09179999999999999,0.09179999999999999,1,0,0,0,0,"SELECT
+             gss_authenticated, encrypted
+        FROM
+            pg_catalog.pg_stat_gssapi
+        WHERE pid = pg_backend_pid()"
+6195550807530596269,1,0.0757,0.0757,1,4,0,0,0,"SELECT
+            roles.oid as id, roles.rolname as name,
+            roles.rolsuper as is_superuser,
+            CASE WHEN roles.rolsuper THEN $1 ELSE roles.rolcreaterole END as
+            can_create_role,
+            CASE WHEN roles.rolsuper THEN $2
+            ELSE roles.rolcreatedb END as can_create_db,
+            CASE WHEN $3=ANY(ARRAY(WITH RECURSIVE cte AS (
+            SELECT pg_roles.oid,pg_roles.rolname FROM pg_roles
+                WHERE pg_roles.oid = roles.oid
+            UNION ALL
+            SELECT m.roleid,pgr.rolname FROM cte cte_1
+                JOIN pg_auth_members m ON m.member = cte_1.oid
+                JOIN pg_roles pgr ON pgr.oid = m.roleid)
+            SELECT rolname  FROM cte)) THEN $4
+            ELSE $5 END as can_signal_backend
+        FROM
+            pg_catalog.pg_roles as roles
+        WHERE
+            rolname = current_user"
+602080821217516466,3,0.0356,0.011866666666666668,3,0,0,0,0,SELECT current_database()
+5051979035894942613,2,0.0332,0.0166,2,2,0,0,0,SELECT COUNT(*) FROM pg_extension WHERE extname = $1
+-3688696628780506391,3,0.0329,0.010966666666666666,3,0,0,0,0,SELECT $1
+-4643418664278280844,1,0.027200000000000002,0.027200000000000002,1,1,0,0,0,"SELECT
+    db.oid as did, db.datname, db.datallowconn,
+    pg_encoding_to_char(db.encoding) AS serverencoding,
+    has_database_privilege(db.oid, $1) as cancreate,
+    datistemplate
+FROM
+    pg_catalog.pg_database db
+WHERE db.datname = current_database()"
+-1256420371218150429,2,0.0271,0.01355,2,2,0,0,0,"SELECT extname, extversion
+FROM pg_extension
+WHERE extname = $1"
+-4643418664278280844,1,0.0208,0.0208,1,1,0,0,0,"SELECT
+    db.oid as did, db.datname, db.datallowconn,
+    pg_encoding_to_char(db.encoding) AS serverencoding,
+    has_database_privilege(db.oid, $1) as cancreate,
+    datistemplate
+FROM
+    pg_catalog.pg_database db
+WHERE db.datname = current_database()"
+-86323926068950410,1,0.019899999999999998,0.019899999999999998,1,0,0,0,0,SELECT version()
+-1806964954713279221,1,0.0174,0.0174,1,1,0,0,0,"SELECT CASE WHEN usesuper
+       THEN pg_catalog.pg_is_in_recovery()
+       ELSE $1
+       END as inrecovery,
+       CASE WHEN usesuper AND pg_catalog.pg_is_in_recovery()
+       THEN pg_is_wal_replay_paused()
+       ELSE $2
+       END as isreplaypaused
+FROM pg_catalog.pg_user WHERE usename=current_user"
+-8873911804314169340,1,0.014,0.014,0,0,0,0,0,SET DateStyle=$1
+6039773827682666654,3,0.0131,0.004366666666666667,0,0,0,0,0,SHOW server_version
+-8873911804314169340,1,0.0108,0.0108,0,0,0,0,0,SET DateStyle=$1
+4999884173844161568,3,0.0086,0.0028666666666666667,3,0,0,0,0,SELECT current_user
+4359259187362990377,1,0.0082,0.0082,0,0,0,0,0,SET client_encoding=$1
+4359259187362990377,1,0.0061,0.0061,0,0,0,0,0,SET client_encoding=$1
+-7891584619504183020,3,0.0051,0.0017000000000000001,0,0,0,0,0,SHOW config_file
+-7556750615580075877,3,0.0050999999999999995,0.0017,0,0,0,0,0,SHOW port
+3899954808500938091,3,0.005,0.0016666666666666666,0,0,0,0,0,SHOW data_directory
+985182613339288046,3,0.004999999999999999,0.0016666666666666666,0,0,0,0,0,SHOW hba_file
+-86323926068950410,1,0.0049,0.0049,1,0,0,0,0,SELECT version()
+-8370928913120278298,1,0.0043,0.0043,0,0,0,0,0,SET client_min_messages=$1
+-3669134851575249393,3,0.0043,0.0014333333333333333,0,0,0,0,0,SHOW ident_file
+-4664818520581223344,3,0.0039,0.0013,0,0,0,0,0,SHOW listen_addresses
+-8370928913120278298,1,0.0038,0.0038,0,0,0,0,0,SET client_min_messages=$1
+-7676915344437841334,1,0.0025,0.0025,0,0,0,0,0,ROLLBACK
+6097083398544187049,1,0.0021,0.0021,0,0,0,0,0,COMMIT

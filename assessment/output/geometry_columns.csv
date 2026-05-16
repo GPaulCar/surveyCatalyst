@@ -1,0 +1,9 @@
+f_table_schema,f_table_name,f_geometry_column,coord_dimension,srid,type
+data_layers,bkg_vg250_boundaries,geom,2,0,GEOMETRY
+data_layers,bkg_vg25_boundaries,geom,2,0,GEOMETRY
+economic,mining_locations,geom,2,4326,POINT
+legal,restricted_areas,geom,2,4326,MULTIPOLYGON
+public,external_features,geom,2,4326,GEOMETRY
+public,spsde:simplifiedbavarianmonument,geometry,2,25832,GEOMETRY
+public,survey_objects,geom,2,4326,GEOMETRY
+public,surveys,geom,2,4326,POLYGON

@@ -1,0 +1,12 @@
+{
+  "collected_at_utc": "2026-05-16T09:51:34.192054+00:00",
+  "current_database": "survey_catalyst",
+  "current_user": "sc_user",
+  "server_version": "18.3",
+  "data_directory": "C:/Users/Paul/Desktop/dev/surveyCatalyst/postgres/data",
+  "config_file": "C:/Users/Paul/Desktop/dev/surveyCatalyst/postgres/data/postgresql.conf",
+  "hba_file": "C:/Users/Paul/Desktop/dev/surveyCatalyst/postgres/data/pg_hba.conf",
+  "ident_file": "C:/Users/Paul/Desktop/dev/surveyCatalyst/postgres/data/pg_ident.conf",
+  "listen_addresses": "localhost",
+  "port": "55433"
+}

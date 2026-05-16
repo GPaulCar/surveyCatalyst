@@ -1,0 +1,6 @@
+layer,sampled_features,invalid_features,avg_points,max_points
+osm_railways,5000,0,10.8836000000000000,194
+eea_corine_change_2012_2018,5000,0,38.9786000000000000,1161
+copernicus_clc2018_land_cover,5000,0,108.8768000000000000,11269
+unep_wcmc_wdpca_polygons,3148,0,248.6432655654383736,12770
+hessen_area_monuments,1852,0,121.6803455723542117,1545

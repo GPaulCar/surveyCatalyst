@@ -1,0 +1,4 @@
+extname,extversion,schema_name
+pg_stat_statements,1.12,public
+plpgsql,1.0,pg_catalog
+postgis,3.6.2,public

@@ -1,0 +1,12 @@
+pid,usename,datname,application_name,client_addr,state,backend_start,xact_start,query_start,wait_event_type,wait_event
+12804,sc_user,survey_catalyst,pgAdmin 4 - CONN:132540,::1,idle,2026-05-16 11:16:37.400322+02:00,,2026-05-16 11:26:43.881833+02:00,Client,ClientRead
+55528,,,,,,2026-05-16 11:16:19.286742+02:00,,,Activity,BgwriterMain
+66124,,,,,,2026-05-16 11:16:19.268621+02:00,,,Activity,IoWorkerMain
+67232,,,,,,2026-05-16 11:16:19.726760+02:00,,,Activity,WalWriterMain
+67944,sc_user,postgres,pgAdmin 4 - DB:postgres,::1,idle,2026-05-16 11:16:37.283755+02:00,,2026-05-16 11:16:37.372537+02:00,Client,ClientRead
+68376,,,,,,2026-05-16 11:16:19.730027+02:00,,,Activity,AutovacuumMain
+69268,,,,,,2026-05-16 11:16:19.273666+02:00,,,Activity,IoWorkerMain
+72872,,,,,,2026-05-16 11:16:19.281930+02:00,,,Activity,CheckpointerMain
+73400,,,,,,2026-05-16 11:16:19.277759+02:00,,,Activity,IoWorkerMain
+73564,sc_user,,,,,2026-05-16 11:16:19.733689+02:00,,,Activity,LogicalLauncherMain
+77668,sc_user,survey_catalyst,,127.0.0.1,active,2026-05-16 11:51:34.184120+02:00,2026-05-16 11:51:34.192193+02:00,2026-05-16 11:51:36.275459+02:00,,

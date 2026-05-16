@@ -1,0 +1,104 @@
+{
+  "generated_at_utc": "2026-05-16T09:51:36.454334+00:00",
+  "input_files": [
+    "C:\\Users\\Paul\\Desktop\\dev\\surveyCatalyst\\assessment\\output\\postgres_settings.csv",
+    "C:\\Users\\Paul\\Desktop\\dev\\surveyCatalyst\\assessment\\output\\system_baseline.json"
+  ],
+  "findings": [
+    {
+      "key": "shared_buffers",
+      "setting_name": "shared_buffers",
+      "current_value": "16 MB",
+      "recommended_value": "488114 MB",
+      "source": "configuration file",
+      "context": "postmaster",
+      "pending_restart": "False",
+      "confidence": "candidate",
+      "rationale": "shared_buffers below typical target can increase disk reads.",
+      "risk": "medium",
+      "requires": "restart",
+      "validation_method": "Compare buffer cache hit ratio and query latency after restart.",
+      "rollback": "Restore shared_buffers to 163848kB."
+    },
+    {
+      "key": "effective_cache_size",
+      "setting_name": "effective_cache_size",
+      "current_value": "512 MB",
+      "recommended_value": "1171475 MB",
+      "source": "default",
+      "context": "user",
+      "pending_restart": "False",
+      "confidence": "candidate",
+      "rationale": "effective_cache_size drives planner assumptions for index scans.",
+      "risk": "low",
+      "requires": "reload",
+      "validation_method": "Check plan changes for top queries and index usage.",
+      "rollback": "Restore effective_cache_size to 5242888kB."
+    },
+    {
+      "key": "maintenance_work_mem",
+      "setting_name": "maintenance_work_mem",
+      "current_value": "64 MB",
+      "recommended_value": "97622 MB",
+      "source": "default",
+      "context": "user",
+      "pending_restart": "False",
+      "confidence": "candidate",
+      "rationale": "maintenance operations can be slow with too-small maintenance_work_mem.",
+      "risk": "low",
+      "requires": "reload",
+      "validation_method": "Observe VACUUM/CREATE INDEX runtime after change.",
+      "rollback": "Restore maintenance_work_mem to 65536kB."
+    },
+    {
+      "key": "max_parallel_workers_per_gather",
+      "setting_name": "max_parallel_workers_per_gather",
+      "current_value": "2",
+      "recommended_value": "2",
+      "source": "default",
+      "context": "user",
+      "pending_restart": "False",
+      "confidence": "candidate",
+      "rationale": "parallel execution can improve scans on large analytical reads.",
+      "risk": "low",
+      "requires": "reload",
+      "validation_method": "Check EXPLAIN plans for Gather nodes and execution time.",
+      "rollback": "Restore max_parallel_workers_per_gather to 2."
+    },
+    {
+      "key": "checkpoint_completion_target",
+      "setting_name": "checkpoint_completion_target",
+      "current_value": "0.9",
+      "recommended_value": "0.9",
+      "source": "default",
+      "context": "sighup",
+      "pending_restart": "False",
+      "confidence": "candidate",
+      "rationale": "higher checkpoint_completion_target smooths checkpoint I/O bursts.",
+      "risk": "low",
+      "requires": "reload",
+      "validation_method": "Track checkpoint write spikes and latency variance.",
+      "rollback": "Restore checkpoint_completion_target to 0.9."
+    },
+    {
+      "key": "wal_buffers",
+      "setting_name": "wal_buffers",
+      "current_value": "5128kB",
+      "recommended_value": "auto or higher explicit value if WAL contention observed",
+      "source": "default",
+      "context": "postmaster",
+      "pending_restart": "False",
+      "confidence": "candidate",
+      "rationale": "WAL buffer size can affect write-heavy workloads.",
+      "risk": "low",
+      "requires": "restart",
+      "validation_method": "Observe WAL write waits and transaction latency during write bursts.",
+      "rollback": "Restore wal_buffers to 5128kB."
+    }
+  ],
+  "summary": {
+    "count": 6,
+    "confirmed": 0,
+    "candidate": 6
+  }
+}

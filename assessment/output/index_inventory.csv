@@ -1,0 +1,41 @@
+schemaname,tablename,indexname,indexdef,index_bytes
+public,external_features,idx_external_features_geom_gist,CREATE INDEX idx_external_features_geom_gist ON public.external_features USING gist (geom),1204715520
+public,external_features,idx_external_features_geom,CREATE INDEX idx_external_features_geom ON public.external_features USING gist (geom),1149386752
+public,external_features,idx_external_features_layer_geom_gist,CREATE INDEX idx_external_features_layer_geom_gist ON public.external_features USING gist (geom),1146126336
+public,external_features,idx_external_features_layer_source_id,"CREATE INDEX idx_external_features_layer_source_id ON public.external_features USING btree (layer, source_id)",1099833344
+public,external_features,external_features_pkey,CREATE UNIQUE INDEX external_features_pkey ON public.external_features USING btree (id),532512768
+public,external_features,idx_external_features_layer,"CREATE INDEX idx_external_features_layer ON public.external_features USING btree (layer, source_table)",223051776
+public,external_features,idx_external_features_properties_label,CREATE INDEX idx_external_features_properties_label ON public.external_features USING btree (((properties ->> 'label'::text))),189538304
+legal,restricted_areas,idx_restricted_areas_geom,CREATE INDEX idx_restricted_areas_geom ON legal.restricted_areas USING gist (geom),20267008
+legal,restricted_areas,restricted_areas_pkey,CREATE UNIQUE INDEX restricted_areas_pkey ON legal.restricted_areas USING btree (id),13451264
+public,spsde:simplifiedbavarianmonument,spsde:simplifiedbavarianmonument_geometry_geom_idx,"CREATE INDEX ""spsde:simplifiedbavarianmonument_geometry_geom_idx"" ON public.""spsde:simplifiedbavarianmonument"" USING gist (geometry)",8527872
+public,spsde:simplifiedbavarianmonument,spsde:simplifiedbavarianmonument_pk,"CREATE UNIQUE INDEX ""spsde:simplifiedbavarianmonument_pk"" ON public.""spsde:simplifiedbavarianmonument"" USING btree (ogc_fid)",4481024
+public,spatial_ref_sys,spatial_ref_sys_pkey,CREATE UNIQUE INDEX spatial_ref_sys_pkey ON public.spatial_ref_sys USING btree (srid),212992
+public,ingestion_sources,ingestion_sources_source_key_key,CREATE UNIQUE INDEX ingestion_sources_source_key_key ON public.ingestion_sources USING btree (source_key),16384
+public,ingestion_runs,ingestion_runs_pkey,CREATE UNIQUE INDEX ingestion_runs_pkey ON public.ingestion_runs USING btree (id),16384
+public,ingestion_artifacts,ingestion_artifacts_pkey,CREATE UNIQUE INDEX ingestion_artifacts_pkey ON public.ingestion_artifacts USING btree (id),16384
+economic,mining_locations,mining_locations_pkey,CREATE UNIQUE INDEX mining_locations_pkey ON economic.mining_locations USING btree (id),16384
+public,surveys,surveys_pkey,CREATE UNIQUE INDEX surveys_pkey ON public.surveys USING btree (id),16384
+public,raw_test,raw_test_pkey,CREATE UNIQUE INDEX raw_test_pkey ON public.raw_test USING btree (id),16384
+public,survey_objects,survey_objects_pkey,CREATE UNIQUE INDEX survey_objects_pkey ON public.survey_objects USING btree (id),16384
+public,permission_requests,idx_permission_requests_survey_id,CREATE INDEX idx_permission_requests_survey_id ON public.permission_requests USING btree (survey_id),16384
+public,permission_requests,permission_requests_pkey,CREATE UNIQUE INDEX permission_requests_pkey ON public.permission_requests USING btree (id),16384
+public,permission_requests,idx_permission_requests_feature_id,CREATE INDEX idx_permission_requests_feature_id ON public.permission_requests USING btree (feature_id),16384
+public,layer_registry,layer_registry_pkey,CREATE UNIQUE INDEX layer_registry_pkey ON public.layer_registry USING btree (id),16384
+public,layer_registry,layer_registry_layer_name_key,CREATE UNIQUE INDEX layer_registry_layer_name_key ON public.layer_registry USING btree (layer_name),16384
+data_layers,bkg_vg250_boundaries,bkg_vg250_boundaries_pkey,CREATE UNIQUE INDEX bkg_vg250_boundaries_pkey ON data_layers.bkg_vg250_boundaries USING btree (id),16384
+public,layers_registry,layers_registry_pkey,CREATE UNIQUE INDEX layers_registry_pkey ON public.layers_registry USING btree (id),16384
+data_layers,bkg_vg25_boundaries,bkg_vg25_boundaries_pkey,CREATE UNIQUE INDEX bkg_vg25_boundaries_pkey ON data_layers.bkg_vg25_boundaries USING btree (id),16384
+public,layers_registry,layers_registry_layer_key_key,CREATE UNIQUE INDEX layers_registry_layer_key_key ON public.layers_registry USING btree (layer_key),16384
+public,surveys,surveys_layer_key_key,CREATE UNIQUE INDEX surveys_layer_key_key ON public.surveys USING btree (layer_key),16384
+public,layers_registry,idx_layers_registry_group_sort,"CREATE INDEX idx_layers_registry_group_sort ON public.layers_registry USING btree (layer_group, sort_order)",16384
+public,survey_objects,idx_survey_objects_layer_key,CREATE INDEX idx_survey_objects_layer_key ON public.survey_objects USING btree (layer_key),16384
+public,ingestion_sources,ingestion_sources_pkey,CREATE UNIQUE INDEX ingestion_sources_pkey ON public.ingestion_sources USING btree (id),16384
+data_layers,bkg_vg25_boundaries,idx_bkg_vg25_boundaries_geom_gist,CREATE INDEX idx_bkg_vg25_boundaries_geom_gist ON data_layers.bkg_vg25_boundaries USING gist (geom),8192
+public,surveys,idx_surveys_geom,CREATE INDEX idx_surveys_geom ON public.surveys USING gist (geom),8192
+public,survey_objects,idx_survey_objects_geom,CREATE INDEX idx_survey_objects_geom ON public.survey_objects USING gist (geom),8192
+economic,bavaria_economy_raw,bavaria_economy_raw_pkey,CREATE UNIQUE INDEX bavaria_economy_raw_pkey ON economic.bavaria_economy_raw USING btree (id),8192
+economic,mining_locations,idx_mining_locations_geom,CREATE INDEX idx_mining_locations_geom ON economic.mining_locations USING gist (geom),8192
+public,surveys,idx_surveys_geom_gist,CREATE INDEX idx_surveys_geom_gist ON public.surveys USING gist (geom),8192
+public,survey_objects,idx_survey_objects_geom_gist,CREATE INDEX idx_survey_objects_geom_gist ON public.survey_objects USING gist (geom),8192
+data_layers,bkg_vg250_boundaries,idx_bkg_vg250_boundaries_geom_gist,CREATE INDEX idx_bkg_vg250_boundaries_geom_gist ON data_layers.bkg_vg250_boundaries USING gist (geom),8192

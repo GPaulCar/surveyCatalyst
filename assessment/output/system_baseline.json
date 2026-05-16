@@ -1,0 +1,31 @@
+{
+  "collected_at_utc": "2026-05-16T09:51:33.597693+00:00",
+  "hostname": "Spanish-Bombs",
+  "platform": "Windows-11-10.0.26200-SP0",
+  "system": "Windows",
+  "release": "11",
+  "version": "10.0.26200",
+  "machine": "AMD64",
+  "processor": "AMD64 Family 25 Model 80 Stepping 0, AuthenticAMD",
+  "python_version": "3.13.13 (tags/v3.13.13:01104ce, Apr  7 2026, 19:25:48) [MSC v.1944 64 bit (AMD64)]",
+  "cwd": "C:\\Users\\Paul\\Desktop\\dev\\surveyCatalyst",
+  "disk_usage_root": {
+    "total": 2047301980160,
+    "used": 1322407415808,
+    "free": 724894564352
+  },
+  "volumes": [
+    {
+      "name": "C",
+      "root": "C:\\",
+      "used": 1322407415808,
+      "free": 724894564352
+    },
+    {
+      "name": "G",
+      "root": "G:\\",
+      "used": 35799040,
+      "free": 68227072
+    }
+  ]
+}

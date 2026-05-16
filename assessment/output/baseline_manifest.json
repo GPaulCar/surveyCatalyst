@@ -1,0 +1,30 @@
+{
+  "collected_at_utc": "2026-05-16T09:51:36.281657+00:00",
+  "started_at_utc": "2026-05-16T09:51:33.597622+00:00",
+  "output_dir": "C:\\Users\\Paul\\Desktop\\dev\\surveyCatalyst\\assessment\\output",
+  "db_target": {
+    "host": "127.0.0.1",
+    "port": 55433,
+    "database": "survey_catalyst",
+    "user": "sc_user"
+  },
+  "allow_analyze": false,
+  "files": [
+    "system_baseline.json",
+    "postgres_identity.json",
+    "postgres_settings.csv",
+    "extensions.csv",
+    "database_sizes.csv",
+    "table_sizes.csv",
+    "index_inventory.csv",
+    "index_usage.csv",
+    "table_activity.csv",
+    "autovacuum_settings.csv",
+    "geometry_columns.csv",
+    "srid_distribution.csv",
+    "geometry_quality.csv",
+    "pg_stat_statements.csv",
+    "connections.csv",
+    "locks.csv"
+  ]
+}

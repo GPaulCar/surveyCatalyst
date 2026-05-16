@@ -1,0 +1,19 @@
+name,setting,unit,context,source
+autovacuum,on,,sighup,default
+autovacuum_analyze_scale_factor,0.1,,sighup,default
+autovacuum_analyze_threshold,50,,sighup,default
+autovacuum_freeze_max_age,200000000,,postmaster,default
+autovacuum_max_workers,3,,sighup,default
+autovacuum_multixact_freeze_max_age,400000000,,postmaster,default
+autovacuum_naptime,60,s,sighup,default
+autovacuum_vacuum_cost_delay,2,ms,sighup,default
+autovacuum_vacuum_cost_limit,-1,,sighup,default
+autovacuum_vacuum_insert_scale_factor,0.2,,sighup,default
+autovacuum_vacuum_insert_threshold,1000,,sighup,default
+autovacuum_vacuum_max_threshold,100000000,,sighup,default
+autovacuum_vacuum_scale_factor,0.2,,sighup,default
+autovacuum_vacuum_threshold,50,,sighup,default
+autovacuum_work_mem,-1,kB,sighup,default
+autovacuum_worker_slots,16,,postmaster,configuration file
+vacuum_cost_delay,0,ms,user,default
+vacuum_cost_limit,200,,user,default

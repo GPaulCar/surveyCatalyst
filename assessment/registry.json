@@ -1,0 +1,260 @@
+{
+  "registry_name": "survey_catalyst_postgres_optimization_registry",
+  "version": "0.2",
+  "purpose": "Authoritative orchestration manifest for assessing, planning, executing, validating, and monitoring PostgreSQL/PostGIS optimization work for Survey Catalyst.",
+  "execution_policy": {
+    "sequence": [
+      "assess",
+      "plan",
+      "execute",
+      "validate",
+      "monitor"
+    ],
+    "rule": "Do not execute optimization changes until baseline collection and planning artifacts have been reviewed.",
+    "ordering": "execution_index is authoritative.",
+    "task_granularity": "Each task should be a coherent parcel of work, not a single tiny command.",
+    "safety": "Assessment tasks must be read-only unless explicitly marked otherwise."
+  },
+  "tasks": [
+    {
+      "execution_index": 1,
+      "status": "planned",
+      "phase": "foundation",
+      "title": "Create optimization registry and workspace structure",
+      "objective": "Create the persistent project structure and registry file that Codex will use as the single source of truth.",
+      "codex_command": "Create an optimization workspace under assessment/. Add assessment/registry.json using this registry structure. Add folders assessment/output/, assessment/scripts/, assessment/reports/, assessment/plans/, assessment/validation/, and assessment/logs/. Add a README.md explaining that this project follows Assess -> Plan -> Execute -> Validate -> Monitor. Do not modify the database.",
+      "affects_next_parcel": true,
+      "inputs_required": [],
+      "expected_outputs": [
+        "assessment/registry.json",
+        "assessment/README.md",
+        "assessment/output/",
+        "assessment/scripts/",
+        "assessment/reports/",
+        "assessment/plans/",
+        "assessment/validation/",
+        "assessment/logs/"
+      ],
+      "validation": [
+        "Registry file exists",
+        "Workspace folders exist",
+        "README explains execution model"
+      ],
+      "rollback": "Delete the assessment/ directory.",
+      "dependencies": []
+    },
+    {
+      "execution_index": 2,
+      "status": "planned",
+      "phase": "assessment",
+      "title": "Create full baseline collector",
+      "objective": "Create one Python collector that gathers Windows, PostgreSQL server, PostGIS, database, schema, index, autovacuum, statistics, and workload data into structured files.",
+      "codex_command": "Create assessment/scripts/collect_full_baseline.py. The script must collect all baseline data in one execution block. It must write structured outputs to assessment/output/. It must be read-only against PostgreSQL except for optional ANALYZE only if explicitly enabled with a command-line flag. It must collect Windows system metadata, PostgreSQL version and paths, pg_settings, extension inventory, database size, table sizes, index inventory, index usage, table activity, autovacuum settings, geometry columns, SRID distribution, geometry complexity samples, invalid geometry counts, pg_stat_statements, active connections, locks, long-running transactions, and disk/volume information. Use environment variables or a .env.example for connection details. Do not apply tuning changes.",
+      "affects_next_parcel": true,
+      "inputs_required": [
+        "PostgreSQL host",
+        "PostgreSQL port 55433",
+        "Database survey_catalyst",
+        "Username/password or trusted auth details"
+      ],
+      "expected_outputs": [
+        "assessment/output/system_baseline.json",
+        "assessment/output/postgres_identity.json",
+        "assessment/output/postgres_settings.csv",
+        "assessment/output/extensions.csv",
+        "assessment/output/database_sizes.csv",
+        "assessment/output/table_sizes.csv",
+        "assessment/output/index_inventory.csv",
+        "assessment/output/index_usage.csv",
+        "assessment/output/table_activity.csv",
+        "assessment/output/autovacuum_settings.csv",
+        "assessment/output/geometry_columns.csv",
+        "assessment/output/srid_distribution.csv",
+        "assessment/output/geometry_quality.csv",
+        "assessment/output/pg_stat_statements.csv",
+        "assessment/output/connections.csv",
+        "assessment/output/locks.csv",
+        "assessment/output/baseline_manifest.json"
+      ],
+      "validation": [
+        "Script runs as one command",
+        "All output files are created",
+        "Collector does not modify schema or data",
+        "Output manifest records collection timestamp"
+      ],
+      "rollback": "Delete generated assessment/output files.",
+      "dependencies": [
+        1
+      ]
+    },
+    {
+      "execution_index": 3,
+      "status": "planned",
+      "phase": "assessment",
+      "title": "Analyze PostgreSQL server configuration",
+      "objective": "Analyze server-level configuration as one parcel: memory, WAL, checkpoints, planner costs, parallelism, logging, statistics, and preload libraries.",
+      "codex_command": "Create assessment/scripts/analyze_server_config.py. It must read baseline outputs and generate assessment/reports/server_config_assessment.md plus assessment/output/server_config_findings.json. It must identify current values, recommended values, risk, restart/reload requirement, validation method, and rollback for PostgreSQL server settings. It must not change postgresql.conf or run ALTER SYSTEM.",
+      "affects_next_parcel": true,
+      "inputs_required": [
+        "assessment/output/postgres_settings.csv",
+        "assessment/output/system_baseline.json"
+      ],
+      "expected_outputs": [
+        "assessment/reports/server_config_assessment.md",
+        "assessment/output/server_config_findings.json"
+      ],
+      "validation": [
+        "Report separates confirmed issues from candidate recommendations",
+        "Every recommendation states restart/reload requirement",
+        "No changes are applied"
+      ],
+      "rollback": "Delete generated report and findings files.",
+      "dependencies": [
+        2
+      ]
+    },
+    {
+      "execution_index": 4,
+      "status": "planned",
+      "phase": "assessment",
+      "title": "Analyze database content, schema, PostGIS, and indexes",
+      "objective": "Analyze database-level and content-level issues as one parcel: large tables, duplicate indexes, spatial index coverage, geometry validity, SRIDs, bloat indicators, autovacuum gaps, and table statistics.",
+      "codex_command": "Create assessment/scripts/analyze_database_content.py. It must read baseline outputs and generate assessment/reports/database_content_assessment.md plus assessment/output/database_content_findings.json. It must detect duplicate indexes, overlapping indexes, missing obvious indexes, dead tuple concerns, un-analyzed tables, geometry validity issues, SRID inconsistencies, oversized geometries, and PostGIS-specific risks. It must not drop, create, or modify database objects.",
+      "affects_next_parcel": true,
+      "inputs_required": [
+        "assessment/output/table_sizes.csv",
+        "assessment/output/index_inventory.csv",
+        "assessment/output/index_usage.csv",
+        "assessment/output/table_activity.csv",
+        "assessment/output/geometry_columns.csv",
+        "assessment/output/srid_distribution.csv",
+        "assessment/output/geometry_quality.csv"
+      ],
+      "expected_outputs": [
+        "assessment/reports/database_content_assessment.md",
+        "assessment/output/database_content_findings.json"
+      ],
+      "validation": [
+        "Duplicate GiST indexes on external_features are identified",
+        "Autovacuum issue on external_features is identified",
+        "Findings are evidence-based",
+        "No changes are applied"
+      ],
+      "rollback": "Delete generated report and findings files.",
+      "dependencies": [
+        2
+      ]
+    },
+    {
+      "execution_index": 5,
+      "status": "planned",
+      "phase": "assessment",
+      "title": "Analyze workload and application queries",
+      "objective": "Analyze pg_stat_statements and query plans as one parcel to identify expensive SQL and application-level optimization candidates.",
+      "codex_command": "Create assessment/scripts/analyze_workload.py. It must read pg_stat_statements output and optional saved EXPLAIN plans from assessment/output/plans/. Generate assessment/reports/workload_assessment.md and assessment/output/workload_findings.json. It must identify high total time queries, high mean time queries, high read queries, temp spill queries, repeated metadata queries, spatial predicate hotspots, and application query candidates. It must include the known expensive query SELECT layer, COUNT(*) FROM external_features GROUP BY layer as a confirmed candidate if present. Do not modify application code or database objects.",
+      "affects_next_parcel": true,
+      "inputs_required": [
+        "assessment/output/pg_stat_statements.csv",
+        "assessment/output/plans/ if available"
+      ],
+      "expected_outputs": [
+        "assessment/reports/workload_assessment.md",
+        "assessment/output/workload_findings.json"
+      ],
+      "validation": [
+        "Expensive external_features layer count query is identified",
+        "Findings include evidence from pg_stat_statements",
+        "Application-code candidates are separated from database-config candidates"
+      ],
+      "rollback": "Delete generated report and findings files.",
+      "dependencies": [
+        2
+      ]
+    },
+    {
+      "execution_index": 6,
+      "status": "planned",
+      "phase": "planning",
+      "title": "Create unified optimization plan",
+      "objective": "Merge server, database-content, and workload findings into one ordered implementation plan.",
+      "codex_command": "Create assessment/scripts/create_unified_plan.py. It must read server_config_findings.json, database_content_findings.json, and workload_findings.json. Generate assessment/plans/optimization_plan.md and assessment/plans/optimization_plan.json. The plan must group work into server config, database optimization, database content cleanup, application query optimization, validation, and monitoring. Each planned change must include execution order, risk, dependencies, rollback, validation, restart/downtime requirement, and whether it affects the next parcel.",
+      "affects_next_parcel": true,
+      "inputs_required": [
+        "assessment/output/server_config_findings.json",
+        "assessment/output/database_content_findings.json",
+        "assessment/output/workload_findings.json"
+      ],
+      "expected_outputs": [
+        "assessment/plans/optimization_plan.md",
+        "assessment/plans/optimization_plan.json"
+      ],
+      "validation": [
+        "Plan has ordered execution groups",
+        "No execution scripts are run",
+        "Every recommendation has validation and rollback"
+      ],
+      "rollback": "Delete generated plan files.",
+      "dependencies": [
+        3,
+        4,
+        5
+      ]
+    },
+    {
+      "execution_index": 7,
+      "status": "blocked_until_plan_review",
+      "phase": "execution",
+      "title": "Generate approved fix scripts only after review",
+      "objective": "Generate Python and migration scripts for only the approved optimization plan items.",
+      "codex_command": "After human approval of assessment/plans/optimization_plan.json, create assessment/scripts/apply_approved_fixes.py and any required migrations. The script must apply only approved changes. It must create backups of config files before edits, log every action, support dry-run mode, support rollback where possible, and stop on error. Do not include unapproved findings.",
+      "affects_next_parcel": true,
+      "inputs_required": [
+        "Human-approved optimization_plan.json"
+      ],
+      "expected_outputs": [
+        "assessment/scripts/apply_approved_fixes.py",
+        "database migrations if approved",
+        "application code changes if approved",
+        "assessment/logs/execution_log.json"
+      ],
+      "validation": [
+        "Dry run succeeds",
+        "Only approved changes are included",
+        "Rollback instructions exist",
+        "Restart/downtime requirements are explicit"
+      ],
+      "rollback": "Run generated rollback steps or revert code/migrations/config backups.",
+      "dependencies": [
+        6
+      ]
+    },
+    {
+      "execution_index": 8,
+      "status": "blocked_until_execution",
+      "phase": "validation_monitoring",
+      "title": "Create validation and monitoring suite",
+      "objective": "Create one validation script that compares before/after performance and health metrics.",
+      "codex_command": "Create assessment/scripts/validate_and_monitor.py. It must compare pre-change and post-change baseline outputs, validate PostgreSQL settings, validate extension state, validate materialized/cached counts if implemented, compare pg_stat_statements before and after, check table activity, check dead tuples, check index usage, check slow queries, and generate assessment/reports/validation_report.md plus assessment/output/validation_results.json.",
+      "affects_next_parcel": false,
+      "inputs_required": [
+        "Pre-change baseline",
+        "Post-change baseline",
+        "Approved optimization plan",
+        "Execution log"
+      ],
+      "expected_outputs": [
+        "assessment/reports/validation_report.md",
+        "assessment/output/validation_results.json"
+      ],
+      "validation": [
+        "Before/after comparison exists",
+        "Keep/revert recommendations are included",
+        "Monitoring checks are documented"
+      ],
+      "rollback": "No direct rollback; report identifies changes that should be reverted.",
+      "dependencies": [
+        7
+      ]
+    }
+  ]
+}
