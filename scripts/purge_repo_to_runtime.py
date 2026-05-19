@@ -11,6 +11,11 @@ OUT_DIR = ROOT / "assessment" / "output"
 
 RUNTIME_SCRIPT_ALLOWLIST = {
     "run_ops_cycle.py",
+    "optimize_db_full_cycle.py",
+    "optimize_db_host.py",
+    "optimize_db_host_phase2.py",
+    "assess_db_health.py",
+    "capture_external_features_index_evidence.py",
     "run_app.py",
     "run_api.py",
     "start_api_managed.py",
