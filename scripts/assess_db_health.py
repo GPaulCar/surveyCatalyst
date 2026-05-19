@@ -87,14 +87,50 @@ def assess() -> dict[str, Any]:
                 cur,
                 """
                 SELECT
-                  schemaname,
-                  relname,
-                  indexrelname,
-                  idx_scan,
-                  pg_relation_size(indexrelid) AS size_bytes,
-                  pg_size_pretty(pg_relation_size(indexrelid)) AS size_pretty
-                FROM pg_stat_user_indexes
-                ORDER BY pg_relation_size(indexrelid) DESC
+                  s.schemaname,
+                  s.relname,
+                  s.indexrelname,
+                  s.idx_scan,
+                  pg_relation_size(s.indexrelid) AS size_bytes,
+                  pg_size_pretty(pg_relation_size(s.indexrelid)) AS size_pretty,
+                  EXISTS (
+                    SELECT 1
+                    FROM pg_inherits i
+                    JOIN pg_class child ON child.oid = i.inhrelid
+                    JOIN pg_class parent ON parent.oid = i.inhparent
+                    WHERE child.relname = s.relname
+                      AND parent.relname = 'external_features'
+                  ) AS is_external_features_partition_child
+                FROM pg_stat_user_indexes s
+                ORDER BY pg_relation_size(s.indexrelid) DESC
+                """,
+            )
+
+            partition_index_family = query_all(
+                cur,
+                """
+                WITH part_idx AS (
+                  SELECT
+                    s.indexrelname,
+                    COALESCE(s.idx_scan, 0) AS idx_scan,
+                    pg_relation_size(s.indexrelid) AS size_bytes,
+                    CASE
+                      WHEN s.indexrelname LIKE '%%_geom_idx' THEN 'geom_idx'
+                      WHEN s.indexrelname LIKE '%%_layer_source_id_idx' THEN 'layer_source_id_idx'
+                      WHEN s.indexrelname LIKE '%%_layer_idx' THEN 'layer_idx'
+                      WHEN s.indexrelname LIKE '%%_pkey' THEN 'pkey'
+                      ELSE 'other'
+                    END AS family
+                  FROM pg_stat_user_indexes s
+                  JOIN pg_inherits i
+                    ON i.inhrelid = (SELECT oid FROM pg_class WHERE relname = s.relname LIMIT 1)
+                  JOIN pg_class p ON p.oid = i.inhparent
+                  WHERE p.relname = 'external_features'
+                )
+                SELECT family, SUM(idx_scan)::bigint, SUM(size_bytes)::bigint
+                FROM part_idx
+                GROUP BY family
+                ORDER BY SUM(size_bytes) DESC
                 """,
             )
 
@@ -192,8 +228,14 @@ def assess() -> dict[str, Any]:
                     )
 
         for row in index_usage:
-            schema, table, index_name, idx_scan, size_bytes, _ = row
+            schema, table, index_name, idx_scan, size_bytes, _, is_extf_partition_child = row
             size_mb = int(size_bytes or 0) / (1024 * 1024)
+            # Legacy rollback table indexes should not influence runtime health scoring.
+            if str(table).startswith("external_features_legacy_"):
+                continue
+            # Per-partition indexes can legitimately have zero scans; we evaluate these in aggregate below.
+            if bool(is_extf_partition_child):
+                continue
             if int(idx_scan or 0) == 0 and size_mb >= thresholds.index_unused_warn_size_mb:
                 unused_big_indexes.append(
                     {
@@ -204,10 +246,21 @@ def assess() -> dict[str, Any]:
                     }
                 )
 
+        partition_index_family_summary = []
+        for family, scan_sum, size_sum in partition_index_family:
+            partition_index_family_summary.append(
+                {
+                    "family": family,
+                    "idx_scan_sum": int(scan_sum or 0),
+                    "size_mb_total": round(int(size_sum or 0) / (1024 * 1024), 1),
+                }
+            )
+
         findings = {
             "dead_tuple_alerts": dead_table_alerts,
             "stale_stats_alerts": stale_stats_alerts,
             "unused_big_indexes": unused_big_indexes,
+            "partition_index_family_summary": partition_index_family_summary,
             "duplicate_index_candidates": [
                 {
                     "schema": r[0],
