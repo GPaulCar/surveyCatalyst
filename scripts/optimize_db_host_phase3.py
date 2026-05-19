@@ -74,7 +74,7 @@ def main() -> int:
                 cur,
                 """
                 SELECT
-                  format('%I.%I', n.nspname, c.relname) AS fq_index_name,
+                  format('%%I.%%I', n.nspname, c.relname) AS fq_index_name,
                   COALESCE(s.idx_scan, 0) AS idx_scan,
                   pg_relation_size(c.oid) AS bytes
                 FROM pg_class c
@@ -83,7 +83,7 @@ def main() -> int:
                   ON s.indexrelname = c.relname
                  AND s.schemaname = n.nspname
                 WHERE c.relkind = 'i'
-                  AND format('%I.%I', n.nspname, c.relname) = ANY(%s)
+                  AND format('%%I.%%I', n.nspname, c.relname) = ANY(%s)
                 ORDER BY 1
                 """,
                 (SAFE_DROP_CANDIDATES,),
