@@ -34,6 +34,7 @@ __pycache__/
 
 # release artifacts
 zip/
+dist/
 
 # OS
 .DS_Store

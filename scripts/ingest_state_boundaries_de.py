@@ -3,7 +3,6 @@ from __future__ import annotations
 import json
 import sys
 import time
-import urllib.parse
 import urllib.request
 import urllib.error
 from pathlib import Path
@@ -16,7 +15,7 @@ if str(SRC) not in sys.path:
 from core.db import build_backend
 
 LAYER_KEY = "state_boundaries_de"
-OVERPASS_URL = "https://overpass-api.de/api/interpreter"
+SOURCE_URL = "https://raw.githubusercontent.com/isellsoap/deutschlandGeoJSON/master/2_bundeslaender/4_niedrig.geo.json"
 RAW_DIR = ROOT / "workspace" / "downloads" / "raw" / "osm"
 RAW_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -29,24 +28,16 @@ STATE_NAME_MAP = {
     "sachsen": "de_sn",
 }
 
-QUERY = """
-[out:json][timeout:240];
-(
-  relation["boundary"="administrative"]["admin_level"="4"]["name"~"Bayern|Baden-Wurttemberg|Baden-Württemberg|Hessen|Thuringen|Thüringen|Sachsen",i];
-);
-out tags geom;
-"""
+TARGET_STATES = {"de_by", "de_bw", "de_he", "de_th", "de_sn"}
 
 
 def fetch_overpass(retries: int = 7, base_delay: float = 3.0) -> dict:
     from datetime import datetime
 
-    data = urllib.parse.urlencode({"data": QUERY}).encode("utf-8")
     req = urllib.request.Request(
-        OVERPASS_URL,
-        data=data,
+        SOURCE_URL,
         headers={"User-Agent": "surveyCatalyst/state-boundaries"},
-        method="POST",
+        method="GET",
     )
     payload = None
     for attempt in range(1, retries + 1):
@@ -72,13 +63,6 @@ def fetch_overpass(retries: int = 7, base_delay: float = 3.0) -> dict:
     return payload
 
 
-def ring_from_nodes(nodes: list[dict]) -> list[list[float]]:
-    ring = [[point["lon"], point["lat"]] for point in nodes if "lon" in point and "lat" in point]
-    if ring and ring[0] != ring[-1]:
-        ring.append(ring[0])
-    return ring
-
-
 def normalize_state(name: str) -> str:
     text = (name or "").strip().lower()
     if "bayern" in text or "bavaria" in text:
@@ -94,42 +78,30 @@ def normalize_state(name: str) -> str:
     return STATE_NAME_MAP.get(text, "")
 
 
-def relation_to_feature(element: dict) -> dict | None:
-    if element.get("type") != "relation":
+def source_feature_to_feature(element: dict) -> dict | None:
+    if element.get("type") != "Feature":
         return None
-    tags = element.get("tags") or {}
-    state_id = normalize_state(tags.get("name", ""))
+    props = element.get("properties") or {}
+    state_id = normalize_state(props.get("name", ""))
+    if not state_id:
+        state_id = normalize_state(props.get("NAME_1", ""))
     if not state_id:
         return None
-    polygons = []
-    # Some Overpass responses include direct relation geometry in `geometry`.
-    rel_geom = element.get("geometry") or []
-    rel_ring = ring_from_nodes(rel_geom)
-    if len(rel_ring) >= 4:
-        polygons.append([rel_ring])
-
-    members = element.get("members") or []
-    for member in members:
-        if member.get("type") != "way":
-            continue
-        geom = member.get("geometry") or []
-        ring = ring_from_nodes(geom)
-        if len(ring) < 4:
-            continue
-        polygons.append([ring])
-    if not polygons:
+    if state_id not in TARGET_STATES:
         return None
-    geometry = {"type": "MultiPolygon", "coordinates": polygons}
+    geometry = element.get("geometry")
+    if not geometry:
+        return None
     return {
         "type": "Feature",
         "geometry": geometry,
         "properties": {
             "state_id": state_id,
-            "name": tags.get("name"),
-            "admin_level": tags.get("admin_level"),
-            "source": "osm_overpass_state_boundaries",
-            "osm_id": element.get("id"),
-            "all_tags": tags,
+            "name": props.get("name") or props.get("NAME_1"),
+            "admin_level": "4",
+            "source": "deutschland_geojson_states",
+            "source_id": str(props.get("id") or props.get("AGS_1") or ""),
+            "all_tags": props,
         },
     }
 
@@ -183,8 +155,8 @@ def load_features(features: list[dict]) -> int:
                         LAYER_KEY,
                         json.dumps(feat["geometry"]),
                         json.dumps(props),
-                        "osm_admin_boundaries",
-                        str(props.get("osm_id") or ""),
+                        "de_state_boundaries",
+                        str(props.get("source_id") or ""),
                     ),
                 )
                 inserted += 1
@@ -197,10 +169,10 @@ def load_features(features: list[dict]) -> int:
 def main() -> int:
     print("[INFO] downloading state boundaries for Bavaria + neighboring states")
     raw = fetch_overpass()
-    elements = raw.get("elements") or []
+    elements = raw.get("features") or []
     features = []
     for element in elements:
-        feature = relation_to_feature(element)
+        feature = source_feature_to_feature(element)
         if feature:
             features.append(feature)
     print(f"[INFO] parsed state boundaries: {len(features)}", flush=True)
