@@ -946,13 +946,16 @@ def get_survey_hierarchy(survey_id: int):
 @app.post("/api/surveys")
 def create_survey(payload: SurveyCreate):
     service = SurveyEditService()
-    survey_id, layer_key = service.create_survey(
-        expedition_id=payload.expedition_id,
-        title=payload.title,
-        status=payload.status,
-        geometry=payload.geometry,
-        metadata=payload.metadata,
-    )
+    try:
+        survey_id, layer_key = service.create_survey(
+            expedition_id=payload.expedition_id,
+            title=payload.title,
+            status=payload.status,
+            geometry=payload.geometry,
+            metadata=payload.metadata,
+        )
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     invalidation = _clear_tile_cache_for_layers([layer_key])
     return {"survey_id": survey_id, "layer_key": layer_key, "cache_invalidation": invalidation}
 
@@ -960,14 +963,17 @@ def create_survey(payload: SurveyCreate):
 @app.patch("/api/surveys/{survey_id}")
 def update_survey(survey_id: int, payload: SurveyUpdate):
     layer_key = _get_survey_layer_key(survey_id)
-    SurveyEditService().update_survey(
-        survey_id=survey_id,
-        expedition_id=payload.expedition_id,
-        title=payload.title,
-        status=payload.status,
-        geometry=payload.geometry,
-        metadata=payload.metadata,
-    )
+    try:
+        SurveyEditService().update_survey(
+            survey_id=survey_id,
+            expedition_id=payload.expedition_id,
+            title=payload.title,
+            status=payload.status,
+            geometry=payload.geometry,
+            metadata=payload.metadata,
+        )
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     invalidation = _clear_tile_cache_for_layers([layer_key] if layer_key else [])
     return {"ok": True, "cache_invalidation": invalidation}
 

@@ -50,6 +50,40 @@ class SurveyEditService:
     def _geojson_insert_sql() -> str:
         return "ST_SetSRID(ST_GeomFromGeoJSON(%s), 4326)"
 
+    @staticmethod
+    def _normalise_title(title: str) -> str:
+        return " ".join(str(title or "").strip().split())
+
+    def _assert_unique_title(self, conn, title: str, exclude_survey_id: int | None = None) -> None:
+        normalized = self._normalise_title(title)
+        if not normalized:
+            raise RuntimeError("Survey title is required")
+        with conn.cursor() as cur:
+            if exclude_survey_id is None:
+                cur.execute(
+                    """
+                    SELECT id
+                    FROM surveys
+                    WHERE lower(trim(title)) = lower(trim(%s))
+                    LIMIT 1
+                    """,
+                    (normalized,),
+                )
+            else:
+                cur.execute(
+                    """
+                    SELECT id
+                    FROM surveys
+                    WHERE lower(trim(title)) = lower(trim(%s))
+                      AND id <> %s
+                    LIMIT 1
+                    """,
+                    (normalized, exclude_survey_id),
+                )
+            row = cur.fetchone()
+        if row:
+            raise RuntimeError(f"Survey name already exists: {normalized}")
+
     def create_survey(
         self,
         expedition_id: int,
@@ -61,6 +95,8 @@ class SurveyEditService:
     ):
         conn = self.backend.connect()
         try:
+            title = self._normalise_title(title)
+            self._assert_unique_title(conn, title)
             normalised_geometry = self._normalise_geometry_value(conn, geojson=geometry, wkt=polygon_wkt) if (geometry is not None or polygon_wkt is not None) else None
             with conn.cursor() as cur:
                 if normalised_geometry is None:
@@ -144,6 +180,9 @@ class SurveyEditService:
 
         conn = self.backend.connect()
         try:
+            if title is not None:
+                title = self._normalise_title(title)
+                self._assert_unique_title(conn, title, exclude_survey_id=survey_id)
             if geometry is not None or polygon_wkt is not None:
                 normalised_geometry = self._normalise_geometry_value(conn, geojson=geometry, wkt=polygon_wkt)
                 assignments.append(f"geom = {self._geojson_insert_sql()}")
