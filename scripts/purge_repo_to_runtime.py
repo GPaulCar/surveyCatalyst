@@ -16,6 +16,8 @@ RUNTIME_SCRIPT_ALLOWLIST = {
     "optimize_db_host_phase2.py",
     "assess_db_health.py",
     "capture_external_features_index_evidence.py",
+    "migrate_external_features_partitioned.py",
+    "migrate_external_features_partitioned.cmd",
     "run_app.py",
     "run_api.py",
     "start_api_managed.py",
