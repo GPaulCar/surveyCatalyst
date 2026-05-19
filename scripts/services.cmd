@@ -28,9 +28,17 @@ goto :usage
 
 :run
 "%PY%" "%CTRL%" %CMD%
-exit /b %ERRORLEVEL%
+set "RC=%ERRORLEVEL%"
+if /I "%CMD%"=="status" goto :hold
+if /I "%CMD%"=="logs" goto :hold
+exit /b %RC%
+
+:hold
+echo.
+echo Press any key to close...
+pause >nul
+exit /b %RC%
 
 :usage
 echo Usage: services.cmd ^<start^|stop^|restart^|status^|logs^>
 exit /b 2
-
