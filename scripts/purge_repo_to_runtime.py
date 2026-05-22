@@ -18,6 +18,8 @@ RUNTIME_SCRIPT_ALLOWLIST = {
     "capture_external_features_index_evidence.py",
     "migrate_external_features_partitioned.py",
     "migrate_external_features_partitioned.cmd",
+    "update_and_apply.py",
+    "update_and_apply.cmd",
     "run_app.py",
     "run_api.py",
     "start_api_managed.py",
