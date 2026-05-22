@@ -3287,7 +3287,7 @@ function topbar() {
       </div>
       <div class="top-meta">
         <span><span class="status-dot ${state.system.api ? "on" : ""}"></span>${esc(t("api"))}</span>
-        <span>${esc(t("db"))} ${esc(state.system.db ? t("on") : t("off"))}</span>
+        <span><span class="status-dot ${state.system.db ? "on" : ""}"></span>${esc(t("db"))}</span>
         <span>${esc(t("selection"))}: ${esc(topbarSelectionSummary())}</span>
         <span>${esc(measureText())}</span>
         <span>${esc(t("grid"))}: ${esc(state.grid.enabled ? `${state.grid.cellMeters}${t("grid_size_m")}` : t("off"))}</span>
